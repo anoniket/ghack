@@ -239,9 +239,11 @@ export const PRODUCT_DETECTOR_JS = `
 
     log('🌊', 'OVERLAY — Wave loading overlay shown on product image');
 
-    // Hide the floating button during loading
+    // Hide all buttons during loading
     var btn = document.getElementById(TRYON_BTN_ID);
     if (btn) btn.style.display = 'none';
+    var btnRow = document.querySelector('.' + BTN_ROW_CLASS);
+    if (btnRow) btnRow.style.display = 'none';
 
     // Animate progress — 20s for try-on, 60s for video
     var startTime = Date.now();
