@@ -1,0 +1,423 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+  Keyboard,
+} from 'react-native';
+import { useAppStore } from '@/services/store';
+import {
+  sendChatMessage,
+  extractUrlFromResponse,
+  cleanResponseText,
+  ChatMessage,
+} from '@/services/gemini';
+
+const { width: W } = Dimensions.get('window');
+
+export default function ChatInterface() {
+  const [inputText, setInputText] = useState('');
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  const {
+    messages,
+    addMessage,
+    isTyping,
+    setIsTyping,
+    setMode,
+    setCurrentUrl,
+    setChatBubbleExpanded,
+  } = useAppStore();
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (messages.length === 0) {
+      sendInitialGreeting();
+    }
+  }, []);
+
+  const sendInitialGreeting = async () => {
+    setIsTyping(true);
+    try {
+      const response = await sendChatMessage(
+        'Hello, I just opened the app. Greet me and ask what I want to shop for.'
+      );
+      const cleaned = cleanResponseText(response);
+      addMessage({
+        id: `msg_${Date.now()}`,
+        role: 'model',
+        text: cleaned,
+        timestamp: Date.now(),
+      });
+    } catch (err) {
+      console.error('Error getting greeting:', err);
+      addMessage({
+        id: `msg_${Date.now()}`,
+        role: 'model',
+        text: "Hey! I'm your AI shopping assistant. Tell me what you'd like to shop for \u2014 I work with any website in the world!",
+        timestamp: Date.now(),
+      });
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const handleSend = async () => {
+    const text = inputText.trim();
+    if (!text || isTyping) return;
+    setInputText('');
+
+    addMessage({
+      id: `msg_user_${Date.now()}`,
+      role: 'user',
+      text,
+      timestamp: Date.now(),
+    });
+
+    setIsTyping(true);
+    try {
+      const response = await sendChatMessage(text);
+      const url = extractUrlFromResponse(response);
+      const cleaned = cleanResponseText(response);
+
+      addMessage({
+        id: `msg_model_${Date.now()}`,
+        role: 'model',
+        text: cleaned || response,
+        timestamp: Date.now(),
+      });
+
+      if (url) {
+        setTimeout(() => {
+          setCurrentUrl(url);
+          setMode('webview');
+          setChatBubbleExpanded(false);
+        }, 1500);
+      }
+    } catch (err) {
+      console.error('Chat error:', err);
+      addMessage({
+        id: `msg_error_${Date.now()}`,
+        role: 'model',
+        text: 'Sorry, I encountered an error. Please try again.',
+        timestamp: Date.now(),
+      });
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  const renderMessage = ({ item }: { item: ChatMessage }) => {
+    const isUser = item.role === 'user';
+    return (
+      <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
+        {!isUser && (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>AI</Text>
+          </View>
+        )}
+        <View
+          style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : styles.aiBubble,
+          ]}
+        >
+          <Text style={[styles.messageText, isUser && styles.userText]}>
+            {item.text}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+      >
+        <FlatList
+          ref={flatListRef}
+          data={messages}
+          renderItem={renderMessage}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.messagesList}
+          onContentSizeChange={() =>
+            flatListRef.current?.scrollToEnd({ animated: true })
+          }
+          ListEmptyComponent={
+            !isTyping ? (
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconBg}>
+                  <Text style={styles.emptyIcon}>AI</Text>
+                </View>
+                <Text style={styles.emptyTitle}>TryOnAI</Text>
+                <Text style={styles.emptyText}>
+                  Your universal shopping assistant{'\n'}Try on clothes from any website
+                </Text>
+                <View style={styles.chipRow}>
+                  {['Myntra shirts', 'Zara jackets', 'Nike shoes'].map((c) => (
+                    <TouchableOpacity
+                      key={c}
+                      style={styles.chip}
+                      onPress={() => setInputText(c)}
+                    >
+                      <Text style={styles.chipText}>{c}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            ) : null
+          }
+          ListFooterComponent={
+            isTyping ? (
+              <View style={[styles.messageRow]}>
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>AI</Text>
+                </View>
+                <View style={[styles.messageBubble, styles.aiBubble]}>
+                  <View style={styles.typingDots}>
+                    <View style={[styles.dot, styles.dot1]} />
+                    <View style={[styles.dot, styles.dot2]} />
+                    <View style={[styles.dot, styles.dot3]} />
+                  </View>
+                </View>
+              </View>
+            ) : null
+          }
+        />
+
+        <View style={[styles.inputWrapper, keyboardVisible && styles.inputWrapperKeyboard]}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="What do you want to shop today?"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              value={inputText}
+              onChangeText={setInputText}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+              multiline={false}
+            />
+            <TouchableOpacity
+              onPress={handleSend}
+              disabled={!inputText.trim() || isTyping}
+              activeOpacity={0.7}
+            >
+              <View
+                style={[
+                  styles.sendBtn,
+                  inputText.trim()
+                    ? styles.sendBtnActive
+                    : styles.sendBtnInactive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.sendBtnText,
+                    inputText.trim() && styles.sendBtnTextActive,
+                  ]}
+                >
+                  ↑
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#0D0D0D',
+  },
+  flex: {
+    flex: 1,
+  },
+  messagesList: {
+    padding: 16,
+    paddingBottom: 8,
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+    gap: 10,
+  },
+  messageRowUser: {
+    justifyContent: 'flex-end',
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+    backgroundColor: '#E8C8A0',
+  },
+  avatarText: {
+    color: '#0D0D0D',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  messageBubble: {
+    maxWidth: W * 0.72,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  userBubble: {
+    backgroundColor: '#F5F5F5',
+    borderBottomRightRadius: 6,
+    marginLeft: 'auto',
+  },
+  aiBubble: {
+    backgroundColor: '#1A1A1A',
+    borderBottomLeftRadius: 6,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  messageText: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.85)',
+    lineHeight: 22,
+  },
+  userText: {
+    color: '#0D0D0D',
+  },
+  typingDots: {
+    flexDirection: 'row',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  dot1: { opacity: 0.4 },
+  dot2: { opacity: 0.6 },
+  dot3: { opacity: 0.8 },
+  inputWrapper: {
+    paddingHorizontal: 16,
+    paddingBottom: 96,
+    paddingTop: 8,
+  },
+  inputWrapperKeyboard: {
+    paddingBottom: 4,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    borderRadius: 28,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.08)',
+    paddingLeft: 20,
+    paddingRight: 6,
+    paddingVertical: 6,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#F5F5F5',
+    paddingVertical: 10,
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sendBtnActive: {
+    backgroundColor: '#E8C8A0',
+  },
+  sendBtnInactive: {
+    backgroundColor: '#242424',
+  },
+  sendBtnText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.3)',
+  },
+  sendBtnTextActive: {
+    color: '#0D0D0D',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 40,
+  },
+  emptyIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+    backgroundColor: '#E8C8A0',
+  },
+  emptyIcon: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0D0D0D',
+  },
+  emptyTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#F5F5F5',
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.4)',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 28,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#1A1A1A',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  chipText: {
+    color: '#E8C8A0',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+});

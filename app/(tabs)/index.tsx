@@ -1,14 +1,62 @@
-import { StyleSheet } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, StyleSheet } from 'react-native';
+import ChatInterface from '@/components/ChatInterface';
+import WebViewBrowser from '@/components/WebViewBrowser';
+import ChatBubble from '@/components/ChatBubble';
+import OnboardingCamera from '@/components/OnboardingCamera';
+import { useAppStore } from '@/services/store';
+import { getSelfieUri, getSavedTryOns } from '@/utils/imageUtils';
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+export default function HomeScreen() {
+  const {
+    onboardingComplete,
+    setOnboardingComplete,
+    setSelfieUri,
+    setSavedTryOns,
+    mode,
+    setCurrentProduct,
+  } = useAppStore();
 
-export default function TabOneScreen() {
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    const selfie = await getSelfieUri();
+    if (selfie) {
+      setSelfieUri(selfie);
+      setOnboardingComplete(true);
+    }
+    const tryOns = await getSavedTryOns();
+    setSavedTryOns(tryOns);
+  };
+
+  const handleTryOnRequest = (data: {
+    imageUrl: string;
+    productName: string;
+    productPrice?: string;
+    pageUrl?: string;
+  }) => {
+    console.log('🏠 [Home] Try-on request received from WebView');
+    console.log('🏠 [Home] Product:', data.productName, '| Price:', data.productPrice);
+    console.log('🏠 [Home] Image:', data.imageUrl);
+    setCurrentProduct(data);
+  };
+
+  if (!onboardingComplete) {
+    return <OnboardingCamera />;
+  }
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      {mode === 'chat' ? (
+        <ChatInterface />
+      ) : (
+        <View style={styles.webviewContainer}>
+          <WebViewBrowser onTryOnRequest={handleTryOnRequest} />
+          <ChatBubble />
+        </View>
+      )}
     </View>
   );
 }
@@ -16,16 +64,9 @@ export default function TabOneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#0D0D0D',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  webviewContainer: {
+    flex: 1,
   },
 });
