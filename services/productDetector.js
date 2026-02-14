@@ -70,9 +70,21 @@ export const PRODUCT_DETECTOR_JS = `
     '  left: 50% !important;' +
     '  transform: translateX(-50%) !important;' +
     '  display: flex !important;' +
+    '  flex-direction: row !important;' +
     '  gap: 10px !important;' +
     '  z-index: 2147483647 !important;' +
     '  animation: __tryon-slide-up 0.4s ease-out !important;' +
+    '}' +
+    /* Override fixed positioning when button is inside the row */
+    '.__tryon-btn-row #' + TRYON_BTN_ID + ' {' +
+    '  position: static !important;' +
+    '  bottom: auto !important;' +
+    '  left: auto !important;' +
+    '  transform: none !important;' +
+    '  animation: none !important;' +
+    '}' +
+    '.__tryon-btn-row #' + TRYON_BTN_ID + ':active {' +
+    '  transform: scale(0.95) !important;' +
     '}' +
     '#' + VIDEO_BTN_ID + ' {' +
     '  background: #1A1A1A !important;' +
@@ -458,13 +470,10 @@ export const PRODUCT_DETECTOR_JS = `
     var row = document.createElement('div');
     row.className = BTN_ROW_CLASS;
 
-    // Re-create Try On button (without fixed positioning — row handles it)
+    // Re-create Try On button (CSS overrides fixed positioning when inside row)
     var tryBtn = document.createElement('button');
     tryBtn.id = TRYON_BTN_ID;
     tryBtn.innerHTML = '\\u{1F453} Try On';
-    tryBtn.style.position = 'static';
-    tryBtn.style.transform = 'none';
-    tryBtn.style.animation = 'none';
 
     tryBtn.addEventListener('click', function(e) {
       e.preventDefault();

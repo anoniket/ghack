@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { File, Directory, Paths } from 'expo-file-system';
 import { GEMINI_API_KEY, MODELS, CHAT_SYSTEM_PROMPT, TRYON_PROMPT } from '@/utils/constants';
 import { imageUriToBase64, downloadImageToBase64 } from '@/utils/imageUtils';
 
@@ -174,7 +175,6 @@ export async function generateVideo(
       aspectRatio: '9:16',
       durationSeconds: 4,
       personGeneration: 'allow_adult',
-      generateAudio: false,
     },
   });
 
@@ -201,29 +201,30 @@ export async function generateVideo(
     throw new Error('No video generated. The model did not return a video.');
   }
 
-  // Download the video to a data URI
+  // Download the video directly to a local file
   console.log('🎬 [Veo] Downloading video file...');
-  const downloadUrl = video.uri || video.url;
-  console.log('🎬 [Veo] Video URI:', downloadUrl);
+  const rawUrl = video.uri || video.url;
+  // Append API key for authenticated download
+  const separator = rawUrl.includes('?') ? '&' : '?';
+  const downloadUrl = `${rawUrl}${separator}key=${GEMINI_API_KEY}`;
+  console.log('🎬 [Veo] Video URI:', rawUrl);
 
-  const response = await fetch(downloadUrl);
-  const blob = await response.blob();
-  console.log('🎬 [Veo] Video blob — size:', blob.size, 'bytes, type:', blob.type);
+  const videoCacheDir = new Directory(Paths.cache, 'tryon_videos');
+  if (!videoCacheDir.exists) {
+    videoCacheDir.create();
+  }
 
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUri = reader.result as string;
-      console.log('🎬 [Veo] Video data URI ready — length:', dataUri.length);
-      console.log('🎬 [Veo] ======== VIDEO COMPLETE ========');
-      resolve(dataUri);
-    };
-    reader.onerror = (err) => {
-      console.error('🎬 [Veo] FileReader ERROR:', err);
-      reject(err);
-    };
-    reader.readAsDataURL(blob);
-  });
+  const outputFile = await File.downloadFileAsync(downloadUrl, videoCacheDir);
+  console.log('🎬 [Veo] Video saved to:', outputFile.uri);
+
+  if (!outputFile.exists || outputFile.size < 5000) {
+    console.error('🎬 [Veo] Downloaded file too small or missing — size:', outputFile.size);
+    throw new Error('Video download failed — file is empty or too small');
+  }
+
+  console.log('🎬 [Veo] Video file size:', outputFile.size, 'bytes');
+  console.log('🎬 [Veo] ======== VIDEO COMPLETE ========');
+  return outputFile.uri;
 }
 
 export async function analyzeProduct(

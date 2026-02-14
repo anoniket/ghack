@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { Video, ResizeMode } from 'expo-av';
+import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore } from '@/services/store';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
 import { generateTryOn, generateVideo } from '@/services/gemini';
@@ -62,6 +62,19 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
+
+  const videoPlayer = useVideoPlayer(null, (player) => {
+    player.loop = true;
+    player.muted = true;
+  });
+
+  // Update video player source when videoDataUri changes
+  useEffect(() => {
+    if (videoDataUri && videoPlayer) {
+      videoPlayer.replace(videoDataUri);
+      videoPlayer.play();
+    }
+  }, [videoDataUri]);
 
   const isLocked = tryOnLoading || videoLoading;
 
@@ -325,13 +338,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
               </TouchableOpacity>
             </View>
             {videoDataUri && (
-              <Video
-                source={{ uri: videoDataUri }}
+              <VideoView
+                player={videoPlayer}
                 style={styles.videoPlayer}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay
-                isLooping
-                isMuted
+                contentFit="contain"
+                nativeControls={false}
               />
             )}
           </View>

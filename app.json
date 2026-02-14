@@ -50,7 +50,8 @@
           "photosPermission": "TryOnAI needs photo library access to select your photo for virtual try-on.",
           "cameraPermission": "TryOnAI needs camera access to take your selfie for virtual try-on."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true
