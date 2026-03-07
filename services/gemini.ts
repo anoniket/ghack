@@ -166,7 +166,7 @@ export async function generateVideo(
 
   let operation = await (ai.models as any).generateVideos({
     model: MODELS.VIDEO_GEN,
-    prompt: `A fashion model wearing a ${productName} poses confidently, subtle natural movement, gentle hair sway, soft studio lighting, professional fashion photoshoot, 4K quality`,
+    prompt: `A professional fashion model wearing a ${productName} walks toward the camera on a runway, does a confident stop-and-pose, turns to show the outfit from the side, then looks back over the shoulder with attitude. Dynamic full-body movement — walking, turning, hand on hip, fabric flowing with motion. Cinematic fashion film look, dramatic studio lighting with rim light, shallow depth of field, shot on 85mm lens, 4K editorial quality`,
     image: {
       imageBytes: imageBase64,
       mimeType: 'image/png',
