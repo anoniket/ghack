@@ -53,14 +53,17 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
 
     console.log(`🎨 [Generate] model=${usePhotoshoot ? 'PRO' : 'FLASH'} for device=${req.deviceId.substring(0,12)}...`);
     const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot);
+    console.log(`🎨 [Generate] Got image base64, length=${resultBase64.length}`);
 
     // Upload result to S3
     const sessionId = `ses_${Date.now()}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
     const resultBuffer = Buffer.from(resultBase64, 'base64');
     await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
+    console.log(`🎨 [Generate] Uploaded to S3: ${tryonS3Key}`);
 
     const tryonImageUrl = await getReadUrl(tryonS3Key);
+    console.log(`🎨 [Generate] Got read URL, sending response`);
 
     await putSession({
       deviceId: req.deviceId,

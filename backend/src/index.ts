@@ -13,6 +13,9 @@ import { historyRouter } from './routes/history';
 
 const app = express();
 
+// Railway runs behind a reverse proxy — needed for express-rate-limit to read X-Forwarded-For
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
