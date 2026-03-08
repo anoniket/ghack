@@ -14,8 +14,8 @@ import { WebView } from 'react-native-webview';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore } from '@/services/store';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
-import { prepareTryOn, generateTryOn, generateVideo } from '@/services/gemini';
-import { saveTryOnResult, getSavedTryOns } from '@/utils/imageUtils';
+import * as api from '@/services/api';
+import { rlog } from '@/services/logger';
 
 const { width: W, height: H } = Dimensions.get('window');
 
@@ -46,6 +46,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setCurrentUrl,
     setMode,
     selfieUri,
+    selfieS3Key,
     currentProduct,
     setCurrentProduct,
     tryOnLoading,
@@ -57,10 +58,12 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setVideoLoading,
     videoDataUri,
     setVideoDataUri,
-    lastTryOnBase64,
-    setLastTryOnBase64,
     lastProductName,
     setLastProductName,
+    lastSessionId,
+    setLastSessionId,
+    lastTryonS3Key,
+    setLastTryonS3Key,
   } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
@@ -68,40 +71,29 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
 
-  const videoPlayer = useVideoPlayer(null, (player) => {
+  const videoPlayer = useVideoPlayer(videoDataUri, (player) => {
     player.loop = true;
-    player.muted = true;
+    player.muted = false;
+    player.play();
   });
-
-  // Update video player source when videoDataUri changes
-  useEffect(() => {
-    if (videoDataUri && videoPlayer) {
-      videoPlayer.replace(videoDataUri);
-      videoPlayer.play();
-    }
-  }, [videoDataUri]);
 
   const isLocked = tryOnLoading || videoLoading;
 
   // Trigger try-on generation when currentProduct is set
   useEffect(() => {
-    if (currentProduct && selfieUri && !tryOnResult && !tryOnLoading) {
-      console.log('🎭 [TryOn] Product received, starting try-on generation');
-      console.log('🎭 [TryOn] Product:', currentProduct.productName);
-      console.log('🎭 [TryOn] Image URL:', currentProduct.imageUrl);
-      console.log('🎭 [TryOn] Selfie URI:', selfieUri);
+    if (currentProduct && selfieS3Key && !tryOnResult && !tryOnLoading) {
+      rlog('TryOn', 'product received, starting generation');
       startTryOn();
     }
   }, [currentProduct]);
 
   const startTryOn = async () => {
-    if (!selfieUri || !currentProduct) return;
+    if (!selfieS3Key || !currentProduct) return;
     setTryOnLoading(true);
-    console.log('🎭 [TryOn] ---- GENERATION STARTED ----');
+    rlog('TryOn', 'GENERATION STARTED');
 
     // Show loading overlay immediately
     if (webViewRef.current) {
-      console.log('🌐 [WebView] Sending tryon_loading to WebView');
       webViewRef.current.injectJavaScript(`
         window.postMessage(JSON.stringify({ type: 'tryon_loading' }), '*');
         true;
@@ -109,49 +101,59 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
-      // Step 1: Prepare — detect zone, download images (~2-3s)
-      const { selfieBase64, productBase64, usePhotoshoot } = await prepareTryOn(
-        selfieUri,
-        currentProduct.imageUrl
-      );
+      // Step 1: Prepare — zone detection, returns which model (~2-3s)
+      const prepResult = await api.prepareTryOn({
+        selfieS3Key,
+        productImageUrl: currentProduct.imageUrl,
+        retry: currentProduct.retry,
+      });
 
-      // Force Pro model on retry — user didn't like the previous result
-      const finalUsePhotoshoot = currentProduct.retry ? true : usePhotoshoot;
-
-      // Step 2: Update duration now that we know the mode
-      const estimatedDuration = finalUsePhotoshoot ? 35000 : 12000;
+      // Step 2: Update duration now that we know the model
       if (webViewRef.current) {
-        console.log('🌐 [WebView] Updating duration:', estimatedDuration + 'ms');
+        rlog('TryOn', `model=${prepResult.model} duration=${prepResult.estimatedDuration}ms`);
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'tryon_duration', duration: ${estimatedDuration} }), '*');
+          window.postMessage(JSON.stringify({ type: 'tryon_duration', duration: ${prepResult.estimatedDuration} }), '*');
           true;
         `);
       }
 
-      // Step 3: Generate (retry always uses Pro model)
-      const resultBase64 = await generateTryOn(selfieBase64, productBase64, finalUsePhotoshoot);
-      console.log('🎭 [TryOn] Generation SUCCESS! Result base64 length:', resultBase64.length);
-      setTryOnResult(resultBase64);
+      // Step 3: Generate — actual image generation
+      const result = await api.generateTryOn({
+        selfieS3Key,
+        productImageUrl: currentProduct.imageUrl,
+        productName: currentProduct.productName,
+        productPrice: currentProduct.productPrice,
+        sourceUrl: currentProduct.pageUrl,
+        usePhotoshoot: prepResult.usePhotoshoot,
+      });
+
+      rlog('TryOn', `SUCCESS model=${result.model} session=${result.sessionId}`);
 
       // Store for video generation
-      setLastTryOnBase64(resultBase64);
+      setLastSessionId(result.sessionId);
+      setLastTryonS3Key(result.tryonS3Key);
       setLastProductName(currentProduct.productName);
 
-      // Auto-save to gallery
+      // Set result as CDN URL (not base64)
+      setTryOnResult(result.tryonImageUrl);
+
+      // Refresh saved history
       try {
-        await saveTryOnResult(resultBase64, {
-          productName: currentProduct.productName,
-          productPrice: currentProduct.productPrice,
-          sourceUrl: currentProduct.pageUrl,
-        });
-        const all = await getSavedTryOns();
-        setSavedTryOns(all);
-        console.log('💾 [TryOn] Auto-saved to gallery! Total saved:', all.length);
-      } catch (saveErr) {
-        console.error('💾 [TryOn] Auto-save failed:', saveErr);
-      }
+        const { items } = await api.getHistory();
+        setSavedTryOns(items.map((item) => ({
+          id: item.sessionId,
+          imageUri: item.tryonImageUrl,
+          productName: item.productName || 'Product',
+          productPrice: item.productPrice,
+          sourceUrl: item.sourceUrl,
+          timestamp: new Date(item.createdAt).getTime(),
+          videoUrl: item.videoUrl,
+          sessionId: item.sessionId,
+          tryonS3Key: undefined,
+        })));
+      } catch {}
     } catch (err: any) {
-      console.log('🎭 [TryOn] Generation FAILED:', err.message || err);
+      rlog('TryOn', `FAILED: ${err.message || err}`);
       const errorQuips = [
         'faah, retry? \u{1F972}',
         'AI tripped lol, again?',
@@ -170,16 +172,16 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     } finally {
       setTryOnLoading(false);
       setCurrentProduct(null);
-      console.log('🎭 [TryOn] ---- GENERATION ENDED ----');
+      rlog('TryOn', 'GENERATION ENDED');
     }
   };
 
-  // Send try-on result back to WebView to replace the product image
+  // Send try-on result (CDN URL) back to WebView to replace the product image
   useEffect(() => {
     if (tryOnResult && webViewRef.current) {
-      console.log('🌐 [WebView] Sending tryon_result to WebView (base64 length: ' + tryOnResult.length + ')');
+      rlog('TryOn', 'sending result to WebView');
       webViewRef.current.injectJavaScript(`
-        window.postMessage(JSON.stringify({ type: 'tryon_result', base64: '${tryOnResult}' }), '*');
+        window.postMessage(JSON.stringify({ type: 'tryon_result', imageUrl: ${JSON.stringify(tryOnResult)} }), '*');
         true;
       `);
       // Clear result after sending
@@ -188,9 +190,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   }, [tryOnResult]);
 
   const startVideoGeneration = async () => {
-    if (!lastTryOnBase64 || videoLoading) return;
+    if (!lastTryonS3Key || !lastSessionId || videoLoading) return;
     setVideoLoading(true);
-    console.log('🎬 [Video] ---- VIDEO GENERATION STARTED ----');
+    rlog('Video', 'GENERATION STARTED');
 
     // Tell WebView to show loading overlay
     if (webViewRef.current) {
@@ -201,9 +203,28 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
-      const dataUri = await generateVideo(lastTryOnBase64, lastProductName || 'outfit');
-      console.log('🎬 [Video] Generation SUCCESS!');
-      setVideoDataUri(dataUri);
+      // Start video job
+      const { jobId } = await api.startVideo({
+        sessionId: lastSessionId,
+        tryonS3Key: lastTryonS3Key,
+        productName: lastProductName || 'outfit',
+      });
+
+      // Poll for completion
+      let status = 'pending';
+      let videoUrl: string | undefined;
+      while (status === 'pending') {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const poll = await api.pollVideo(jobId);
+        status = poll.status;
+        videoUrl = poll.videoUrl;
+        if (poll.status === 'failed') {
+          throw new Error(poll.error || 'Video generation failed');
+        }
+      }
+
+      rlog('Video', 'SUCCESS');
+      setVideoDataUri(videoUrl || null);
 
       // Tell WebView generation is done
       if (webViewRef.current) {
@@ -213,7 +234,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
     } catch (err: any) {
-      console.log('🎬 [Video] Generation FAILED:', err.message || err);
+      rlog('Video', `FAILED: ${err.message || err}`);
       const videoErrorQuips = [
         'video said nah, retry?',
         'director walked off set, again?',
@@ -231,7 +252,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       Alert.alert('Video failed', errorText);
     } finally {
       setVideoLoading(false);
-      console.log('🎬 [Video] ---- VIDEO GENERATION ENDED ----');
+      rlog('Video', 'GENERATION ENDED');
     }
   };
 
@@ -240,11 +261,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       try {
         const data: WebViewMessage = JSON.parse(event.nativeEvent.data);
         if (data.type === 'injection_complete') {
-          console.log('🌐 [WebView] Product detector injection confirmed on:', data.url);
+          rlog('WebView', `detector injected on ${data.url}`);
         } else if (data.type === 'tryon_request' && data.imageUrl) {
-          console.log('🌐 [WebView] Try-on request received from page');
-          console.log('🌐 [WebView] Image URL:', data.imageUrl);
-          console.log('🌐 [WebView] Product:', data.productName, '|', data.productPrice);
+          rlog('WebView', `tryon request: ${data.productName}`);
           onTryOnRequest({
             imageUrl: data.imageUrl,
             productName: data.productName || 'Product',
@@ -253,15 +272,42 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             retry: data.retry,
           });
         } else if (data.type === 'video_request') {
-          console.log('🌐 [WebView] Video request received from page');
+          rlog('WebView', 'video request');
           startVideoGeneration();
+        } else if (data.type === 'product_detected' && data.pageUrl) {
+          // Check if this product was already tried on
+          checkPreviousTryOn(data.pageUrl);
         }
       } catch (err) {
-        console.error('🌐 [WebView] Message parse error:', err);
+        // ignore non-JSON messages
       }
     },
-    [onTryOnRequest, lastTryOnBase64, lastProductName, videoLoading]
+    [onTryOnRequest, lastTryonS3Key, lastSessionId, lastProductName, videoLoading, selfieS3Key]
   );
+
+  const checkPreviousTryOn = async (pageUrl: string) => {
+    try {
+      const result = await api.checkProductTryOn(pageUrl);
+      if (result.found && result.tryonImageUrl && webViewRef.current) {
+        rlog('WebView', `previous tryon found for ${pageUrl}`);
+        // Store for video generation
+        if (result.sessionId) setLastSessionId(result.sessionId);
+        if (result.tryonS3Key) setLastTryonS3Key(result.tryonS3Key);
+        setLastProductName(result.productName || null);
+
+        webViewRef.current.injectJavaScript(`
+          window.postMessage(JSON.stringify({
+            type: 'previous_tryon',
+            imageUrl: ${JSON.stringify(result.tryonImageUrl)},
+            hasVideo: ${!!result.videoUrl}
+          }), '*');
+          true;
+        `);
+      }
+    } catch (err) {
+      // Non-critical, ignore
+    }
+  };
 
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -269,12 +315,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setCanGoBack(navState.canGoBack);
     setPageTitle(navState.title || '');
     if (navState.url !== currentUrl) {
-      // Actual page navigation — reset so next load shows spinner
       initialLoadDone.current = false;
-      // Only show loading if WebView says it's actively loading
       if (navState.loading) {
         setLoading(true);
-        // Safety timeout — if onLoadEnd never fires (SPA nav), clear loading after 3s
         if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
         navTimeoutRef.current = setTimeout(() => {
           setLoading(false);
@@ -286,11 +329,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setCurrentUrl(navState.url);
   };
 
-  // Block navigation during try-on or video generation
   const handleShouldStartLoad = useCallback(
     (request: any) => {
       if (isLocked && request.navigationType === 'click') {
-        console.log('🚫 [WebView] Blocked navigation during generation:', request.url);
+        rlog('WebView', 'blocked nav during generation');
         return false;
       }
       return true;
@@ -348,11 +390,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           onNavigationStateChange={handleNavigationStateChange}
           onShouldStartLoadWithRequest={handleShouldStartLoad}
           onLoadStart={() => {
-            // Only show loading spinner for the initial page load
             if (!initialLoadDone.current) {
               setLoading(true);
             }
-            // Clear any pending dismiss timer
             if (loadTimerRef.current) {
               clearTimeout(loadTimerRef.current);
               loadTimerRef.current = null;
@@ -361,24 +401,21 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           onLoadEnd={() => {
             initialLoadDone.current = true;
             setLoading(false);
-            // Clear safety timeout since load completed normally
             if (navTimeoutRef.current) {
               clearTimeout(navTimeoutRef.current);
               navTimeoutRef.current = null;
             }
-            // Debounce product detector injection — only inject once after loads settle
             if (loadTimerRef.current) {
               clearTimeout(loadTimerRef.current);
             }
             loadTimerRef.current = setTimeout(() => {
-              console.log('🌐 [WebView] Page settled, injecting product detector');
+              rlog('WebView', 'injecting product detector');
               webViewRef.current?.injectJavaScript(PRODUCT_DETECTOR_JS);
               loadTimerRef.current = null;
             }, 500);
           }}
           injectedJavaScriptBeforeContentLoaded={`
             window.__tryonInjected = false;
-            // Track navigation history depth
             window.__historyDepth = 0;
             var origPushState = history.pushState;
             var origReplaceState = history.replaceState;
@@ -453,7 +490,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
                 player={videoPlayer}
                 style={styles.videoPlayer}
                 contentFit="contain"
-                nativeControls={false}
+                nativeControls
+                allowsFullscreen
               />
             )}
           </View>
@@ -546,7 +584,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.4)',
     fontSize: 13,
   },
-  // Video popup styles
   videoOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.85)',

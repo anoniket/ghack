@@ -1,0 +1,126 @@
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import {
+  DynamoDBDocumentClient,
+  PutCommand,
+  GetCommand,
+  QueryCommand,
+  DeleteCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
+import { config } from '../config';
+
+const client = new DynamoDBClient({
+  region: config.aws.region,
+  credentials: {
+    accessKeyId: config.aws.accessKeyId,
+    secretAccessKey: config.aws.secretAccessKey,
+  },
+});
+
+const ddb = DynamoDBDocumentClient.from(client);
+const TABLE = config.dynamoTable;
+
+export interface TryOnSession {
+  deviceId: string;
+  sessionId: string;
+  productName?: string;
+  productPrice?: string;
+  sourceUrl?: string;
+  selfieS3Key: string;
+  tryonS3Key: string;
+  videoS3Key?: string;
+  tryonCdnUrl: string;
+  videoCdnUrl?: string;
+  model: string;
+  createdAt: string;
+}
+
+export async function putSession(session: TryOnSession): Promise<void> {
+  await ddb.send(
+    new PutCommand({
+      TableName: TABLE,
+      Item: session,
+    })
+  );
+}
+
+export async function getSession(
+  deviceId: string,
+  sessionId: string
+): Promise<TryOnSession | null> {
+  const result = await ddb.send(
+    new GetCommand({
+      TableName: TABLE,
+      Key: { deviceId, sessionId },
+    })
+  );
+  return (result.Item as TryOnSession) || null;
+}
+
+export async function queryByDevice(deviceId: string): Promise<TryOnSession[]> {
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'deviceId = :did',
+      ExpressionAttributeValues: { ':did': deviceId },
+      ScanIndexForward: false, // newest first
+    })
+  );
+  return (result.Items as TryOnSession[]) || [];
+}
+
+export async function queryBySourceUrl(
+  deviceId: string,
+  sourceUrl: string
+): Promise<TryOnSession | null> {
+  const result = await ddb.send(
+    new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'SourceUrlIndex',
+      KeyConditionExpression: 'deviceId = :did AND sourceUrl = :url',
+      ExpressionAttributeValues: {
+        ':did': deviceId,
+        ':url': sourceUrl,
+      },
+      Limit: 1,
+      ScanIndexForward: false,
+    })
+  );
+  return (result.Items?.[0] as TryOnSession) || null;
+}
+
+export async function updateSessionVideo(
+  deviceId: string,
+  sessionId: string,
+  videoS3Key: string,
+  videoCdnUrl: string
+): Promise<void> {
+  await ddb.send(
+    new UpdateCommand({
+      TableName: TABLE,
+      Key: { deviceId, sessionId },
+      UpdateExpression: 'SET videoS3Key = :vk, videoCdnUrl = :vu',
+      ExpressionAttributeValues: {
+        ':vk': videoS3Key,
+        ':vu': videoCdnUrl,
+      },
+    })
+  );
+}
+
+export async function deleteSession(
+  deviceId: string,
+  sessionId: string
+): Promise<TryOnSession | null> {
+  const session = await getSession(deviceId, sessionId);
+  if (!session) return null;
+
+  await ddb.send(
+    new DeleteCommand({
+      TableName: TABLE,
+      Key: { deviceId, sessionId },
+    })
+  );
+
+  return session;
+}

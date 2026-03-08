@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppStore } from '@/services/store';
-import { saveSelfie, deleteSelfie } from '@/utils/imageUtils';
+import { saveSelfie, deleteSelfie, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
 import { resetChat } from '@/services/gemini';
 
 const { width: W } = Dimensions.get('window');
@@ -21,6 +21,7 @@ export default function ProfileScreen() {
   const {
     selfieUri,
     setSelfieUri,
+    setSelfieS3Key,
     clearMessages,
     setMode,
     setCurrentUrl,
@@ -40,6 +41,12 @@ export default function ProfileScreen() {
         await deleteSelfie();
         const newUri = await saveSelfie(result.assets[0].uri);
         setSelfieUri(newUri);
+        try {
+          const s3Key = await uploadSelfieAndSaveKey(newUri);
+          setSelfieS3Key(s3Key);
+        } catch (uploadErr) {
+          console.error('☁️ [Profile] S3 selfie upload failed:', uploadErr);
+        }
         Alert.alert('Updated!', 'Your selfie has been updated.');
       } catch (err) {
         Alert.alert('Error', 'Failed to update selfie.');
@@ -66,6 +73,12 @@ export default function ProfileScreen() {
         await deleteSelfie();
         const newUri = await saveSelfie(result.assets[0].uri);
         setSelfieUri(newUri);
+        try {
+          const s3Key = await uploadSelfieAndSaveKey(newUri);
+          setSelfieS3Key(s3Key);
+        } catch (uploadErr) {
+          console.error('☁️ [Profile] S3 selfie upload failed:', uploadErr);
+        }
         Alert.alert('Updated!', 'Your selfie has been updated.');
       } catch (err) {
         Alert.alert('Error', 'Failed to update selfie.');

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,41 +8,135 @@ import {
   TouchableOpacity,
   Alert,
   Dimensions,
+  RefreshControl,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useAppStore } from '@/services/store';
-import { getSavedTryOns, deleteTryOn, SavedTryOn } from '@/utils/imageUtils';
+import { useRouter } from 'expo-router';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { useAppStore, SavedTryOn } from '@/services/store';
+import * as api from '@/services/api';
 
-const { width: W } = Dimensions.get('window');
+const { width: W, height: H } = Dimensions.get('window');
 const CARD_WIDTH = (W - 48) / 2;
 
+interface TimelineSection {
+  title: string;
+  data: SavedTryOn[];
+}
+
+function getStoreName(url?: string): string {
+  if (!url) return 'Try-On';
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    const name = host.split('.')[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  } catch {
+    return 'Try-On';
+  }
+}
+
+function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterday = today - 86400000;
+  const thisWeek = today - 7 * 86400000;
+
+  const groups: Record<string, SavedTryOn[]> = {
+    Today: [],
+    Yesterday: [],
+    'This Week': [],
+    Earlier: [],
+  };
+
+  for (const item of items) {
+    const ts = item.timestamp;
+    if (ts >= today) {
+      groups.Today.push(item);
+    } else if (ts >= yesterday) {
+      groups.Yesterday.push(item);
+    } else if (ts >= thisWeek) {
+      groups['This Week'].push(item);
+    } else {
+      groups.Earlier.push(item);
+    }
+  }
+
+  return Object.entries(groups)
+    .filter(([, items]) => items.length > 0)
+    .map(([title, data]) => ({ title, data }));
+}
+
 export default function SavedScreen() {
-  const { savedTryOns, setSavedTryOns } = useAppStore();
+  const { savedTryOns, setSavedTryOns, setCurrentUrl, setMode } = useAppStore();
+  const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<SavedTryOn | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+
+  const videoPlayer = useVideoPlayer(playingVideoUrl, (player) => {
+    player.loop = true;
+    player.muted = false;
+    player.play();
+  });
 
   useEffect(() => {
     loadSaved();
   }, []);
 
   const loadSaved = async () => {
-    const tryOns = await getSavedTryOns();
-    setSavedTryOns(tryOns);
+    try {
+      const { items } = await api.getHistory();
+      setSavedTryOns(items.map((item) => ({
+        id: item.sessionId,
+        imageUri: item.tryonImageUrl,
+        productName: item.productName || 'Product',
+        productPrice: item.productPrice,
+        sourceUrl: item.sourceUrl,
+        timestamp: new Date(item.createdAt).getTime(),
+        videoUrl: item.videoUrl,
+        sessionId: item.sessionId,
+      })));
+    } catch (err) {
+      // silent — non-critical
+    }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadSaved();
+    setRefreshing(false);
+  }, []);
+
   const handleDelete = (item: SavedTryOn) => {
-    Alert.alert('Delete Try-On', 'Are you sure?', [
+    Alert.alert('Delete Try-On', 'Are you sure? This will remove it from the cloud.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteTryOn(item.id);
-          await loadSaved();
-          setSelectedItem(null);
+          try {
+            await api.deleteSession(item.sessionId || item.id);
+            await loadSaved();
+            setSelectedItem(null);
+          } catch (err) {
+            Alert.alert('Error', 'Failed to delete try-on.');
+          }
         },
       },
     ]);
   };
+
+  const handleVisitStore = (url?: string) => {
+    if (url) {
+      setCurrentUrl(url);
+      setMode('webview');
+      setSelectedItem(null);
+      router.navigate('/');
+    }
+  };
+
+  const sections = groupByTimeline(savedTryOns);
 
   const renderItem = ({ item }: { item: SavedTryOn }) => (
     <TouchableOpacity
@@ -53,11 +147,13 @@ export default function SavedScreen() {
       <Image source={{ uri: item.imageUri }} style={styles.cardImage} />
       <View style={styles.cardOverlay}>
         <Text style={styles.cardName} numberOfLines={1}>
-          {item.productName}
+          {getStoreName(item.sourceUrl)}
         </Text>
-        {item.productPrice && (
-          <Text style={styles.cardPrice}>{item.productPrice}</Text>
-        )}
+        <View style={styles.cardMeta}>
+          {item.videoUrl && (
+            <Text style={styles.videoIndicator}>🎬</Text>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -90,14 +186,68 @@ export default function SavedScreen() {
                 resizeMode="contain"
               />
             </View>
-            <Text style={styles.detailName}>{selectedItem.productName}</Text>
-            {selectedItem.productPrice && (
-              <Text style={styles.detailPrice}>{selectedItem.productPrice}</Text>
-            )}
+            <Text style={styles.detailName}>{getStoreName(selectedItem.sourceUrl)}</Text>
             <Text style={styles.detailDate}>
-              {new Date(selectedItem.timestamp).toLocaleDateString()}
+              {new Date(selectedItem.timestamp).toLocaleDateString(undefined, {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
             </Text>
+
+            <View style={styles.detailActions}>
+              {selectedItem.sourceUrl && (
+                <TouchableOpacity
+                  style={styles.actionBtn}
+                  onPress={() => handleVisitStore(selectedItem.sourceUrl)}
+                >
+                  <Text style={styles.actionBtnText}>Visit Store</Text>
+                </TouchableOpacity>
+              )}
+              {selectedItem.videoUrl && (
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnSecondary]}
+                  onPress={() => setPlayingVideoUrl(selectedItem.videoUrl!)}
+                >
+                  <Text style={[styles.actionBtnText, styles.actionBtnSecondaryText]}>
+                    Watch Video
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
+          <Modal
+            visible={playingVideoUrl !== null}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPlayingVideoUrl(null)}
+          >
+            <View style={styles.videoOverlay}>
+              <View style={styles.videoModal}>
+                <View style={styles.videoHeader}>
+                  <Text style={styles.videoTitle}>Try-On Video</Text>
+                  <TouchableOpacity
+                    onPress={() => setPlayingVideoUrl(null)}
+                    style={styles.videoCloseBtn}
+                  >
+                    <Text style={styles.videoCloseBtnText}>{'\u2715'}</Text>
+                  </TouchableOpacity>
+                </View>
+                {playingVideoUrl && (
+                  <VideoView
+                    player={videoPlayer}
+                    style={styles.videoPlayer}
+                    contentFit="contain"
+                    nativeControls
+                    allowsFullscreen
+                  />
+                )}
+              </View>
+            </View>
+          </Modal>
         </SafeAreaView>
       </View>
     );
@@ -123,12 +273,28 @@ export default function SavedScreen() {
           </View>
         ) : (
           <FlatList
-            data={savedTryOns}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
-            numColumns={2}
-            contentContainerStyle={styles.grid}
-            columnWrapperStyle={styles.row}
+            data={sections}
+            keyExtractor={(section) => section.title}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#E8C8A0"
+              />
+            }
+            contentContainerStyle={styles.sectionList}
+            renderItem={({ item: section }) => (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>{section.title}</Text>
+                <View style={styles.gridRow}>
+                  {section.data.map((item) => (
+                    <View key={item.id}>
+                      {renderItem({ item })}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           />
         )}
       </SafeAreaView>
@@ -157,13 +323,26 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     marginTop: 4,
   },
-  grid: {
+  sectionList: {
     paddingHorizontal: 16,
     paddingBottom: 100,
   },
-  row: {
-    gap: 12,
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
     marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
   },
   card: {
     width: CARD_WIDTH,
@@ -191,11 +370,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#F5F5F5',
   },
-  cardPrice: {
-    fontSize: 12,
-    color: '#E8C8A0',
-    fontWeight: '600',
+  cardMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 2,
+  },
+  videoIndicator: {
+    fontSize: 14,
   },
   emptyContainer: {
     flex: 1,
@@ -270,15 +452,78 @@ const styles = StyleSheet.create({
     color: '#F5F5F5',
     textAlign: 'center',
   },
-  detailPrice: {
-    fontSize: 16,
-    color: '#E8C8A0',
-    fontWeight: '600',
-    marginTop: 4,
-  },
   detailDate: {
     fontSize: 13,
     color: 'rgba(255,255,255,0.3)',
     marginTop: 8,
+  },
+  detailActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  actionBtn: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 14,
+    backgroundColor: '#E8C8A0',
+  },
+  actionBtnText: {
+    color: '#0D0D0D',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  actionBtnSecondary: {
+    backgroundColor: '#1A1A1A',
+    borderWidth: 1,
+    borderColor: 'rgba(232,200,160,0.3)',
+  },
+  actionBtnSecondaryText: {
+    color: '#E8C8A0',
+  },
+  videoOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  videoModal: {
+    width: W * 0.9,
+    height: H * 0.7,
+    backgroundColor: '#141414',
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  videoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  videoTitle: {
+    color: '#F5F5F5',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  videoCloseBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#1A1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  videoCloseBtnText: {
+    color: 'rgba(255,255,255,0.5)',
+    fontSize: 15,
+  },
+  videoPlayer: {
+    flex: 1,
+    backgroundColor: '#0D0D0D',
   },
 });

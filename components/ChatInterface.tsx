@@ -12,12 +12,10 @@ import {
   Keyboard,
 } from 'react-native';
 import { useAppStore } from '@/services/store';
-import {
-  sendChatMessage,
-  extractUrlFromResponse,
-  cleanResponseText,
-  ChatMessage,
-} from '@/services/gemini';
+import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
+import { sendChat } from '@/services/api';
+import { rlog } from '@/services/logger';
+import { ChatMessage } from '@/services/store';
 
 const { width: W } = Dimensions.get('window');
 
@@ -53,8 +51,9 @@ export default function ChatInterface() {
   const sendInitialGreeting = async () => {
     setIsTyping(true);
     try {
-      const response = await sendChatMessage(
-        'Hello, I just opened the app. Greet me and ask what I want to shop for.'
+      const { text: response } = await sendChat(
+        'Hello, I just opened the app. Greet me and ask what I want to shop for.',
+        messages.map(m => ({ role: m.role, text: m.text }))
       );
       const cleaned = cleanResponseText(response);
       addMessage({
@@ -64,7 +63,7 @@ export default function ChatInterface() {
         timestamp: Date.now(),
       });
     } catch (err) {
-      console.error('Error getting greeting:', err);
+      rlog('Chat', `greeting error: ${err}`);
       addMessage({
         id: `msg_${Date.now()}`,
         role: 'model',
@@ -89,8 +88,10 @@ export default function ChatInterface() {
 
     setIsTyping(true);
     try {
-      const response = await sendChatMessage(msg);
-      const url = extractUrlFromResponse(response);
+      const { text: response, url: serverUrl } = await sendChat(msg,
+        messages.map(m => ({ role: m.role, text: m.text }))
+      );
+      const url = serverUrl || extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);
 
       addMessage({
@@ -101,6 +102,7 @@ export default function ChatInterface() {
       });
 
       if (url) {
+        rlog('Chat', `navigating to ${url}`);
         setTimeout(() => {
           setCurrentUrl(url);
           setMode('webview');
@@ -108,7 +110,7 @@ export default function ChatInterface() {
         }, 1500);
       }
     } catch (err) {
-      console.error('Chat error:', err);
+      rlog('Chat', `send error: ${err}`);
       addMessage({
         id: `msg_error_${Date.now()}`,
         role: 'model',

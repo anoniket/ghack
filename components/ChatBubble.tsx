@@ -12,12 +12,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useAppStore } from '@/services/store';
-import {
-  sendChatMessage,
-  extractUrlFromResponse,
-  cleanResponseText,
-  ChatMessage,
-} from '@/services/gemini';
+import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
+import { sendChat } from '@/services/api';
+import { rlog } from '@/services/logger';
+import { ChatMessage } from '@/services/store';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -50,8 +48,10 @@ export default function ChatBubble() {
 
     setIsTyping(true);
     try {
-      const response = await sendChatMessage(text);
-      const url = extractUrlFromResponse(response);
+      const { text: response, url: serverUrl } = await sendChat(text,
+        messages.map(m => ({ role: m.role, text: m.text }))
+      );
+      const url = serverUrl || extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);
 
       addMessage({
@@ -62,12 +62,14 @@ export default function ChatBubble() {
       });
 
       if (url) {
+        rlog('Chat', `bubble navigating to ${url}`);
         setTimeout(() => {
           setCurrentUrl(url);
           setChatBubbleExpanded(false);
         }, 1000);
       }
     } catch (err) {
+      rlog('Chat', `bubble send error: ${err}`);
       addMessage({
         id: `msg_error_${Date.now()}`,
         role: 'model',

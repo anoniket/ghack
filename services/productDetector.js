@@ -561,6 +561,13 @@ export const PRODUCT_DETECTOR_JS = `
 
     document.body.appendChild(btn);
     log('🔘', 'BUTTON — Floating Try On button added to page');
+
+    // Notify RN that a product was detected on this page (for persistent try-on check)
+    window.ReactNativeWebView.postMessage(JSON.stringify({
+      type: 'product_detected',
+      pageUrl: window.location.href,
+    }));
+    log('📤', 'NOTIFY — Sent product_detected to React Native');
   }
 
   function showButtonRow(showVideo, tryLabel) {
@@ -585,7 +592,7 @@ export const PRODUCT_DETECTOR_JS = `
       // Always use the original product image URL (not the replaced try-on base64)
       var imgSrc = originalProductSrc || productImg.currentSrc || productImg.src || productImg.dataset.src;
       var info = getProductInfo();
-      var isRetry = !!originalProductSrc && (productImg.src || '').indexOf('data:image') === 0;
+      var isRetry = !!originalProductSrc && productImg.src !== originalProductSrc;
       log('👆', 'BUTTON CLICKED — Sending try-on request' + (isRetry ? ' (RETRY)' : ''));
       log('🖼️', 'IMAGE URL —', imgSrc);
       log('📦', 'PRODUCT —', info);
@@ -623,12 +630,10 @@ export const PRODUCT_DETECTOR_JS = `
     log('🔘', 'BUTTON ROW — Shown with' + (showVideo ? ' Video button' : 'out Video button'));
   }
 
-  function replaceProductImage(base64Data) {
-    // Remove loading overlay first
-    removeLoadingOverlay();
-
+  function replaceProductImage(imageSource) {
     if (!productImg) {
       log('❌', 'REPLACE — No product image reference found!');
+      removeLoadingOverlay();
       return;
     }
 
@@ -647,12 +652,29 @@ export const PRODUCT_DETECTOR_JS = `
       log('🧹', 'REPLACE — Removed ' + sources.length + ' <source> tags from <picture>');
     }
 
-    // Set the try-on result as img src
-    productImg.src = 'data:image/png;base64,' + base64Data;
-    log('✅', 'REPLACE — Product image replaced successfully! (base64 length: ' + base64Data.length + ')');
-
-    // Show button row with Video button — ↻ icon for retry
-    showButtonRow(true, '\\u{21BB}');
+    // For CDN URLs, preload the image before swapping to avoid flash of old image
+    if (imageSource.startsWith('http')) {
+      var preload = new Image();
+      preload.onload = function() {
+        productImg.src = imageSource;
+        log('✅', 'REPLACE — Product image replaced with CDN URL (preloaded)');
+        removeLoadingOverlay();
+        showButtonRow(true, '\\u{21BB}');
+      };
+      preload.onerror = function() {
+        // Fallback: set it anyway
+        productImg.src = imageSource;
+        log('⚠️', 'REPLACE — CDN preload failed, set src directly');
+        removeLoadingOverlay();
+        showButtonRow(true, '\\u{21BB}');
+      };
+      preload.src = imageSource;
+    } else {
+      productImg.src = 'data:image/png;base64,' + imageSource;
+      log('✅', 'REPLACE — Product image replaced with base64 (length: ' + imageSource.length + ')');
+      removeLoadingOverlay();
+      showButtonRow(true, '\\u{21BB}');
+    }
   }
 
   // Listen for messages from React Native (loading, result, error)
@@ -668,10 +690,15 @@ export const PRODUCT_DETECTOR_JS = `
         // Update duration mid-flight after detection completes
         __tryonDuration = data.duration;
         log('📨', 'RN MESSAGE — Duration updated to ' + __tryonDuration + 'ms');
-      } else if (data.type === 'tryon_result' && data.base64) {
+      } else if (data.type === 'tryon_result' && (data.imageUrl || data.base64)) {
         __tryonBusy = false;
-        log('📨', 'RN MESSAGE — Try-on result received (base64 length: ' + data.base64.length + ')');
-        replaceProductImage(data.base64);
+        var imgSrc = data.imageUrl || data.base64;
+        log('📨', 'RN MESSAGE — Try-on result received (' + (data.imageUrl ? 'CDN URL' : 'base64') + ')');
+        replaceProductImage(imgSrc);
+      } else if (data.type === 'previous_tryon' && data.imageUrl) {
+        // Inject previous try-on from cloud (persistent try-ons)
+        log('📨', 'RN MESSAGE — Previous try-on found for this product');
+        replaceProductImage(data.imageUrl);
       } else if (data.type === 'tryon_error') {
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Try-on generation failed');

@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { saveSelfie } from '@/utils/imageUtils';
+import { saveSelfie, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
 import { useAppStore } from '@/services/store';
 
 const { width: W } = Dimensions.get('window');
@@ -18,7 +18,7 @@ const { width: W } = Dimensions.get('window');
 export default function OnboardingCamera() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const { setSelfieUri, setOnboardingComplete } = useAppStore();
+  const { setSelfieUri, setSelfieS3Key, setOnboardingComplete } = useAppStore();
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -54,6 +54,16 @@ export default function OnboardingCamera() {
     try {
       const savedUri = await saveSelfie(imageUri);
       setSelfieUri(savedUri);
+
+      // Upload to S3 in background
+      try {
+        const s3Key = await uploadSelfieAndSaveKey(savedUri);
+        setSelfieS3Key(s3Key);
+      } catch (uploadErr) {
+        console.error('S3 selfie upload failed:', uploadErr);
+        // Continue anyway — will retry on next app launch
+      }
+
       setOnboardingComplete(true);
     } catch (err) {
       console.error('Error saving selfie:', err);

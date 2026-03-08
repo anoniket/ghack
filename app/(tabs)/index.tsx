@@ -5,13 +5,16 @@ import WebViewBrowser from '@/components/WebViewBrowser';
 import ChatBubble from '@/components/ChatBubble';
 import OnboardingCamera from '@/components/OnboardingCamera';
 import { useAppStore } from '@/services/store';
-import { getSelfieUri, getSavedTryOns } from '@/utils/imageUtils';
+import { getSelfieUri, getSelfieS3Key, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
+import { getDeviceId, getHistory } from '@/services/api';
 
 export default function HomeScreen() {
   const {
     onboardingComplete,
     setOnboardingComplete,
     setSelfieUri,
+    setSelfieS3Key,
+    setDeviceId,
     setSavedTryOns,
     mode,
     setCurrentProduct,
@@ -22,13 +25,48 @@ export default function HomeScreen() {
   }, []);
 
   const loadInitialData = async () => {
+    // Initialize device ID
+    try {
+      const id = await getDeviceId();
+      setDeviceId(id);
+    } catch (err) {
+      console.error('Failed to get device ID:', err);
+    }
+
+    // Load selfie
     const selfie = await getSelfieUri();
     if (selfie) {
       setSelfieUri(selfie);
       setOnboardingComplete(true);
+
+      // Load S3 key (or upload if missing)
+      let s3Key = await getSelfieS3Key();
+      if (!s3Key) {
+        try {
+          s3Key = await uploadSelfieAndSaveKey(selfie);
+        } catch (err) {
+          console.error('Failed to upload selfie to S3:', err);
+        }
+      }
+      if (s3Key) setSelfieS3Key(s3Key);
     }
-    const tryOns = await getSavedTryOns();
-    setSavedTryOns(tryOns);
+
+    // Load saved try-ons from cloud
+    try {
+      const { items } = await getHistory();
+      setSavedTryOns(items.map((item) => ({
+        id: item.sessionId,
+        imageUri: item.tryonImageUrl,
+        productName: item.productName || 'Product',
+        productPrice: item.productPrice,
+        sourceUrl: item.sourceUrl,
+        timestamp: new Date(item.createdAt).getTime(),
+        videoUrl: item.videoUrl,
+        sessionId: item.sessionId,
+      })));
+    } catch (err) {
+      console.error('Failed to load history:', err);
+    }
   };
 
   const handleTryOnRequest = (data: {
@@ -39,8 +77,6 @@ export default function HomeScreen() {
     retry?: boolean;
   }) => {
     console.log('🏠 [Home] Try-on request received from WebView');
-    console.log('🏠 [Home] Product:', data.productName, '| Price:', data.productPrice);
-    console.log('🏠 [Home] Image:', data.imageUrl);
     setCurrentProduct(data);
   };
 
