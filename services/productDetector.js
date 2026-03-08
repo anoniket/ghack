@@ -554,20 +554,8 @@ export const PRODUCT_DETECTOR_JS = `
       // Size check
       if (rect.width < threshold || rect.height < minHeight) continue;
 
-      log('📐', 'CHECKING — img[' + i + '] size: ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + 'px, src: ' + (img.currentSrc || img.src || ''));
-
-      // Visibility check: is this image actually the topmost element at its center?
-      var centerX = rect.left + rect.width / 2;
-      var centerY = rect.top + rect.height / 2;
-      var topEl = document.elementFromPoint(centerX, centerY);
-      var isTopmost = (topEl === img);
-
-      log('👁️', 'VISIBILITY — img[' + i + '] isTopmost: ' + isTopmost + ', topEl: ' + (topEl ? topEl.tagName + '.' + (topEl.className || '').substring(0, 30) : 'null'));
-
-      if (isTopmost) {
-        log('✅', 'MATCH — Found visible product image! ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + 'px');
-        return img;
-      }
+      log('✅', 'MATCH — Found product image! ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + 'px, src: ' + (img.currentSrc || img.src || '').substring(0, 80));
+      return img;
     }
 
     log('❌', 'NO MATCH — No visible full-width product image found on this page');
