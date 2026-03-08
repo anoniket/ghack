@@ -160,9 +160,15 @@ Product → Customer photo → Result:
 RESPONSE FORMAT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Respond with ONLY the raw JSON object. No markdown, no backticks, no explanation, no reasoning, no preamble. Just the JSON.
+First, write 2-3 sentences of reasoning explaining:
+1. What you see in IMAGE 2 (the product) and what zone it maps to.
+2. What you see in IMAGE 1 (the customer) and whether that zone is visible.
 
-{"product_zone": "...", "zone_visible": true/false}`;
+Then output the JSON on its own line:
+
+{"product_zone": "...", "zone_visible": true/false}
+
+The JSON must be the LAST line. No markdown, no backticks around the JSON.`;
 
 const TRYON_PHOTOSHOOT_PROMPT = `You have two images:
 - Image 1: A photo of a person (may be a partial body shot like a selfie or torso photo)
@@ -406,7 +412,7 @@ export async function downloadImageToBase64(url: string): Promise<string> {
 export async function prepareTryOn(
   selfieBase64: string,
   productImageUrl: string
-): Promise<{ selfieBase64: string; productBase64: string; usePhotoshoot: boolean }> {
+): Promise<{ selfieBase64: string; productBase64: string; usePhotoshoot: boolean; productZone: string; reasoning: string }> {
   const productBase64 = await downloadImageToBase64(productImageUrl);
 
   // Zone detection
@@ -426,23 +432,29 @@ export async function prepareTryOn(
     ],
     config: {
       temperature: 0,
-      maxOutputTokens: 128,
+      maxOutputTokens: 512,
     },
   });
 
   const detectText = detectResponse.text || '';
   let usePhotoshoot = false;
+  let productZone = 'unknown';
+  let reasoning = '';
   try {
     const jsonMatch = detectText.match(/\{[^}]+\}/);
     if (jsonMatch) {
+      // Everything before the JSON is the reasoning
+      reasoning = detectText.slice(0, detectText.indexOf(jsonMatch[0])).trim();
       const detection = JSON.parse(jsonMatch[0]);
       usePhotoshoot = detection.zone_visible === false;
+      productZone = detection.product_zone || 'unknown';
     }
   } catch {
     // Parse error — default to flash
+    reasoning = detectText; // log the full response for debugging
   }
 
-  return { selfieBase64, productBase64, usePhotoshoot };
+  return { selfieBase64, productBase64, usePhotoshoot, productZone, reasoning };
 }
 
 export async function generateTryOn(

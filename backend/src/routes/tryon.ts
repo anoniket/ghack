@@ -28,8 +28,10 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   try {
     const t = Date.now();
     console.log(`${tag} Prepare → zone detection started`);
-    const { usePhotoshoot, productBase64 } = await prepareTryOn(selfieBase64, productImageUrl);
+    const { usePhotoshoot, productBase64, productZone, reasoning } = await prepareTryOn(selfieBase64, productImageUrl);
     console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
+    console.log(`${tag} Prepare → product_zone=${productZone}, zone_visible=${!usePhotoshoot}`);
+    if (reasoning) console.log(`${tag} Prepare → reasoning: ${reasoning}`);
 
     // Cache for generate step — no need to re-upload or re-download
     prepareCache.set(req.deviceId, { selfieBase64, productBase64, ts: Date.now() });
