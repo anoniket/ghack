@@ -434,40 +434,6 @@ export const PRODUCT_DETECTOR_JS = `
     }
   }
 
-  function getProductInfo() {
-    var info = { name: '', price: '' };
-
-    // Product name: check page-level elements (we are on PDP)
-    var titleEl = document.querySelector(
-      'h1, ' +
-      '[class*="product-title"], [class*="product-name"], [class*="productTitle"], ' +
-      '[class*="pdp-title"], [class*="product-brand"], ' +
-      '[data-testid*="title"], [data-testid*="name"]'
-    );
-    if (titleEl) {
-      info.name = titleEl.innerText.trim().substring(0, 120);
-    }
-    if (!info.name) {
-      // Fallback: try h2, h3
-      var headings = document.querySelectorAll('h2, h3');
-      for (var i = 0; i < headings.length; i++) {
-        var t = headings[i].innerText.trim();
-        if (t.length > 3 && t.length < 120) {
-          info.name = t;
-          break;
-        }
-      }
-    }
-
-    // Price
-    var pageText = document.body.innerText || '';
-    var priceMatch = pageText.match(/[\\u20B9$\\u20AC\\u00A3]\\s*[\\d,]+\\.?\\d*/);
-    if (priceMatch) info.price = priceMatch[0];
-
-    log('📝', 'PRODUCT INFO — Extracted:', info);
-    return info;
-  }
-
   function findProductImage() {
     var screenW = window.innerWidth;
     var threshold = screenW * 0.75;
@@ -544,17 +510,13 @@ export const PRODUCT_DETECTOR_JS = `
       btn.remove();
 
       var imgSrc = img.currentSrc || img.src || img.dataset.src;
-      var info = getProductInfo();
 
       log('👆', 'BUTTON CLICKED — Sending try-on request');
       log('🖼️', 'IMAGE URL —', imgSrc);
-      log('📦', 'PRODUCT —', info);
 
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'tryon_request',
         imageUrl: imgSrc,
-        productName: info.name || 'Product',
-        productPrice: info.price,
         pageUrl: window.location.href,
       }));
     });
@@ -591,16 +553,12 @@ export const PRODUCT_DETECTOR_JS = `
       row.remove();
       // Always use the original product image URL (not the replaced try-on base64)
       var imgSrc = originalProductSrc || productImg.currentSrc || productImg.src || productImg.dataset.src;
-      var info = getProductInfo();
       var isRetry = !!originalProductSrc && productImg.src !== originalProductSrc;
       log('👆', 'BUTTON CLICKED — Sending try-on request' + (isRetry ? ' (RETRY)' : ''));
       log('🖼️', 'IMAGE URL —', imgSrc);
-      log('📦', 'PRODUCT —', info);
       window.ReactNativeWebView.postMessage(JSON.stringify({
         type: 'tryon_request',
         imageUrl: imgSrc,
-        productName: info.name || 'Product',
-        productPrice: info.price,
         pageUrl: window.location.href,
         retry: isRetry,
       }));

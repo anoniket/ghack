@@ -447,7 +447,7 @@ export function getVideoJob(jobId: string): VideoJob | undefined {
 export async function startVideoGeneration(
   jobId: string,
   imageBase64: string,
-  productName: string,
+  _label: string,
   onComplete: (videoBuffer: Buffer) => Promise<{ s3Key: string; cdnUrl: string }>
 ): Promise<void> {
   videoJobs.set(jobId, { status: 'pending' });
@@ -455,7 +455,7 @@ export async function startVideoGeneration(
   try {
     let operation = await (ai.models as any).generateVideos({
       model: MODELS.VIDEO_GEN,
-      prompt: `This is an AI-generated fashion mockup image of an ordinary person (NOT a celebrity or public figure) wearing ${productName}. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
+      prompt: `This is an AI-generated fashion mockup image of an ordinary person (NOT a celebrity or public figure) wearing an outfit. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
       image: {
         imageBytes: imageBase64,
         mimeType: 'image/png',

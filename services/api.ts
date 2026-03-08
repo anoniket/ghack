@@ -106,8 +106,6 @@ export interface TryOnResult {
 export async function generateTryOn(params: {
   selfieS3Key: string;
   productImageUrl: string;
-  productName?: string;
-  productPrice?: string;
   sourceUrl?: string;
   usePhotoshoot: boolean;
 }): Promise<TryOnResult> {
@@ -138,7 +136,6 @@ export async function resetChatHistory(): Promise<void> {
 export async function startVideo(params: {
   sessionId: string;
   tryonS3Key: string;
-  productName?: string;
 }): Promise<{ jobId: string }> {
   return apiFetch('/api/video', {
     method: 'POST',
@@ -183,8 +180,6 @@ export async function uploadSelfieToS3(localUri: string): Promise<string> {
 
 export interface HistoryItem {
   sessionId: string;
-  productName?: string;
-  productPrice?: string;
   sourceUrl?: string;
   tryonImageUrl: string;
   videoUrl?: string;
@@ -208,7 +203,6 @@ export interface ProductTryOnResult {
   videoUrl?: string;
   sessionId?: string;
   tryonS3Key?: string;
-  productName?: string;
 }
 
 export async function checkProductTryOn(sourceUrl: string): Promise<ProductTryOnResult> {

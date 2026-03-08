@@ -22,8 +22,6 @@ const { width: W, height: H } = Dimensions.get('window');
 interface WebViewMessage {
   type: string;
   imageUrl?: string;
-  productName?: string;
-  productPrice?: string;
   pageUrl?: string;
   url?: string;
   retry?: boolean;
@@ -32,8 +30,6 @@ interface WebViewMessage {
 interface Props {
   onTryOnRequest: (data: {
     imageUrl: string;
-    productName: string;
-    productPrice?: string;
     pageUrl?: string;
     retry?: boolean;
   }) => void;
@@ -58,8 +54,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setVideoLoading,
     videoDataUri,
     setVideoDataUri,
-    lastProductName,
-    setLastProductName,
     lastSessionId,
     setLastSessionId,
     lastTryonS3Key,
@@ -121,8 +115,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       const result = await api.generateTryOn({
         selfieS3Key,
         productImageUrl: currentProduct.imageUrl,
-        productName: currentProduct.productName,
-        productPrice: currentProduct.productPrice,
         sourceUrl: currentProduct.pageUrl,
         usePhotoshoot: prepResult.usePhotoshoot,
       });
@@ -132,7 +124,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Store for video generation
       setLastSessionId(result.sessionId);
       setLastTryonS3Key(result.tryonS3Key);
-      setLastProductName(currentProduct.productName);
 
       // Set result as CDN URL (not base64)
       setTryOnResult(result.tryonImageUrl);
@@ -143,13 +134,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         setSavedTryOns(items.map((item) => ({
           id: item.sessionId,
           imageUri: item.tryonImageUrl,
-          productName: item.productName || 'Product',
-          productPrice: item.productPrice,
           sourceUrl: item.sourceUrl,
           timestamp: new Date(item.createdAt).getTime(),
           videoUrl: item.videoUrl,
           sessionId: item.sessionId,
-          tryonS3Key: undefined,
         })));
       } catch {}
     } catch (err: any) {
@@ -207,7 +195,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       const { jobId } = await api.startVideo({
         sessionId: lastSessionId,
         tryonS3Key: lastTryonS3Key,
-        productName: lastProductName || 'outfit',
       });
 
       // Poll for completion
@@ -263,11 +250,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         if (data.type === 'injection_complete') {
           rlog('WebView', `detector injected on ${data.url}`);
         } else if (data.type === 'tryon_request' && data.imageUrl) {
-          rlog('WebView', `tryon request: ${data.productName}`);
+          rlog('WebView', `tryon request from ${data.pageUrl}`);
           onTryOnRequest({
             imageUrl: data.imageUrl,
-            productName: data.productName || 'Product',
-            productPrice: data.productPrice,
             pageUrl: data.pageUrl,
             retry: data.retry,
           });
@@ -282,7 +267,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         // ignore non-JSON messages
       }
     },
-    [onTryOnRequest, lastTryonS3Key, lastSessionId, lastProductName, videoLoading, selfieS3Key]
+    [onTryOnRequest, lastTryonS3Key, lastSessionId, videoLoading, selfieS3Key]
   );
 
   const checkPreviousTryOn = async (pageUrl: string) => {
@@ -293,7 +278,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         // Store for video generation
         if (result.sessionId) setLastSessionId(result.sessionId);
         if (result.tryonS3Key) setLastTryonS3Key(result.tryonS3Key);
-        setLastProductName(result.productName || null);
 
         webViewRef.current.injectJavaScript(`
           window.postMessage(JSON.stringify({

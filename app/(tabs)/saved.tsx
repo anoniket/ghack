@@ -90,8 +90,6 @@ export default function SavedScreen() {
       setSavedTryOns(items.map((item) => ({
         id: item.sessionId,
         imageUri: item.tryonImageUrl,
-        productName: item.productName || 'Product',
-        productPrice: item.productPrice,
         sourceUrl: item.sourceUrl,
         timestamp: new Date(item.createdAt).getTime(),
         videoUrl: item.videoUrl,

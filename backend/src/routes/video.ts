@@ -7,7 +7,7 @@ import { getSession, updateSessionVideo } from '../services/dynamo';
 export const videoRouter = Router();
 
 videoRouter.post('/video', async (req: Request, res: Response) => {
-  const { sessionId, tryonS3Key, productName } = req.body;
+  const { sessionId, tryonS3Key } = req.body;
 
   if (!tryonS3Key) {
     res.status(400).json({ error: 'tryonS3Key is required' });
@@ -25,7 +25,7 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     startVideoGeneration(
       jobId,
       tryonBase64,
-      productName || 'outfit',
+      'outfit',
       async (videoBuffer: Buffer) => {
         // Upload video to S3
         const videoS3Key = `${req.deviceId}/videos/${jobId}.mp4`;

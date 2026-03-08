@@ -13,8 +13,6 @@ historyRouter.get('/history', async (req: Request, res: Response) => {
     const sessions = await queryByDevice(req.deviceId);
     const items = await Promise.all(sessions.map(async (s) => ({
       sessionId: s.sessionId,
-      productName: s.productName,
-      productPrice: s.productPrice,
       sourceUrl: s.sourceUrl,
       tryonImageUrl: s.tryonS3Key ? await getReadUrl(s.tryonS3Key) : s.tryonCdnUrl,
       videoUrl: s.videoS3Key ? await getReadUrl(s.videoS3Key) : s.videoCdnUrl,
@@ -69,7 +67,6 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
         videoUrl: session.videoS3Key ? await getReadUrl(session.videoS3Key) : session.videoCdnUrl,
         sessionId: session.sessionId,
         tryonS3Key: session.tryonS3Key,
-        productName: session.productName,
       });
     } else {
       res.json({ found: false });

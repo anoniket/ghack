@@ -12,13 +12,10 @@ export interface ChatMessage {
 export interface SavedTryOn {
   id: string;
   imageUri: string; // CDN URL or local URI
-  productName: string;
-  productPrice?: string;
   sourceUrl?: string;
   timestamp: number;
   videoUrl?: string;
   sessionId?: string;
-  tryonS3Key?: string;
 }
 
 interface AppState {
@@ -56,8 +53,6 @@ interface AppState {
   setTryOnResult: (result: string | null) => void;
   currentProduct: {
     imageUrl: string;
-    productName: string;
-    productPrice?: string;
     pageUrl?: string;
     retry?: boolean;
   } | null;
@@ -74,10 +69,6 @@ interface AppState {
   setVideoDataUri: (uri: string | null) => void;
   videoJobId: string | null;
   setVideoJobId: (id: string | null) => void;
-  lastTryOnBase64: string | null;
-  setLastTryOnBase64: (base64: string | null) => void;
-  lastProductName: string | null;
-  setLastProductName: (name: string | null) => void;
   lastSessionId: string | null;
   setLastSessionId: (id: string | null) => void;
   lastTryonS3Key: string | null;
@@ -128,10 +119,6 @@ export const useAppStore = create<AppState>((set) => ({
   setVideoDataUri: (uri) => set({ videoDataUri: uri }),
   videoJobId: null,
   setVideoJobId: (id) => set({ videoJobId: id }),
-  lastTryOnBase64: null,
-  setLastTryOnBase64: (base64) => set({ lastTryOnBase64: base64 }),
-  lastProductName: null,
-  setLastProductName: (name) => set({ lastProductName: name }),
   lastSessionId: null,
   setLastSessionId: (id) => set({ lastSessionId: id }),
   lastTryonS3Key: null,

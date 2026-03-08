@@ -38,7 +38,7 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
 // Step 2: Generate — actual image generation + S3 upload + DynamoDB save
 tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { selfieS3Key, productImageUrl, productName, productPrice, sourceUrl, usePhotoshoot } = req.body;
+  const { selfieS3Key, productImageUrl, sourceUrl, usePhotoshoot } = req.body;
 
   if (!selfieS3Key || !productImageUrl) {
     res.status(400).json({ error: 'selfieS3Key and productImageUrl are required' });
@@ -65,8 +65,6 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     await putSession({
       deviceId: req.deviceId,
       sessionId,
-      productName: productName || undefined,
-      productPrice: productPrice || undefined,
       sourceUrl: sourceUrl || undefined,
       selfieS3Key,
       tryonS3Key,

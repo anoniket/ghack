@@ -23,8 +23,6 @@ const TABLE = config.dynamoTable;
 export interface TryOnSession {
   deviceId: string;
   sessionId: string;
-  productName?: string;
-  productPrice?: string;
   sourceUrl?: string;
   selfieS3Key: string;
   tryonS3Key: string;
