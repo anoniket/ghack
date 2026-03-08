@@ -166,9 +166,9 @@ PRODUCT-SPECIFIC FRAMING & POSE — choose based on what you see in Image 2:
 - The shoes must be sharply in focus and fully visible — no cropping at the toes or heels
 
 **RINGS / BRACELETS / WATCHES / BANGLES:**
-- Frame: close-up of the hand and wrist — the rest of the body is out of frame or softly blurred in background
-- Pose: hand brought up closer to camera, fingers naturally spread (not stiff), wrist angled to catch the light on the jewelry. The hand should look relaxed and elegant, like a candid moment of admiring the piece
-- The jewelry is the focal point — it should be the sharpest, most detailed part of the image
+- Frame: upper body portrait — face, chest, and hand all visible. Like a candid shot where someone is admiring their jewelry while looking at the camera or glancing at their hand
+- Pose: hand raised near the chest or face level so both the face AND the jewelry are in frame. Fingers naturally spread, wrist angled to catch light. Same clothes, same setting as Image 1
+- The jewelry should be sharp and detailed, but the person's face MUST be clearly visible and recognizable
 
 **EARRINGS:**
 - Frame: head and neck portrait, ear and jawline clearly visible

@@ -30,8 +30,14 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       if (urlMatch) url = urlMatch[0];
     }
 
+    // Strip the JSON block and raw URLs from the user-facing text
+    let cleanText = text
+      .replace(/```json\s*\n?\s*\{[^}]*"action"\s*:\s*"open_url"[^}]*\}\s*\n?\s*```/g, '')
+      .replace(/```json\s*\n?\s*\{[^}]*"url"\s*:[^}]*\}\s*\n?\s*```/g, '')
+      .trim();
+
     if (url) console.log(`${tag} Chat → extracted URL: ${url}`);
-    res.json({ text, url });
+    res.json({ text: cleanText, url });
   } catch (err: any) {
     console.error(`${tag} Chat ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Chat failed' });
