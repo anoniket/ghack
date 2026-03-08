@@ -4,8 +4,9 @@ import {
   queryBySourceUrl,
   deleteSession as deleteSessionFromDb,
   deleteAllSessions as deleteAllFromDb,
+  TryOnSession,
 } from '../services/dynamo';
-import { deleteObject, getReadUrl } from '../services/s3';
+import { deleteObject, deleteObjects, getReadUrl } from '../services/s3';
 
 export const historyRouter = Router();
 
@@ -33,23 +34,31 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
   try {
     console.log(`${tag} DeleteAll → starting`);
-    const sessions = await deleteAllFromDb(req.deviceId);
 
-    // Clean up all S3 objects
-    let cleaned = 0;
-    for (const session of sessions) {
-      const keys = [session.tryonS3Key, session.videoS3Key].filter(Boolean) as string[];
-      for (const key of keys) {
-        try {
-          await deleteObject(key);
-          cleaned++;
-        } catch {
-          // Non-critical
-        }
-      }
+    // Step 1: fetch the session list (need the S3 keys before we can delete anything)
+    const sessions = await queryByDevice(req.deviceId);
+    if (sessions.length === 0) {
+      res.json({ ok: true, deleted: 0 });
+      return;
     }
-    console.log(`${tag} DeleteAll → done, deleted ${sessions.length} sessions, cleaned ${cleaned} S3 objects`);
 
+    const allKeys = sessions.flatMap((s: TryOnSession) =>
+      [s.selfieS3Key, s.tryonS3Key, s.videoS3Key].filter(Boolean) as string[]
+    );
+
+    // Step 2: DynamoDB batch-delete + S3 bulk-delete run concurrently
+    const [failedS3Keys] = await Promise.all([
+      deleteObjects(allKeys),      // 1 API call per 1000 keys
+      deleteAllFromDb(req.deviceId), // 1 API call per 25 sessions (already queries internally, but we pass sessions directly below)
+    ]);
+
+    if (failedS3Keys.length > 0) {
+      console.warn(`${tag} DeleteAll → ${failedS3Keys.length} S3 keys failed to delete:`, failedS3Keys);
+    }
+
+    console.log(
+      `${tag} DeleteAll → done. sessions=${sessions.length} s3Keys=${allKeys.length} s3Errors=${failedS3Keys.length}`
+    );
     res.json({ ok: true, deleted: sessions.length });
   } catch (err: any) {
     console.error(`[${req.deviceId}] DeleteAll ERROR:`, err.message);

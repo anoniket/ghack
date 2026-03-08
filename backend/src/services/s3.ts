@@ -3,6 +3,7 @@ import {
   PutObjectCommand,
   GetObjectCommand,
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -92,18 +93,61 @@ export async function deleteObject(s3Key: string): Promise<void> {
   );
 }
 
-export async function deletePrefix(prefix: string): Promise<void> {
-  const listed = await s3.send(
-    new ListObjectsV2Command({
-      Bucket: bucket,
-      Prefix: prefix,
+/**
+ * Delete up to 1000 S3 keys in a single API call.
+ * For larger arrays, chunks are issued in parallel.
+ * Returns any keys S3 reported as errored so the caller can decide what to do.
+ */
+export async function deleteObjects(s3Keys: string[]): Promise<string[]> {
+  if (s3Keys.length === 0) return [];
+
+  const CHUNK = 1000; // S3 hard limit per DeleteObjects call
+  const chunks: string[][] = [];
+  for (let i = 0; i < s3Keys.length; i += CHUNK) {
+    chunks.push(s3Keys.slice(i, i + CHUNK));
+  }
+
+  const failedKeys: string[] = [];
+
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const result = await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: bucket,
+          Delete: {
+            Objects: chunk.map((Key) => ({ Key })),
+            Quiet: false, // set true to only get errors back (slightly faster)
+          },
+        })
+      );
+      // Collect per-object errors returned by S3
+      if (result.Errors?.length) {
+        for (const err of result.Errors) {
+          console.error(`S3 deleteObjects error: key=${err.Key} code=${err.Code} msg=${err.Message}`);
+          if (err.Key) failedKeys.push(err.Key);
+        }
+      }
     })
   );
-  if (listed.Contents) {
-    for (const obj of listed.Contents) {
-      if (obj.Key) {
-        await deleteObject(obj.Key);
-      }
+
+  return failedKeys;
+}
+
+export async function deletePrefix(prefix: string): Promise<void> {
+  // ListObjectsV2 pages up to 1000 at a time — paginate until done
+  let continuationToken: string | undefined;
+  do {
+    const listed = await s3.send(
+      new ListObjectsV2Command({
+        Bucket: bucket,
+        Prefix: prefix,
+        ContinuationToken: continuationToken,
+      })
+    );
+    const keys = (listed.Contents ?? []).map((o) => o.Key).filter(Boolean) as string[];
+    if (keys.length > 0) {
+      await deleteObjects(keys); // one API call per page (≤1000 keys)
     }
-  }
+    continuationToken = listed.IsTruncated ? listed.NextContinuationToken : undefined;
+  } while (continuationToken);
 }

@@ -10,6 +10,7 @@ import {
   Dimensions,
   RefreshControl,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -73,6 +74,7 @@ export default function SavedScreen() {
   const [selectedItem, setSelectedItem] = useState<SavedTryOn | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [playingVideoUrl, setPlayingVideoUrl] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const videoPlayer = useVideoPlayer(playingVideoUrl, (player) => {
     player.loop = true;
@@ -113,11 +115,14 @@ export default function SavedScreen() {
         text: 'Delete All',
         style: 'destructive',
         onPress: async () => {
+          setDeleting(true);
           try {
             await api.deleteAllSessions();
             setSavedTryOns([]);
           } catch (err) {
             Alert.alert('Error', 'Failed to delete all try-ons.');
+          } finally {
+            setDeleting(false);
           }
         },
       },
@@ -131,12 +136,15 @@ export default function SavedScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          setDeleting(true);
           try {
             await api.deleteSession(item.sessionId || item.id);
             await loadSaved();
             setSelectedItem(null);
           } catch (err) {
             Alert.alert('Error', 'Failed to delete try-on.');
+          } finally {
+            setDeleting(false);
           }
         },
       },
@@ -279,7 +287,7 @@ export default function SavedScreen() {
               <Text style={styles.headerCount}>{savedTryOns.length} try-ons</Text>
             </View>
             {savedTryOns.length > 0 && (
-              <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllBtn}>
+              <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllBtn} disabled={deleting}>
                 <Text style={styles.deleteAllText}>Delete All</Text>
               </TouchableOpacity>
             )}
@@ -321,6 +329,13 @@ export default function SavedScreen() {
               </View>
             )}
           />
+        )}
+
+        {deleting && (
+          <View style={styles.deletingOverlay}>
+            <ActivityIndicator size="large" color="#E8C8A0" />
+            <Text style={styles.deletingText}>Deleting...</Text>
+          </View>
         )}
       </SafeAreaView>
     </View>
@@ -566,5 +581,18 @@ const styles = StyleSheet.create({
   videoPlayer: {
     flex: 1,
     backgroundColor: '#0D0D0D',
+  },
+  deletingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(13,13,13,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 100,
+  },
+  deletingText: {
+    color: '#E8C8A0',
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 14,
   },
 });

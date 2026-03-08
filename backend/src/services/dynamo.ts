@@ -6,6 +6,7 @@ import {
   QueryCommand,
   DeleteCommand,
   UpdateCommand,
+  BatchWriteCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { config } from '../config';
 
@@ -127,15 +128,27 @@ export async function deleteAllSessions(
   deviceId: string
 ): Promise<TryOnSession[]> {
   const sessions = await queryByDevice(deviceId);
+  if (sessions.length === 0) return [];
 
-  for (const session of sessions) {
-    await ddb.send(
-      new DeleteCommand({
-        TableName: TABLE,
-        Key: { deviceId, sessionId: session.sessionId },
-      })
-    );
+  const CHUNK = 25; // DynamoDB BatchWriteItem hard limit
+  const chunks: TryOnSession[][] = [];
+  for (let i = 0; i < sessions.length; i += CHUNK) {
+    chunks.push(sessions.slice(i, i + CHUNK));
   }
+
+  await Promise.all(
+    chunks.map((chunk) =>
+      ddb.send(
+        new BatchWriteCommand({
+          RequestItems: {
+            [TABLE]: chunk.map((s) => ({
+              DeleteRequest: { Key: { deviceId, sessionId: s.sessionId } },
+            })),
+          },
+        })
+      )
+    )
+  );
 
   return sessions;
 }
