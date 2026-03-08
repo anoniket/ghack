@@ -83,11 +83,10 @@ export interface PrepareResult {
   usePhotoshoot: boolean;
   model: string;
   estimatedDuration: number;
-  selfieBase64: string;
 }
 
 export async function prepareTryOn(params: {
-  selfieS3Key: string;
+  selfieBase64: string;
   productImageUrl: string;
   retry?: boolean;
 }): Promise<PrepareResult> {
@@ -107,7 +106,7 @@ export interface TryOnResult {
 
 export async function generateTryOn(params: {
   selfieBase64: string;
-  selfieS3Key: string;
+  selfieS3Key?: string;
   productImageUrl: string;
   sourceUrl?: string;
   usePhotoshoot: boolean;

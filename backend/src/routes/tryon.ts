@@ -1,38 +1,23 @@
 import { Router, Request, Response } from 'express';
 import { prepareTryOn, generateTryOn, downloadImageToBase64 } from '../services/gemini';
-import { downloadToBuffer, uploadBuffer, getReadUrl } from '../services/s3';
+import { uploadBuffer } from '../services/s3';
 import { putSession } from '../services/dynamo';
 
 export const tryonRouter = Router();
 
 // Step 1: Zone detection — fast, returns which model will be used
 tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
-  const { selfieS3Key, productImageUrl, retry } = req.body;
+  const { selfieBase64, productImageUrl, retry } = req.body;
 
-  if (!selfieS3Key || !productImageUrl) {
-    res.status(400).json({ error: 'selfieS3Key and productImageUrl are required' });
+  if (!selfieBase64 || !productImageUrl) {
+    res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
     return;
   }
 
   const tag = `[${req.deviceId}]`;
 
   try {
-    let t = Date.now();
-    let selfieBuffer: Buffer;
-    try {
-      selfieBuffer = await downloadToBuffer(selfieS3Key);
-    } catch (s3Err: any) {
-      if (s3Err.name === 'NoSuchKey' || (s3Err.message && s3Err.message.includes('does not exist'))) {
-        console.error(`${tag} Prepare → selfie not found in S3: ${selfieS3Key}`);
-        res.status(404).json({ error: 'SELFIE_NOT_FOUND' });
-        return;
-      }
-      throw s3Err;
-    }
-    const selfieBase64 = selfieBuffer.toString('base64');
-    console.log(`${tag} Prepare → S3 selfie download: ${Date.now() - t}ms`);
-
-    t = Date.now();
+    const t = Date.now();
     console.log(`${tag} Prepare → zone detection started`);
     const { usePhotoshoot } = await prepareTryOn(selfieBase64, productImageUrl);
     console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
@@ -44,7 +29,6 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
       usePhotoshoot: finalUsePhotoshoot,
       model: finalUsePhotoshoot ? 'pro' : 'flash',
       estimatedDuration: finalUsePhotoshoot ? 40000 : 17000,
-      selfieBase64,
     });
   } catch (err: any) {
     console.error(`${tag} Prepare ERROR:`, err.message);
@@ -55,35 +39,16 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
 // Step 2: Generate — image generation, returns base64 immediately, S3+DynamoDB async
 tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { selfieBase64: clientSelfieBase64, selfieS3Key, productImageUrl, sourceUrl, usePhotoshoot } = req.body;
+  const { selfieBase64, selfieS3Key, productImageUrl, sourceUrl, usePhotoshoot } = req.body;
 
-  if (!productImageUrl || (!clientSelfieBase64 && !selfieS3Key)) {
-    res.status(400).json({ error: 'productImageUrl and (selfieBase64 or selfieS3Key) are required' });
+  if (!selfieBase64 || !productImageUrl) {
+    res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
     return;
   }
 
   const tag = `[${req.deviceId}]`;
 
   try {
-    // Use selfie base64 from prepare if available, otherwise download from S3
-    let selfieBase64 = clientSelfieBase64;
-    if (!selfieBase64) {
-      let t = Date.now();
-      let selfieBuffer: Buffer;
-      try {
-        selfieBuffer = await downloadToBuffer(selfieS3Key);
-      } catch (s3Err: any) {
-        if (s3Err.name === 'NoSuchKey' || (s3Err.message && s3Err.message.includes('does not exist'))) {
-          console.error(`${tag} Generate → selfie not found in S3: ${selfieS3Key}`);
-          res.status(404).json({ error: 'SELFIE_NOT_FOUND' });
-          return;
-        }
-        throw s3Err;
-      }
-      selfieBase64 = selfieBuffer.toString('base64');
-      console.log(`${tag} Generate → S3 selfie download (fallback): ${Date.now() - t}ms`);
-    }
-
     let t = Date.now();
     const productBase64 = await downloadImageToBase64(productImageUrl);
     console.log(`${tag} Generate → product image download: ${Date.now() - t}ms`);

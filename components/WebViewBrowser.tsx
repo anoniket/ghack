@@ -16,6 +16,7 @@ import { useAppStore } from '@/services/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
 import * as api from '@/services/api';
+import { imageUriToBase64 } from '@/utils/imageUtils';
 import { rlog } from '@/services/logger';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -79,10 +80,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   // Trigger try-on generation when currentProduct is set
   useEffect(() => {
-    if (currentProduct && selfieS3Key && !tryOnResult && !tryOnLoading) {
+    if (currentProduct && selfieUri && !tryOnResult && !tryOnLoading) {
       rlog('TryOn', 'product received, starting generation');
       startTryOn();
-    } else if (currentProduct && !selfieS3Key) {
+    } else if (currentProduct && !selfieUri) {
       // Selfie missing — tell WebView to unlock and reset
       rlog('TryOn', 'product received but no selfie — aborting');
       if (webViewRef.current) {
@@ -93,10 +94,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
       setCurrentProduct(null);
     }
-  }, [currentProduct, selfieS3Key]);
+  }, [currentProduct, selfieUri]);
 
   const startTryOn = async () => {
-    if (!selfieS3Key || !currentProduct) return;
+    if (!selfieUri || !currentProduct) return;
     setTryOnLoading(true);
     rlog('TryOn', 'GENERATION STARTED');
 
@@ -109,9 +110,12 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
+      // Read selfie from local file — no S3 round trip
+      const selfieBase64 = await imageUriToBase64(selfieUri);
+
       // Step 1: Prepare — zone detection, returns which model (~2-3s)
       const prepResult = await api.prepareTryOn({
-        selfieS3Key,
+        selfieBase64,
         productImageUrl: currentProduct.imageUrl,
         retry: currentProduct.retry,
       });
@@ -127,8 +131,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
       // Step 3: Generate — actual image generation
       const result = await api.generateTryOn({
-        selfieBase64: prepResult.selfieBase64,
-        selfieS3Key,
+        selfieBase64,
+        selfieS3Key: selfieS3Key || undefined,
         productImageUrl: currentProduct.imageUrl,
         sourceUrl: currentProduct.pageUrl,
         usePhotoshoot: prepResult.usePhotoshoot,
