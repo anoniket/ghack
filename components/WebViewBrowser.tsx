@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -165,6 +166,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           true;
         `);
       }
+      Alert.alert('Try-on failed', errorText);
     } finally {
       setTryOnLoading(false);
       setCurrentProduct(null);
@@ -212,12 +214,21 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
     } catch (err: any) {
       console.log('🎬 [Video] Generation FAILED:', err.message || err);
+      const videoErrorQuips = [
+        'video said nah, retry?',
+        'director walked off set, again?',
+        'the reel flopped, one more?',
+        'veo ghosted us, try again?',
+        'cut! bad take, retry?',
+      ];
+      const errorText = videoErrorQuips[Math.floor(Math.random() * videoErrorQuips.length)];
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'video_error' }), '*');
+          window.postMessage(JSON.stringify({ type: 'video_error', errorText: ${JSON.stringify(errorText)} }), '*');
           true;
         `);
       }
+      Alert.alert('Video failed', errorText);
     } finally {
       setVideoLoading(false);
       console.log('🎬 [Video] ---- VIDEO GENERATION ENDED ----');

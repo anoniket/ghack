@@ -217,7 +217,7 @@ export async function generateTryOn(
     }
   }
 
-  console.error('🧠 [Gemini] NO IMAGE in response! Full response:', JSON.stringify(response).substring(0, 500));
+  console.log('🧠 [Gemini] NO IMAGE in response! Full response:', JSON.stringify(response).substring(0, 500));
   throw new Error('No image generated. The model did not return an image.');
 }
 
@@ -234,7 +234,7 @@ export async function generateVideo(
 
   let operation = await (ai.models as any).generateVideos({
     model: MODELS.VIDEO_GEN,
-    prompt: `The exact same person from the image, wearing the exact same ${productName}, in the exact same setting. The person starts still, then does a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
+    prompt: `This is an AI-generated fashion mockup image of an ordinary person (NOT a celebrity or public figure) wearing ${productName}. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
     image: {
       imageBytes: imageBase64,
       mimeType: 'image/png',
@@ -265,7 +265,13 @@ export async function generateVideo(
   // Get the video file reference
   const video = operation.response?.generatedVideos?.[0]?.video;
   if (!video) {
-    console.error('🎬 [Veo] NO VIDEO in response!', JSON.stringify(operation.response).substring(0, 500));
+    const respStr = JSON.stringify(operation.response).substring(0, 500);
+    console.log('🎬 [Veo] NO VIDEO in response!', respStr);
+    // Extract human-readable reason if available
+    const reasons = operation.response?.raiMediaFilteredReasons;
+    if (reasons && reasons.length > 0) {
+      throw new Error(reasons[0]);
+    }
     throw new Error('No video generated. The model did not return a video.');
   }
 

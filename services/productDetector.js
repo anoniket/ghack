@@ -705,8 +705,19 @@ export const PRODUCT_DETECTOR_JS = `
       } else if (data.type === 'video_error') {
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation failed');
-        removeLoadingOverlay();
-        showButtonRow(true, '\\u{21BB}');
+        var overlay = document.getElementById(TRYON_OVERLAY_ID);
+        if (overlay) {
+          var statusEl = overlay.querySelector('.__tryon-status-text');
+          if (statusEl) statusEl.textContent = data.errorText || 'video flopped, retry?';
+          var progressEl = overlay.querySelector('.__tryon-progress-fill');
+          if (progressEl) progressEl.style.background = '#ef4444';
+        }
+        if (quipTimerGlobal) { clearInterval(quipTimerGlobal); quipTimerGlobal = null; }
+        if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+        setTimeout(function() {
+          removeLoadingOverlay();
+          showButtonRow(true, '\\u{21BB}');
+        }, 1500);
       }
     } catch(e) {
       // Ignore non-JSON messages
