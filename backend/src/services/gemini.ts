@@ -160,15 +160,9 @@ Product → Customer photo → Result:
 RESPONSE FORMAT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-First, write 2-3 sentences of reasoning explaining:
-1. What you see in IMAGE 2 (the product) and what zone it maps to.
-2. What you see in IMAGE 1 (the customer) and whether that zone is visible.
+Respond with ONLY the raw JSON object. No markdown, no backticks, no explanation, no reasoning, no preamble. Just the JSON.
 
-Then output the JSON on its own line:
-
-{"product_zone": "...", "zone_visible": true/false}
-
-The JSON must be the LAST line. No markdown, no backticks around the JSON.`;
+{"product_zone": "...", "zone_visible": true/false}`;
 
 const TRYON_PHOTOSHOOT_PROMPT = `You have two images:
 - Image 1: A photo of a person (may be a partial body shot like a selfie or torso photo)
@@ -415,7 +409,7 @@ export async function prepareTryOn(
 ): Promise<{ selfieBase64: string; productBase64: string; usePhotoshoot: boolean; productZone: string; reasoning: string }> {
   const productBase64 = await downloadImageToBase64(productImageUrl);
 
-  // Zone detection
+  // Zone detection with structured JSON output + thinking for reasoning
   const detectResponse = await ai.models.generateContent({
     model: MODELS.DETECT,
     contents: [
@@ -432,27 +426,64 @@ export async function prepareTryOn(
     ],
     config: {
       temperature: 0,
-      maxOutputTokens: 512,
+      responseMimeType: 'application/json',
+      responseJsonSchema: {
+        type: 'object',
+        properties: {
+          product_zone: {
+            type: 'string',
+            enum: ['upper', 'lower', 'full', 'feet', 'hands', 'ears', 'neck', 'face', 'head', 'carry'],
+            description: 'The body zone required by the product in IMAGE 2',
+          },
+          zone_visible: {
+            type: 'boolean',
+            description: 'Whether that body zone is clearly visible in the customer photo (IMAGE 1)',
+          },
+        },
+        required: ['product_zone', 'zone_visible'],
+      } as any,
+      thinkingConfig: {
+        includeThoughts: true,
+        thinkingBudget: 1024,
+      } as any,
     },
   });
 
-  const detectText = detectResponse.text || '';
+  // Extract thinking (reasoning) and JSON output separately
+  const parts = detectResponse.candidates?.[0]?.content?.parts || [];
+  let detectText = '';
+  let reasoning = '';
+  for (const part of parts) {
+    if ((part as any).thought) {
+      reasoning += ((part as any).text || '');
+    } else if ((part as any).text) {
+      detectText += (part as any).text;
+    }
+  }
+
   console.log(`[DETECT RAW] ${detectText}`);
+  if (reasoning) console.log(`[DETECT THINKING] ${reasoning}`);
+
   let usePhotoshoot = false;
   let productZone = 'unknown';
-  let reasoning = '';
   try {
-    const jsonMatch = detectText.match(/\{[\s\S]*?\}/);
-    if (jsonMatch) {
-      // Everything before the JSON is the reasoning
-      reasoning = detectText.slice(0, detectText.indexOf(jsonMatch[0])).trim();
-      const detection = JSON.parse(jsonMatch[0]);
-      usePhotoshoot = detection.zone_visible === false;
-      productZone = detection.product_zone || detection.productZone || 'unknown';
-    }
+    const detection = JSON.parse(detectText);
+    usePhotoshoot = detection.zone_visible === false;
+    productZone = detection.product_zone || 'unknown';
   } catch {
-    // Parse error — default to flash
-    reasoning = detectText; // log the full response for debugging
+    // Parse error — try regex fallback
+    try {
+      const jsonMatch = detectText.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+        const detection = JSON.parse(jsonMatch[0]);
+        usePhotoshoot = detection.zone_visible === false;
+        productZone = detection.product_zone || 'unknown';
+      }
+    } catch {
+      // Total parse failure — default to photoshoot (safer)
+      usePhotoshoot = true;
+      reasoning = detectText;
+    }
   }
 
   return { selfieBase64, productBase64, usePhotoshoot, productZone, reasoning };
