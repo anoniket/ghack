@@ -63,6 +63,5 @@ export function deviceIdMiddleware(req: Request, res: Response, next: NextFuncti
   }
 
   req.deviceId = deviceId;
-  console.log(`[${deviceId}] ${req.method} ${req.baseUrl}${req.path}`);
   next();
 }
