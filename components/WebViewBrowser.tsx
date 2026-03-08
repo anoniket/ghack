@@ -58,6 +58,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setLastSessionId,
     lastTryonS3Key,
     setLastTryonS3Key,
+    setSelfieS3Key,
+    setSelfieUri,
   } = useAppStore();
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
@@ -143,21 +145,35 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       } catch {}
     } catch (err: any) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
-      const errorQuips = [
-        'faah, retry? \u{1F972}',
-        'AI tripped lol, again?',
-        'oops, one more time?',
-        'servers ghosted us, retry?',
-        'bruh moment, try again?',
-      ];
-      const errorText = errorQuips[Math.floor(Math.random() * errorQuips.length)];
-      if (webViewRef.current) {
-        webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(errorText)} }), '*');
-          true;
-        `);
+
+      if (err.message === 'SELFIE_NOT_FOUND') {
+        // Selfie was deleted from S3 — clear local state and prompt re-take
+        setSelfieS3Key(null);
+        setSelfieUri(null);
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: 'Selfie expired, please retake' }), '*');
+            true;
+          `);
+        }
+        Alert.alert('Selfie not found', 'Your selfie has expired. Please go to the Profile tab and take a new selfie.');
+      } else {
+        const errorQuips = [
+          'faah, retry? \u{1F972}',
+          'AI tripped lol, again?',
+          'oops, one more time?',
+          'servers ghosted us, retry?',
+          'bruh moment, try again?',
+        ];
+        const errorText = errorQuips[Math.floor(Math.random() * errorQuips.length)];
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(errorText)} }), '*');
+            true;
+          `);
+        }
+        Alert.alert('Try-on failed', errorText);
       }
-      Alert.alert('Try-on failed', errorText);
     } finally {
       setTryOnLoading(false);
       setCurrentProduct(null);

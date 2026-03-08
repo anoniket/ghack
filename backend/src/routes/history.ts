@@ -43,7 +43,7 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
     }
 
     const allKeys = sessions.flatMap((s: TryOnSession) =>
-      [s.selfieS3Key, s.tryonS3Key, s.videoS3Key].filter(Boolean) as string[]
+      [s.tryonS3Key, s.videoS3Key].filter(Boolean) as string[]
     );
 
     // Step 2: DynamoDB batch-delete + S3 bulk-delete run concurrently

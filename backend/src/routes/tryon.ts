@@ -17,7 +17,17 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
 
   try {
-    const selfieBuffer = await downloadToBuffer(selfieS3Key);
+    let selfieBuffer: Buffer;
+    try {
+      selfieBuffer = await downloadToBuffer(selfieS3Key);
+    } catch (s3Err: any) {
+      if (s3Err.name === 'NoSuchKey' || (s3Err.message && s3Err.message.includes('does not exist'))) {
+        console.error(`${tag} Prepare → selfie not found in S3: ${selfieS3Key}`);
+        res.status(404).json({ error: 'SELFIE_NOT_FOUND' });
+        return;
+      }
+      throw s3Err;
+    }
     const selfieBase64 = selfieBuffer.toString('base64');
 
     console.log(`${tag} Prepare → zone detection started`);
@@ -50,7 +60,17 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
 
   try {
-    const selfieBuffer = await downloadToBuffer(selfieS3Key);
+    let selfieBuffer: Buffer;
+    try {
+      selfieBuffer = await downloadToBuffer(selfieS3Key);
+    } catch (s3Err: any) {
+      if (s3Err.name === 'NoSuchKey' || (s3Err.message && s3Err.message.includes('does not exist'))) {
+        console.error(`${tag} Generate → selfie not found in S3: ${selfieS3Key}`);
+        res.status(404).json({ error: 'SELFIE_NOT_FOUND' });
+        return;
+      }
+      throw s3Err;
+    }
     const selfieBase64 = selfieBuffer.toString('base64');
     const productBase64 = await downloadImageToBase64(productImageUrl);
 
