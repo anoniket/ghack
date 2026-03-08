@@ -67,6 +67,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     const tryonImageUrl = await getReadUrl(tryonS3Key);
     console.log(`${tag} Generate → got read URL`);
 
+    console.log(`${tag} Generate → sourceUrl=${sourceUrl || '(none)'}`);
     await putSession({
       deviceId: req.deviceId,
       sessionId,

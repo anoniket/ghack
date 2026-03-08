@@ -67,6 +67,7 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
   try {
     const session = await queryBySourceUrl(req.deviceId, sourceUrl);
+    console.log(`${tag} ProductTryOn → query sourceUrl=${sourceUrl}`);
     console.log(`${tag} ProductTryOn → ${session ? 'found session=' + session.sessionId : 'not found'}`);
     if (session) {
       res.json({
