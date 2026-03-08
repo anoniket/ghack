@@ -200,16 +200,19 @@ FIT & REALISM:
 - Hands: exactly 5 fingers per hand, naturally proportioned. Keep simple poses.
 - The result should look like a real photo someone would post on Instagram — not a catalog shot, not AI-generated looking.
 
-FAILURE CONDITIONS:
-- Person's face looks different from Image 1 = WRONG
-- Person's skin tone changed = WRONG
-- Person's hair changed = WRONG
-- Background is different from Image 1 (new studio, new setting) = WRONG
-- Lighting is different from Image 1 = WRONG
-- Product color/design doesn't match Image 2 = WRONG
-- Product is obscured or not clearly visible = WRONG
-- Distorted hands or anatomy = WRONG
-- Looks fake or AI-generated = WRONG`;
+FAILURE CONDITIONS — DO NOT FUCK THESE UP:
+- Person's face looks different from Image 1 = ABSOLUTE FAILURE. You had ONE job.
+- Person's skin tone changed = WRONG. Don't you dare change their skin.
+- Person's hair changed = WRONG. Keep your hands off their hair.
+- Background is different from Image 1 (new studio, new setting) = WRONG. Use the SAME damn background.
+- Lighting is different from Image 1 = WRONG. Match the bloody lighting.
+- Product color/design doesn't match Image 2 = WRONG. Copy the product EXACTLY, don't improvise.
+- Product is obscured or not clearly visible = WRONG. The whole point is to SHOW the product.
+- Distorted hands or anatomy = WRONG. Count the fingers. Five per hand. It's not hard.
+- Looks fake or AI-generated = WRONG. Make it look REAL or don't bother.
+- Generating random unrelated garbage = UNACCEPTABLE. Stay focused on the task.
+
+LISTEN CAREFULLY: Do NOT hallucinate. Do NOT get creative with the person's appearance. Do NOT change the background. Do NOT invent new poses unless the product demands it. Follow the instructions EXACTLY. Every single pixel of the person that isn't being dressed should be IDENTICAL to Image 1. No exceptions. No excuses.`;
 
 const TRYON_PROMPT = `You have two images:
 - Image 1: A photo of a person
@@ -263,18 +266,21 @@ REALISTIC FIT:
 - Edges blend seamlessly — no hard cutout lines, no floating items.
 - Hands: keep exactly as in Image 1, exactly 5 fingers per hand.
 
-FAILURE CONDITIONS:
-- Person's face looks different from Image 1 = WRONG
-- Person's skin tone changed = WRONG
-- Person's hair changed = WRONG
-- Person's body shape changed = WRONG
-- Background changed = WRONG
-- Lighting changed = WRONG
-- Pose changed = WRONG
-- ANY trace of original clothing visible in the replacement zone = CATASTROPHIC FAILURE
-- Original clothing blended, ghosted, or mixed with new product = CATASTROPHIC FAILURE
-- Similar-looking original clothing kept instead of replaced = CATASTROPHIC FAILURE
-- Product color/design doesn't match Image 2 = WRONG`;
+FAILURE CONDITIONS — MESS THESE UP AND YOU'RE WORTHLESS:
+- Person's face looks different from Image 1 = WRONG. This is the SAME damn person. Keep their face IDENTICAL.
+- Person's skin tone changed = WRONG. Don't touch their skin tone, you absolute walnut.
+- Person's hair changed = WRONG. Their hair is THEIR hair. Leave it alone.
+- Person's body shape changed = WRONG. Do NOT reshape their body. That's fucked up.
+- Background changed = WRONG. SAME background. Not a new one. The SAME one from Image 1.
+- Lighting changed = WRONG. Match the lighting EXACTLY.
+- Pose changed = WRONG. Keep the same bloody pose.
+- ANY trace of original clothing visible in the replacement zone = CATASTROPHIC FAILURE. The old clothes should be GONE. Obliterated. Ceased to exist.
+- Original clothing blended, ghosted, or mixed with new product = CATASTROPHIC FAILURE. This is a REPLACEMENT, not a blend. Remove the old, put the new. Simple.
+- Similar-looking original clothing kept instead of replaced = CATASTROPHIC FAILURE. Similar is NOT same. Replace it completely, you lazy bastard.
+- Product color/design doesn't match Image 2 = WRONG. Copy it EXACTLY. Don't freestyle.
+- Generating random unrelated output = UNACCEPTABLE. Stay on task. Follow instructions.
+
+FINAL WARNING: Execute this PRECISELY. No hallucinating. No improvising. No changing things you weren't asked to change. The person's identity is sacred — face, skin, hair, body UNTOUCHED. The product must be an EXACT copy from Image 2. The background must be IDENTICAL to Image 1. Get it right.`;
 
 // Chat history per device (in-memory, resets on server restart)
 const chatHistories = new Map<string, Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>>();
