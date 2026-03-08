@@ -23,10 +23,12 @@ export const PRODUCT_DETECTOR_JS = `
   var TRYON_BTN_ID = '__tryon-floating-btn';
   var VIDEO_BTN_ID = '__tryon-video-btn';
   var TRYON_OVERLAY_ID = '__tryon-loading-overlay';
+  var ZOOM_OVERLAY_ID = '__tryon-zoom-overlay';
   var DETECTED_ATTR = 'data-tryon-detected';
   var productImg = null; // Reference to the detected product image
   var originalProductSrc = null; // Original product image URL before replacement
   var __tryonBusy = false; // Guard against double-taps during generation
+  var __tryonImageSrc = null; // The try-on result image URL for zoom
 
   // CSS for the floating Try On button + wave loading overlay
   var style = document.createElement('style');
@@ -180,6 +182,46 @@ export const PRODUCT_DETECTOR_JS = `
     '  color: rgba(255,255,255,0.5) !important;' +
     '  font-size: 12px !important;' +
     '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
+    '}' +
+    /* Fullscreen zoom overlay */
+    '#' + ZOOM_OVERLAY_ID + ' {' +
+    '  position: fixed !important;' +
+    '  top: 0 !important;' +
+    '  left: 0 !important;' +
+    '  width: 100vw !important;' +
+    '  height: 100vh !important;' +
+    '  z-index: 2147483647 !important;' +
+    '  background: rgba(0,0,0,0.95) !important;' +
+    '  display: flex !important;' +
+    '  align-items: center !important;' +
+    '  justify-content: center !important;' +
+    '  overflow: auto !important;' +
+    '  -webkit-overflow-scrolling: touch !important;' +
+    '}' +
+    '#' + ZOOM_OVERLAY_ID + ' img {' +
+    '  max-width: none !important;' +
+    '  max-height: none !important;' +
+    '  width: 100vw !important;' +
+    '  height: auto !important;' +
+    '  object-fit: contain !important;' +
+    '  touch-action: pinch-zoom !important;' +
+    '}' +
+    '#' + ZOOM_OVERLAY_ID + ' .__tryon-zoom-close {' +
+    '  position: fixed !important;' +
+    '  top: 16px !important;' +
+    '  right: 16px !important;' +
+    '  width: 40px !important;' +
+    '  height: 40px !important;' +
+    '  border-radius: 20px !important;' +
+    '  background: rgba(255,255,255,0.15) !important;' +
+    '  border: none !important;' +
+    '  color: #fff !important;' +
+    '  font-size: 20px !important;' +
+    '  display: flex !important;' +
+    '  align-items: center !important;' +
+    '  justify-content: center !important;' +
+    '  cursor: pointer !important;' +
+    '  z-index: 2147483647 !important;' +
     '}';
   document.head.appendChild(style);
 
@@ -401,10 +443,15 @@ export const PRODUCT_DETECTOR_JS = `
       }
     }, 2000);
 
+    var lastPct = 0;
     progressInterval = setInterval(function() {
       var elapsed = Date.now() - startTime;
-      var activeDuration = isVideo ? 60000 : __tryonDuration;
+      var activeDuration = isVideo ? 65000 : __tryonDuration;
       var pct = Math.min(95, Math.round((elapsed / activeDuration) * 100));
+
+      // Never go backward — if duration was updated mid-flight, just slow down from current position
+      if (pct < lastPct) pct = lastPct;
+      lastPct = pct;
 
       progressFill.style.width = pct + '%';
       percentText.textContent = pct + '%';
@@ -431,6 +478,56 @@ export const PRODUCT_DETECTOR_JS = `
     if (existing) {
       existing.remove();
       log('🧹', 'OVERLAY — Loading overlay removed');
+    }
+  }
+
+  function openZoomOverlay() {
+    if (!__tryonImageSrc) return;
+    var existing = document.getElementById(ZOOM_OVERLAY_ID);
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = ZOOM_OVERLAY_ID;
+
+    var img = document.createElement('img');
+    img.src = __tryonImageSrc;
+
+    var closeBtn = document.createElement('button');
+    closeBtn.className = '__tryon-zoom-close';
+    closeBtn.innerHTML = '\\u{2715}';
+    closeBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      overlay.remove();
+    });
+
+    // Tap on background (not on image) to close
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.remove();
+    });
+
+    overlay.appendChild(img);
+    overlay.appendChild(closeBtn);
+    document.body.appendChild(overlay);
+    log('🔍', 'ZOOM — Opened fullscreen zoom overlay');
+  }
+
+  function makeImageTappable() {
+    if (!productImg || !__tryonImageSrc) return;
+    productImg.style.cursor = 'zoom-in';
+    productImg.__tryonTapHandler = function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openZoomOverlay();
+    };
+    productImg.addEventListener('click', productImg.__tryonTapHandler);
+  }
+
+  function removeImageTapHandler() {
+    if (productImg && productImg.__tryonTapHandler) {
+      productImg.removeEventListener('click', productImg.__tryonTapHandler);
+      productImg.__tryonTapHandler = null;
+      productImg.style.cursor = '';
     }
   }
 
@@ -610,27 +707,35 @@ export const PRODUCT_DETECTOR_JS = `
       log('🧹', 'REPLACE — Removed ' + sources.length + ' <source> tags from <picture>');
     }
 
+    // Remove old tap handler before replacing
+    removeImageTapHandler();
+
     // For CDN URLs, preload the image before swapping to avoid flash of old image
     if (imageSource.startsWith('http')) {
       var preload = new Image();
       preload.onload = function() {
         productImg.src = imageSource;
+        __tryonImageSrc = imageSource;
         log('✅', 'REPLACE — Product image replaced with CDN URL (preloaded)');
         removeLoadingOverlay();
+        makeImageTappable();
         showButtonRow(true, '\\u{21BB}');
       };
       preload.onerror = function() {
-        // Fallback: set it anyway
         productImg.src = imageSource;
+        __tryonImageSrc = imageSource;
         log('⚠️', 'REPLACE — CDN preload failed, set src directly');
         removeLoadingOverlay();
+        makeImageTappable();
         showButtonRow(true, '\\u{21BB}');
       };
       preload.src = imageSource;
     } else {
       productImg.src = 'data:image/png;base64,' + imageSource;
+      __tryonImageSrc = productImg.src;
       log('✅', 'REPLACE — Product image replaced with base64 (length: ' + imageSource.length + ')');
       removeLoadingOverlay();
+      makeImageTappable();
       showButtonRow(true, '\\u{21BB}');
     }
   }
@@ -642,6 +747,11 @@ export const PRODUCT_DETECTOR_JS = `
       if (data.type === 'tryon_loading') {
         __tryonBusy = true;
         if (data.duration) __tryonDuration = data.duration;
+        // Close zoom overlay and remove tap handler if open
+        var zoomEl = document.getElementById(ZOOM_OVERLAY_ID);
+        if (zoomEl) zoomEl.remove();
+        removeImageTapHandler();
+        __tryonImageSrc = null;
         log('📨', 'RN MESSAGE — Try-on loading started (duration: ' + __tryonDuration + 'ms)');
         showLoadingOverlay();
       } else if (data.type === 'tryon_duration' && data.duration) {
