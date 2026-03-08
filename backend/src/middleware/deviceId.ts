@@ -63,6 +63,5 @@ export function deviceIdMiddleware(req: Request, res: Response, next: NextFuncti
   }
 
   req.deviceId = deviceId;
-  console.log(`→ ${req.method} ${req.path} [${deviceId.substring(0, 12)}...]`);
   next();
 }
