@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
+import { deleteSelfie } from '@/utils/imageUtils';
 
 const { width: W, height: H } = Dimensions.get('window');
 const CARD_WIDTH = (W - 48) / 2;
@@ -69,7 +70,10 @@ function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
 }
 
 export default function SavedScreen() {
-  const { savedTryOns, setSavedTryOns, setCurrentUrl, setMode } = useAppStore();
+  const {
+    savedTryOns, setSavedTryOns, setCurrentUrl, setMode,
+    setSelfieS3Key, setSelfieUri, setOnboardingComplete,
+  } = useAppStore();
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<SavedTryOn | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -119,6 +123,11 @@ export default function SavedScreen() {
           try {
             await api.deleteAllSessions();
             setSavedTryOns([]);
+            // Clear selfie state — forces re-onboarding
+            setSelfieS3Key(null);
+            setSelfieUri(null);
+            setOnboardingComplete(false);
+            await deleteSelfie(); // clears local file + AsyncStorage
           } catch (err) {
             Alert.alert('Error', 'Failed to delete all try-ons.');
           } finally {

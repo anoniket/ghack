@@ -6,7 +6,7 @@ import {
   deleteAllSessions as deleteAllFromDb,
   TryOnSession,
 } from '../services/dynamo';
-import { deleteObject, deleteObjects, getReadUrl } from '../services/s3';
+import { deleteObject, deleteObjects, deletePrefix, getReadUrl } from '../services/s3';
 
 export const historyRouter = Router();
 
@@ -46,10 +46,11 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
       [s.tryonS3Key, s.videoS3Key].filter(Boolean) as string[]
     );
 
-    // Step 2: DynamoDB batch-delete + S3 bulk-delete run concurrently
+    // Step 2: DynamoDB batch-delete + S3 bulk-delete + selfie prefix delete run concurrently
     const [failedS3Keys] = await Promise.all([
-      deleteObjects(allKeys),      // 1 API call per 1000 keys
-      deleteAllFromDb(req.deviceId), // 1 API call per 25 sessions (already queries internally, but we pass sessions directly below)
+      deleteObjects(allKeys),                        // tryons + videos
+      deleteAllFromDb(req.deviceId),                 // DynamoDB rows
+      deletePrefix(`${req.deviceId}/selfies/`),      // selfie images
     ]);
 
     if (failedS3Keys.length > 0) {
