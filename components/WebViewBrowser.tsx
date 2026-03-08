@@ -391,12 +391,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             }
             if (loadTimerRef.current) {
               clearTimeout(loadTimerRef.current);
-            }
-            loadTimerRef.current = setTimeout(() => {
-              rlog('WebView', 'injecting product detector');
-              webViewRef.current?.injectJavaScript(PRODUCT_DETECTOR_JS);
               loadTimerRef.current = null;
-            }, 500);
+            }
+            rlog('WebView', 'injecting product detector');
+            webViewRef.current?.injectJavaScript(PRODUCT_DETECTOR_JS);
           }}
           injectedJavaScriptBeforeContentLoaded={`
             window.__tryonInjected = false;

@@ -554,8 +554,20 @@ export const PRODUCT_DETECTOR_JS = `
       // Size check
       if (rect.width < threshold || rect.height < minHeight) continue;
 
-      log('✅', 'MATCH — Found product image! ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + 'px, src: ' + (img.currentSrc || img.src || '').substring(0, 80));
-      return img;
+      log('📐', 'CHECKING — img[' + i + '] size: ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + 'px, src: ' + (img.currentSrc || img.src || ''));
+
+      // Visibility check: is this image actually the topmost element at its center?
+      var centerX = rect.left + rect.width / 2;
+      var centerY = rect.top + rect.height / 2;
+      var topEl = document.elementFromPoint(centerX, centerY);
+      var isVisible = (topEl === img) || (topEl !== null && topEl.tagName !== 'IMG');
+
+      log('👁️', 'VISIBILITY — img[' + i + '] isVisible: ' + isVisible + ', topEl: ' + (topEl ? topEl.tagName + '.' + (topEl.className || '').substring(0, 30) : 'null'));
+
+      if (isVisible) {
+        log('✅', 'MATCH — Found visible product image! ' + Math.round(rect.width) + 'x' + Math.round(rect.height) + 'px');
+        return img;
+      }
     }
 
     log('❌', 'NO MATCH — No visible full-width product image found on this page');
@@ -824,8 +836,8 @@ export const PRODUCT_DETECTOR_JS = `
     productImg = null;
 
     // Re-scan after the new page content settles
-    setTimeout(scanForProduct, 1500);
-    log('⏱️', 'RESET — Scheduled re-scan in 1.5s for new page');
+    setTimeout(scanForProduct, 300);
+    log('⏱️', 'RESET — Scheduled re-scan in 300ms for new page');
   }
 
   function checkUrlChange() {
@@ -871,34 +883,43 @@ export const PRODUCT_DETECTOR_JS = `
 
   log('🔀', 'SPA NAV — History API hooks installed for SPA navigation detection');
 
-  function scanForProduct() {
+  function scanForProduct(trigger) {
     // Only inject once per page — find the first full-width product image
-    if (productImg) {
-      log('⏭️', 'SCAN — Already detected a product image, skipping');
-      return;
-    }
+    if (productImg) return;
 
     var img = findProductImage();
     if (img) {
+      log('✅', 'SCAN — Detected via ' + (trigger || 'unknown'));
       injectTryOnButton(img);
+      stopDetection();
     }
   }
 
-  // Initial scan after page settles
-  setTimeout(scanForProduct, 1500);
-  log('⏱️', 'SCAN — Scheduled initial scan in 1.5s');
+  // --- Hybrid detection: polling (reliable) + MutationObserver (fast) ---
 
-  // Re-scan on scroll (debounced) for lazy-loaded hero images
-  var scrollTimer;
-  window.addEventListener('scroll', function() {
-    if (productImg) return; // Already found
-    clearTimeout(scrollTimer);
-    scrollTimer = setTimeout(scanForProduct, 500);
-  }, { passive: true });
+  var pollTimer = null;
+  var pollStart = Date.now();
 
-  // Re-scan on DOM mutations (catches dynamically loaded product images)
+  function pollTick() {
+    if (productImg) return;
+    scanForProduct('poll');
+    if (productImg) return; // found during scan
+
+    // Back off: 150ms for first 3s, 500ms for next 5s, 2s after, stop at 30s
+    var elapsed = Date.now() - pollStart;
+    var next;
+    if (elapsed < 3000) next = 150;
+    else if (elapsed < 8000) next = 500;
+    else if (elapsed < 30000) next = 2000;
+    else return; // stop polling after 30s
+
+    pollTimer = setTimeout(pollTick, next);
+  }
+
+  // MutationObserver — interrupt between poll ticks for faster detection
+  var mutationDebounce = null;
   var observer = new MutationObserver(function(mutations) {
-    if (productImg) return; // Already found
+    if (productImg) return;
     var hasNewNodes = false;
     for (var i = 0; i < mutations.length; i++) {
       if (mutations[i].addedNodes.length > 0) {
@@ -907,7 +928,10 @@ export const PRODUCT_DETECTOR_JS = `
       }
     }
     if (hasNewNodes) {
-      setTimeout(scanForProduct, 500);
+      clearTimeout(mutationDebounce);
+      mutationDebounce = setTimeout(function() {
+        scanForProduct('mutation');
+      }, 100);
     }
   });
 
@@ -916,7 +940,28 @@ export const PRODUCT_DETECTOR_JS = `
     subtree: true,
   });
 
-  log('👀', 'OBSERVERS — Scroll, MutationObserver, and SPA nav hooks active');
+  // Scroll listener — catches scroll-triggered lazy loads
+  var scrollTimer;
+  window.addEventListener('scroll', function() {
+    if (productImg) return;
+    clearTimeout(scrollTimer);
+    scrollTimer = setTimeout(function() {
+      scanForProduct('scroll');
+    }, 200);
+  }, { passive: true });
+
+  function stopDetection() {
+    if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
+    if (mutationDebounce) { clearTimeout(mutationDebounce); mutationDebounce = null; }
+    if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = null; }
+    observer.disconnect();
+  }
+
+  // Kick off: scan immediately, then start polling
+  scanForProduct('immediate');
+  if (!productImg) pollTick();
+
+  log('👀', 'OBSERVERS — Polling + MutationObserver + scroll active');
 
   // Notify RN that injection is complete
   window.ReactNativeWebView.postMessage(JSON.stringify({
