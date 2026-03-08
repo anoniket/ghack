@@ -17,6 +17,7 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
 
   try {
+    let t = Date.now();
     let selfieBuffer: Buffer;
     try {
       selfieBuffer = await downloadToBuffer(selfieS3Key);
@@ -29,9 +30,12 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
       throw s3Err;
     }
     const selfieBase64 = selfieBuffer.toString('base64');
+    console.log(`${tag} Prepare → S3 selfie download: ${Date.now() - t}ms`);
 
+    t = Date.now();
     console.log(`${tag} Prepare → zone detection started`);
     const { usePhotoshoot } = await prepareTryOn(selfieBase64, productImageUrl);
+    console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
 
     const finalUsePhotoshoot = retry ? true : usePhotoshoot;
     console.log(`${tag} Prepare → model=${finalUsePhotoshoot ? 'PRO' : 'FLASH'} (zone=${usePhotoshoot ? 'hidden' : 'visible'}, retry=${!!retry})`);
@@ -60,6 +64,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
 
   try {
+    let t = Date.now();
     let selfieBuffer: Buffer;
     try {
       selfieBuffer = await downloadToBuffer(selfieS3Key);
@@ -72,20 +77,27 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
       throw s3Err;
     }
     const selfieBase64 = selfieBuffer.toString('base64');
-    const productBase64 = await downloadImageToBase64(productImageUrl);
+    console.log(`${tag} Generate → S3 selfie download: ${Date.now() - t}ms`);
 
+    t = Date.now();
+    const productBase64 = await downloadImageToBase64(productImageUrl);
+    console.log(`${tag} Generate → product image download: ${Date.now() - t}ms`);
+
+    t = Date.now();
     console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started`);
     const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot);
-    console.log(`${tag} Generate → image received, base64 length=${resultBase64.length}`);
+    console.log(`${tag} Generate → Gemini API: ${Date.now() - t}ms, base64 length=${resultBase64.length}`);
 
+    t = Date.now();
     const sessionId = `ses_${Date.now()}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
     const resultBuffer = Buffer.from(resultBase64, 'base64');
     await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
-    console.log(`${tag} Generate → uploaded to S3: ${tryonS3Key}`);
+    console.log(`${tag} Generate → S3 upload: ${Date.now() - t}ms`);
 
+    t = Date.now();
     const tryonImageUrl = await getReadUrl(tryonS3Key);
-    console.log(`${tag} Generate → got read URL`);
+    console.log(`${tag} Generate → presign URL: ${Date.now() - t}ms`);
 
     console.log(`${tag} Generate → sourceUrl=${sourceUrl || '(none)'}`);
     await putSession({
