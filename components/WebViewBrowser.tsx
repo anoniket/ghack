@@ -127,6 +127,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
       // Step 3: Generate — actual image generation
       const result = await api.generateTryOn({
+        selfieBase64: prepResult.selfieBase64,
         selfieS3Key,
         productImageUrl: currentProduct.imageUrl,
         sourceUrl: currentProduct.pageUrl,
@@ -139,8 +140,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       setLastSessionId(result.sessionId);
       setLastTryonS3Key(result.tryonS3Key);
 
-      // Set result as CDN URL (not base64)
-      setTryOnResult(result.tryonImageUrl);
+      // Inject base64 immediately — S3 upload happens in background on server
+      setTryOnResult(`data:image/png;base64,${result.resultBase64}`);
 
       // Refresh saved history
       try {
