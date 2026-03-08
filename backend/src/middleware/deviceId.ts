@@ -46,7 +46,9 @@ export function deviceIdMiddleware(req: Request, res: Response, next: NextFuncti
     }
 
     // Verify keyed hash: SHA256(secret + "." + deviceId + "." + timestamp + "." + path)
-    const payload = `${config.appSecret}.${deviceId}.${timestamp}.${req.path}`;
+    // Use baseUrl + path to get full path (e.g. /api/history, not just /history)
+    const fullPath = req.baseUrl + req.path;
+    const payload = `${config.appSecret}.${deviceId}.${timestamp}.${fullPath}`;
     const expected = crypto
       .createHash('sha256')
       .update(payload)

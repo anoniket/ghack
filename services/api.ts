@@ -35,11 +35,12 @@ async function signRequest(
 ): Promise<string> {
   if (!APP_SECRET) return '';
   const payload = `${APP_SECRET}.${deviceId}.${timestamp}.${path}`;
-  return await Crypto.digestStringAsync(
+  const hash = await Crypto.digestStringAsync(
     Crypto.CryptoDigestAlgorithm.SHA256,
     payload,
     { encoding: Crypto.CryptoEncoding.HEX }
   );
+  return hash.toLowerCase();
 }
 
 async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
