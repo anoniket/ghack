@@ -64,6 +64,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const [canGoBack, setCanGoBack] = useState(false);
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
+  const videoLoadingRef = useRef(false);
 
   const videoPlayer = useVideoPlayer(videoDataUri, (player) => {
     player.loop = true;
@@ -178,7 +179,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   }, [tryOnResult]);
 
   const startVideoGeneration = async () => {
-    if (!lastTryonS3Key || !lastSessionId || videoLoading) return;
+    if (!lastTryonS3Key || !lastSessionId) return;
+    // Use ref for atomic double-tap guard (React state is async)
+    if (videoLoadingRef.current) return;
+    videoLoadingRef.current = true;
     setVideoLoading(true);
     rlog('Video', 'GENERATION STARTED');
 
@@ -196,17 +200,35 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         sessionId: lastSessionId,
         tryonS3Key: lastTryonS3Key,
       });
+      rlog('Video', `job=${jobId} started, polling`);
 
-      // Poll for completion
+      // Poll for completion — max 10 minutes
+      const MAX_POLL_MS = 10 * 60 * 1000;
+      const pollStart = Date.now();
       let status = 'pending';
       let videoUrl: string | undefined;
+      let pollCount = 0;
       while (status === 'pending') {
+        if (Date.now() - pollStart > MAX_POLL_MS) {
+          throw new Error('Video generation timed out');
+        }
         await new Promise((resolve) => setTimeout(resolve, 5000));
-        const poll = await api.pollVideo(jobId);
-        status = poll.status;
-        videoUrl = poll.videoUrl;
-        if (poll.status === 'failed') {
-          throw new Error(poll.error || 'Video generation failed');
+        pollCount++;
+        try {
+          const poll = await api.pollVideo(jobId);
+          status = poll.status;
+          videoUrl = poll.videoUrl;
+          rlog('Video', `poll #${pollCount} status=${poll.status}`);
+          if (poll.status === 'failed') {
+            throw new Error(poll.error || 'Video generation failed');
+          }
+        } catch (pollErr: any) {
+          // Network error during poll — retry up to 3 consecutive failures
+          if (pollErr.message?.includes('generation failed') || pollErr.message?.includes('timed out')) {
+            throw pollErr; // Real failure, don't retry
+          }
+          rlog('Video', `poll #${pollCount} network error: ${pollErr.message}, retrying`);
+          // Don't throw — let the while loop retry on next iteration
         }
       }
 
@@ -238,6 +260,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
       Alert.alert('Video failed', errorText);
     } finally {
+      videoLoadingRef.current = false;
       setVideoLoading(false);
       rlog('Video', 'GENERATION ENDED');
     }

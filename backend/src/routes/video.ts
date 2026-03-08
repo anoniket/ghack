@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuid } from 'uuid';
 import { startVideoGeneration, getVideoJob } from '../services/gemini';
 import { downloadToBuffer, uploadBuffer, getReadUrl } from '../services/s3';
-import { getSession, updateSessionVideo } from '../services/dynamo';
+import { updateSessionVideo } from '../services/dynamo';
 
 export const videoRouter = Router();
 
@@ -23,27 +23,37 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     const jobId = uuid();
     console.log(`${tag} Video → job=${jobId} started`);
 
+    // Fire and forget — but catch errors so they don't become unhandled rejections
     startVideoGeneration(
       jobId,
       tryonBase64,
       'outfit',
       async (videoBuffer: Buffer) => {
-        const videoS3Key = `${req.deviceId}/videos/${jobId}.mp4`;
-        await uploadBuffer(videoS3Key, videoBuffer, 'video/mp4');
-        const videoReadUrl = await getReadUrl(videoS3Key);
+        try {
+          const videoS3Key = `${req.deviceId}/videos/${jobId}.mp4`;
+          await uploadBuffer(videoS3Key, videoBuffer, 'video/mp4');
+          const videoReadUrl = await getReadUrl(videoS3Key);
 
-        if (sessionId) {
-          try {
-            await updateSessionVideo(req.deviceId, sessionId, videoS3Key, videoS3Key);
-          } catch (e) {
-            console.error(`${tag} Video → failed to update session:`, (e as any).message);
+          if (sessionId) {
+            try {
+              await updateSessionVideo(req.deviceId, sessionId, videoS3Key, videoS3Key);
+            } catch (e) {
+              console.error(`${tag} Video → job=${jobId} failed to update session: ${(e as any).message}`);
+            }
           }
-        }
 
-        console.log(`${tag} Video → job=${jobId} complete`);
-        return { s3Key: videoS3Key, cdnUrl: videoReadUrl };
-      }
-    );
+          console.log(`${tag} Video → job=${jobId} uploaded to S3`);
+          return { s3Key: videoS3Key, cdnUrl: videoReadUrl };
+        } catch (uploadErr: any) {
+          console.error(`${tag} Video → job=${jobId} S3 upload FAILED: ${uploadErr.message}`);
+          throw uploadErr;
+        }
+      },
+      tag
+    ).catch((err) => {
+      // This catches any unhandled rejection from the async fire-and-forget
+      console.error(`${tag} Video → job=${jobId} unhandled error: ${err.message}`);
+    });
 
     res.json({ jobId });
   } catch (err: any) {
@@ -53,10 +63,16 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
 });
 
 videoRouter.get('/video/:jobId', async (req: Request, res: Response) => {
-  const job = getVideoJob(req.params.jobId as string);
+  const jobId = req.params.jobId as string;
+  const job = getVideoJob(jobId);
   if (!job) {
+    console.log(`[${req.deviceId}] Video → poll job=${jobId} not found`);
     res.status(404).json({ error: 'Job not found' });
     return;
+  }
+
+  if (job.status === 'failed') {
+    console.log(`[${req.deviceId}] Video → poll job=${jobId} status=failed error=${job.error}`);
   }
 
   res.json({

@@ -447,11 +447,13 @@ export async function startVideoGeneration(
   jobId: string,
   imageBase64: string,
   _label: string,
-  onComplete: (videoBuffer: Buffer) => Promise<{ s3Key: string; cdnUrl: string }>
+  onComplete: (videoBuffer: Buffer) => Promise<{ s3Key: string; cdnUrl: string }>,
+  tag: string = ''
 ): Promise<void> {
   videoJobs.set(jobId, { status: 'pending' });
 
   try {
+    console.log(`${tag} Video → job=${jobId} submitting to Gemini`);
     let operation = await (ai.models as any).generateVideos({
       model: MODELS.VIDEO_GEN,
       prompt: `This is an AI-generated fashion mockup image of an ordinary person (NOT a celebrity or public figure) wearing an outfit. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
@@ -465,11 +467,25 @@ export async function startVideoGeneration(
         personGeneration: 'allow_adult',
       },
     });
+    console.log(`${tag} Video → job=${jobId} submitted, polling started`);
 
-    // Poll until done
+    // Poll until done — max 10 minutes
+    const MAX_POLL_MS = 10 * 60 * 1000;
+    const pollStart = Date.now();
+    let pollCount = 0;
     while (!operation.done) {
+      if (Date.now() - pollStart > MAX_POLL_MS) {
+        throw new Error('Video generation timed out after 10 minutes');
+      }
       await new Promise((resolve) => setTimeout(resolve, 10000));
-      operation = await (ai.operations as any).getVideosOperation({ operation });
+      pollCount++;
+      try {
+        operation = await (ai.operations as any).getVideosOperation({ operation });
+        console.log(`${tag} Video → job=${jobId} poll #${pollCount}, done=${operation.done}`);
+      } catch (pollErr: any) {
+        console.error(`${tag} Video → job=${jobId} poll #${pollCount} ERROR: ${pollErr.message}`);
+        throw pollErr;
+      }
     }
 
     const video = operation.response?.generatedVideos?.[0]?.video;
@@ -479,14 +495,20 @@ export async function startVideoGeneration(
     }
 
     // Download video
+    console.log(`${tag} Video → job=${jobId} downloading video`);
     const rawUrl = video.uri || video.url;
     const separator = rawUrl.includes('?') ? '&' : '?';
     const downloadUrl = `${rawUrl}${separator}key=${config.geminiApiKey}`;
     const videoResponse = await fetch(downloadUrl);
+    if (!videoResponse.ok) {
+      throw new Error(`Video download failed: HTTP ${videoResponse.status}`);
+    }
     const videoBuffer = Buffer.from(await videoResponse.arrayBuffer());
+    console.log(`${tag} Video → job=${jobId} downloaded, size=${videoBuffer.length} bytes`);
 
     // Upload to S3 via callback
     const { s3Key, cdnUrl } = await onComplete(videoBuffer);
+    console.log(`${tag} Video → job=${jobId} complete, s3Key=${s3Key}`);
 
     videoJobs.set(jobId, {
       status: 'complete',
@@ -494,6 +516,7 @@ export async function startVideoGeneration(
       videoS3Key: s3Key,
     });
   } catch (err: any) {
+    console.error(`${tag} Video → job=${jobId} FAILED: ${err.message}`);
     videoJobs.set(jobId, {
       status: 'failed',
       error: err.message || 'Video generation failed',
