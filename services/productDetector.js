@@ -188,7 +188,7 @@ export const PRODUCT_DETECTOR_JS = `
   var progressInterval = null;
   var quipTimerGlobal = null;
 
-  var __tryonDuration = 12000; // default for Flash, overridden by message
+  var __tryonDuration = 17000; // default for Flash, overridden by server
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';

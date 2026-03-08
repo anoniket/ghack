@@ -9,7 +9,7 @@ mediaRouter.post('/log', (req: Request, res: Response) => {
   const { logs } = req.body;
   if (Array.isArray(logs)) {
     for (const entry of logs) {
-      console.log(`📱 [${req.deviceId.substring(0, 12)}] ${entry.tag || ''} ${entry.msg}`);
+      console.log(`[${req.deviceId}] 📱 ${entry.tag || ''} ${entry.msg}`);
     }
   }
   res.json({ ok: true });
@@ -30,9 +30,10 @@ mediaRouter.post('/upload-url', async (req: Request, res: Response) => {
 
   try {
     const uploadUrl = await getPresignedUploadUrl(s3Key, ct, 300);
+    console.log(`[${req.deviceId}] UploadURL → generated for ${s3Key}`);
     res.json({ uploadUrl, s3Key, expiresIn: 300 });
   } catch (err: any) {
-    console.error(`[${req.deviceId.substring(0, 8)}] UploadURL ERROR:`, err.message);
+    console.error(`[${req.deviceId}] UploadURL ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to generate upload URL' });
   }
 });

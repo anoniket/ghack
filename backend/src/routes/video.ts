@@ -14,7 +14,7 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     return;
   }
 
-  const tag = `[${req.deviceId.substring(0, 8)}]`;
+  const tag = `[${req.deviceId}]`;
 
   try {
     const tryonBuffer = await downloadToBuffer(tryonS3Key);

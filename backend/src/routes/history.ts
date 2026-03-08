@@ -9,8 +9,10 @@ import { deleteObject, getReadUrl } from '../services/s3';
 export const historyRouter = Router();
 
 historyRouter.get('/history', async (req: Request, res: Response) => {
+  const tag = `[${req.deviceId}]`;
   try {
     const sessions = await queryByDevice(req.deviceId);
+    console.log(`${tag} History → fetched ${sessions.length} sessions`);
     const items = await Promise.all(sessions.map(async (s) => ({
       sessionId: s.sessionId,
       sourceUrl: s.sourceUrl,
@@ -21,15 +23,18 @@ historyRouter.get('/history', async (req: Request, res: Response) => {
     })));
     res.json({ items });
   } catch (err: any) {
-    console.error(`[${req.deviceId.substring(0, 8)}] History ERROR:`, err.message);
+    console.error(`[${req.deviceId}] History ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to fetch history' });
   }
 });
 
 historyRouter.delete('/history/:id', async (req: Request, res: Response) => {
+  const tag = `[${req.deviceId}]`;
   try {
+    console.log(`${tag} Delete → session=${req.params.id}`);
     const session = await deleteSessionFromDb(req.deviceId, req.params.id as string);
     if (!session) {
+      console.log(`${tag} Delete → session not found`);
       res.status(404).json({ error: 'Session not found' });
       return;
     }
@@ -43,10 +48,11 @@ historyRouter.delete('/history/:id', async (req: Request, res: Response) => {
         // Non-critical — object may already be deleted
       }
     }
+    console.log(`${tag} Delete → done, cleaned ${keysToDelete.length} S3 objects`);
 
     res.json({ ok: true });
   } catch (err: any) {
-    console.error(`[${req.deviceId.substring(0, 8)}] Delete ERROR:`, err.message);
+    console.error(`[${req.deviceId}] Delete ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to delete session' });
   }
 });
@@ -58,8 +64,10 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
     return;
   }
 
+  const tag = `[${req.deviceId}]`;
   try {
     const session = await queryBySourceUrl(req.deviceId, sourceUrl);
+    console.log(`${tag} ProductTryOn → ${session ? 'found session=' + session.sessionId : 'not found'}`);
     if (session) {
       res.json({
         found: true,
@@ -72,7 +80,7 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
       res.json({ found: false });
     }
   } catch (err: any) {
-    console.error(`[${req.deviceId.substring(0, 8)}] ProductTryOn ERROR:`, err.message);
+    console.error(`[${req.deviceId}] ProductTryOn ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to check product try-on' });
   }
 });

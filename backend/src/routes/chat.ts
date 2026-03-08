@@ -11,10 +11,12 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     return;
   }
 
-  const tag = `[${req.deviceId.substring(0, 8)}]`;
+  const tag = `[${req.deviceId}]`;
 
   try {
+    console.log(`${tag} Chat → message received`);
     const text = await sendChatMessage(req.deviceId, message, history);
+    console.log(`${tag} Chat → response generated, length=${text.length}`);
 
     // Extract URL from response (same logic as client-side)
     let url: string | null = null;
@@ -28,6 +30,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       if (urlMatch) url = urlMatch[0];
     }
 
+    if (url) console.log(`${tag} Chat → extracted URL: ${url}`);
     res.json({ text, url });
   } catch (err: any) {
     console.error(`${tag} Chat ERROR:`, err.message);
@@ -36,6 +39,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 });
 
 chatRouter.post('/chat/reset', async (req: Request, res: Response) => {
+  console.log(`[${req.deviceId}] Chat → history reset`);
   resetChat(req.deviceId);
   res.json({ ok: true });
 });
