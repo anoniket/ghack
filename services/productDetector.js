@@ -701,12 +701,12 @@ export const PRODUCT_DETECTOR_JS = `
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation complete');
         removeLoadingOverlay();
-        showButtonRow(true);
+        showButtonRow(true, '\\u{21BB}');
       } else if (data.type === 'video_error') {
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation failed');
         removeLoadingOverlay();
-        showButtonRow(true);
+        showButtonRow(true, '\\u{21BB}');
       }
     } catch(e) {
       // Ignore non-JSON messages
