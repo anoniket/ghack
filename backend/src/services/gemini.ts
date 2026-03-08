@@ -5,7 +5,7 @@ const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
-  DETECT: 'gemini-3-flash-preview',
+  DETECT: 'gemini-2.5-pro',
   IMAGE_GEN: 'gemini-2.5-flash-image',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
