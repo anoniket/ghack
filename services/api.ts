@@ -1,5 +1,6 @@
-import { API_URL } from '@/utils/constants';
+import { API_URL, APP_SECRET } from '@/utils/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 
 const DEVICE_ID_KEY = 'device_id';
 
@@ -26,15 +27,43 @@ export async function getDeviceId(): Promise<string> {
   return cachedDeviceId;
 }
 
+/** Sign request with shared secret: SHA256(secret + "." + deviceId + "." + timestamp + "." + path) */
+async function signRequest(
+  deviceId: string,
+  timestamp: string,
+  path: string
+): Promise<string> {
+  if (!APP_SECRET) return '';
+  const payload = `${APP_SECRET}.${deviceId}.${timestamp}.${path}`;
+  return await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    payload,
+    { encoding: Crypto.CryptoEncoding.HEX }
+  );
+}
+
 async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
   const deviceId = await getDeviceId();
+  const timestamp = Date.now().toString();
   const url = `${API_URL}${path}`;
+
+  // Build auth headers
+  const authHeaders: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'x-device-id': deviceId,
+    'x-timestamp': timestamp,
+  };
+
+  if (APP_SECRET) {
+    // Strip query params for signing (server sees req.path without query)
+    const pathOnly = path.split('?')[0];
+    authHeaders['x-signature'] = await signRequest(deviceId, timestamp, pathOnly);
+  }
 
   const response = await fetch(url, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
-      'x-device-id': deviceId,
+      ...authHeaders,
       ...options.headers,
     },
   });

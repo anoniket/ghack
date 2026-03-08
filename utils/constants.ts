@@ -1,4 +1,5 @@
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
+export const APP_SECRET = process.env.EXPO_PUBLIC_APP_SECRET || '';
 
 // Prompts kept as reference — actual prompts live on the server
 export const CHAT_SYSTEM_PROMPT = ''; // Server-side only
