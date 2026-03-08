@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
@@ -86,9 +86,12 @@ export default function SavedScreen() {
     player.play();
   });
 
-  useEffect(() => {
-    loadSaved();
-  }, []);
+  // Refresh history every time the tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      loadSaved();
+    }, [])
+  );
 
   const loadSaved = async () => {
     try {

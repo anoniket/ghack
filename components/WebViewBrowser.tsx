@@ -51,6 +51,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setTryOnLoading,
     tryOnResult,
     setTryOnResult,
+    savedTryOns,
     setSavedTryOns,
     videoLoading,
     setVideoLoading,
@@ -146,18 +147,17 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Inject base64 immediately — S3 upload happens in background on server
       setTryOnResult(result.resultBase64);
 
-      // Refresh saved history
-      try {
-        const { items } = await api.getHistory();
-        setSavedTryOns(items.map((item) => ({
-          id: item.sessionId,
-          imageUri: item.tryonImageUrl,
-          sourceUrl: item.sourceUrl,
-          timestamp: new Date(item.createdAt).getTime(),
-          videoUrl: item.videoUrl,
-          sessionId: item.sessionId,
-        })));
-      } catch {}
+      // Optimistically add to saved try-ons immediately (CDN URL replaces base64 on next tab focus)
+      setSavedTryOns([
+        {
+          id: result.sessionId,
+          imageUri: `data:image/png;base64,${result.resultBase64}`,
+          sourceUrl: currentProduct.pageUrl,
+          timestamp: Date.now(),
+          sessionId: result.sessionId,
+        },
+        ...savedTryOns,
+      ]);
     } catch (err: any) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
 
