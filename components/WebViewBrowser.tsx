@@ -102,10 +102,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setTryOnLoading(true);
     rlog('TryOn', 'GENERATION STARTED');
 
-    // Show loading overlay immediately
+    // Show loading overlay immediately via direct call (postMessage can be unreliable on some sites)
     if (webViewRef.current) {
       webViewRef.current.injectJavaScript(`
-        window.postMessage(JSON.stringify({ type: 'tryon_loading' }), '*');
+        if (window.__tryonShowLoading) {
+          window.__tryonShowLoading();
+        } else {
+          window.postMessage(JSON.stringify({ type: 'tryon_loading' }), '*');
+        }
         true;
       `);
     }
@@ -125,7 +129,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       if (webViewRef.current) {
         rlog('TryOn', `model=${prepResult.model} duration=${prepResult.estimatedDuration}ms`);
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'tryon_duration', duration: ${prepResult.estimatedDuration} }), '*');
+          if (window.__tryonSetDuration) {
+            window.__tryonSetDuration(${prepResult.estimatedDuration});
+          } else {
+            window.postMessage(JSON.stringify({ type: 'tryon_duration', duration: ${prepResult.estimatedDuration} }), '*');
+          }
           true;
         `);
       }
@@ -197,12 +205,27 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
   };
 
-  // Send try-on result (CDN URL) back to WebView to replace the product image
+  // Send try-on result back to WebView to replace the product image
   useEffect(() => {
     if (tryOnResult && webViewRef.current) {
-      rlog('TryOn', 'sending result to WebView');
+      rlog('TryOn', `sending result to WebView (base64 length=${tryOnResult.length})`);
+      // Call __tryonReplaceImage directly — avoids postMessage + JSON.stringify overhead
+      // which can silently fail on 3MB+ base64 strings in WKWebView
       webViewRef.current.injectJavaScript(`
-        window.postMessage(JSON.stringify({ type: 'tryon_result', imageUrl: ${JSON.stringify(tryOnResult)} }), '*');
+        try {
+          if (window.__tryonReplaceImage) {
+            window.__tryonReplaceImage(${JSON.stringify(tryOnResult)});
+            console.log('[TryOnAI] replaceImage called successfully');
+          } else {
+            console.log('[TryOnAI] __tryonReplaceImage not found, removing overlay');
+            var ov = document.getElementById('__tryon-loading-overlay');
+            if (ov) ov.remove();
+          }
+        } catch(e) {
+          console.log('[TryOnAI] inject error: ' + e.message);
+          var ov = document.getElementById('__tryon-loading-overlay');
+          if (ov) ov.remove();
+        }
         true;
       `);
       // Clear immediately — WebView already has the data

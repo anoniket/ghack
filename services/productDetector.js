@@ -740,6 +740,16 @@ export const PRODUCT_DETECTOR_JS = `
     }
   }
 
+  // Expose key functions globally so RN can call directly via injectJavaScript
+  // This avoids postMessage JSON serialization overhead for large base64 payloads (3MB+)
+  window.__tryonReplaceImage = function(src) {
+    log('📨', 'DIRECT CALL — __tryonReplaceImage (base64 len=' + (src ? src.length : 0) + ')');
+    __tryonBusy = false;
+    replaceProductImage(src);
+  };
+  window.__tryonShowLoading = function() { __tryonBusy = true; showLoadingOverlay(); };
+  window.__tryonSetDuration = function(d) { __tryonDuration = d; };
+
   // Listen for messages from React Native (loading, result, error)
   window.addEventListener('message', function(event) {
     try {
