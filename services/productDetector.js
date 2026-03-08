@@ -25,6 +25,7 @@ export const PRODUCT_DETECTOR_JS = `
   var TRYON_OVERLAY_ID = '__tryon-loading-overlay';
   var DETECTED_ATTR = 'data-tryon-detected';
   var productImg = null; // Reference to the detected product image
+  var __tryonBusy = false; // Guard against double-taps during generation
 
   // CSS for the floating Try On button + wave loading overlay
   var style = document.createElement('style');
@@ -177,6 +178,7 @@ export const PRODUCT_DETECTOR_JS = `
   log('🎨', 'STYLES — Injected floating button + wave overlay CSS');
 
   var progressInterval = null;
+  var quipTimerGlobal = null;
 
   var __tryonDuration = 12000; // default for Flash, overridden by message
 
@@ -214,7 +216,10 @@ export const PRODUCT_DETECTOR_JS = `
 
     var statusText = document.createElement('div');
     statusText.className = '__tryon-status-text';
-    statusText.textContent = mode === 'video' ? 'Generating video...' : 'Trying on...';
+    var initQuips = mode === 'video'
+      ? ['AI directing ur thirst trap...', 'lights camera slay...', 'plotting ur viral moment...']
+      : ['mentally undressing you...', 'checking you out... for science...', 'the AI said wow btw...'];
+    statusText.textContent = initQuips[Math.floor(Math.random() * initQuips.length)];
     progressWrap.appendChild(statusText);
 
     var progressBar = document.createElement('div');
@@ -250,21 +255,76 @@ export const PRODUCT_DETECTOR_JS = `
     // Animate progress — reads __tryonDuration live so it can be updated mid-flight
     var startTime = Date.now();
     var isVideo = mode === 'video';
-    var statusMessages = isVideo ? [
-      { at: 0, text: 'Generating video...' },
-      { at: 10, text: 'Preparing image...' },
-      { at: 25, text: 'AI is animating...' },
-      { at: 50, text: 'Rendering frames...' },
-      { at: 75, text: 'Almost there...' },
-      { at: 90, text: 'Finalizing video...' },
-    ] : [
-      { at: 0, text: 'Trying on...' },
-      { at: 15, text: 'Downloading product...' },
-      { at: 30, text: 'Processing images...' },
-      { at: 50, text: 'AI is dressing you up...' },
-      { at: 75, text: 'Almost there...' },
-      { at: 90, text: 'Finishing touches...' },
+    // Fun quirky loading messages — cycle fast regardless of progress speed
+    var tryonQuips = [
+      'mentally undressing you...',
+      'its giving main character...',
+      'okay u kinda ate that...',
+      'checking you out... for science...',
+      'not me blushing at pixels...',
+      'ur outfit has trust issues...',
+      'stripping... the old clothes off...',
+      'the AI said wow btw...',
+      'fitting room but make it AI...',
+      'this is fashion not a crime...',
+      'wardrobe malfunction loading...',
+      'drip check in progress...',
+      'styling you like my crush...',
+      'be honest u look expensive...',
+      'AI went feral for this one...',
+      'the fit is fitting...',
+      'gaslight gatekeep girlboss...',
+      'ur giving rich auntie vibes...',
+      'alexa play sexy back...',
+      'mirror mirror on the wall...',
+      'no thoughts just drip...',
+      'ur card declined but u still ate...',
+      'downloading rizz...',
+      'AI caught feelings ngl...',
+      'objectifying you respectfully...',
+      'hold my pixels...',
+      'ur body said yes already...',
+      'this is legal i promise...',
+      'the mannequin is shaking rn...',
+      'couture but make it unhinged...',
+      'outfit so fire calling 911...',
+      'dressing u up like my sim...',
+      'the algorithm has a crush...',
+      'serving cunt honestly...',
+      'ur closet could never...',
+      'AI is down bad for u...',
     ];
+    var videoQuips = [
+      'AI directing ur thirst trap...',
+      'rendering the serve...',
+      'plotting ur viral moment...',
+      'lights camera slay...',
+      'serving face serving body...',
+      'vogue called they want u...',
+      'motion capture but sexy...',
+      'making pixels jealous rn...',
+      'this reel will break hearts...',
+      'ur walk just ended careers...',
+      'giving victoria secret energy...',
+      'the camera is obsessed w u...',
+      'frame by frame of pure slay...',
+      'recording evidence of a serve...',
+      'ur video has no skip button...',
+      'the AI is ur hype man now...',
+      'walk like rent is due...',
+      'tiktok isnt ready for this...',
+    ];
+    function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    var activeQuips = isVideo ? videoQuips : tryonQuips;
+    var lastQuip = '';
+    // Cycle quips on a fast fixed timer (every 2s) — independent of progress bar
+    if (quipTimerGlobal) clearInterval(quipTimerGlobal);
+    quipTimerGlobal = setInterval(function() {
+      var next = pickRandom(activeQuips);
+      while (next === lastQuip && activeQuips.length > 1) next = pickRandom(activeQuips);
+      lastQuip = next;
+      statusText.textContent = next;
+    }, 2000);
 
     progressInterval = setInterval(function() {
       var elapsed = Date.now() - startTime;
@@ -274,17 +334,11 @@ export const PRODUCT_DETECTOR_JS = `
       progressFill.style.width = pct + '%';
       percentText.textContent = pct + '%';
 
-      // Update status message
-      for (var i = statusMessages.length - 1; i >= 0; i--) {
-        if (pct >= statusMessages[i].at) {
-          statusText.textContent = statusMessages[i].text;
-          break;
-        }
-      }
-
       if (pct >= 95) {
         clearInterval(progressInterval);
         progressInterval = null;
+        clearInterval(quipTimerGlobal);
+        quipTimerGlobal = null;
       }
     }, 500);
   }
@@ -293,6 +347,10 @@ export const PRODUCT_DETECTOR_JS = `
     if (progressInterval) {
       clearInterval(progressInterval);
       progressInterval = null;
+    }
+    if (quipTimerGlobal) {
+      clearInterval(quipTimerGlobal);
+      quipTimerGlobal = null;
     }
     var existing = document.getElementById(TRYON_OVERLAY_ID);
     if (existing) {
@@ -446,6 +504,8 @@ export const PRODUCT_DETECTOR_JS = `
     btn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
+      if (__tryonBusy) return;
+      __tryonBusy = true;
 
       var imgSrc = img.currentSrc || img.src || img.dataset.src;
       var info = getProductInfo();
@@ -483,7 +543,8 @@ export const PRODUCT_DETECTOR_JS = `
     tryBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
-      if (!productImg) return;
+      if (!productImg || __tryonBusy) return;
+      __tryonBusy = true;
       var imgSrc = productImg.currentSrc || productImg.src || productImg.dataset.src;
       var info = getProductInfo();
       log('👆', 'BUTTON CLICKED — Sending try-on request');
@@ -507,6 +568,8 @@ export const PRODUCT_DETECTOR_JS = `
       vidBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
+        if (__tryonBusy) return;
+        __tryonBusy = true;
         log('🎬', 'VIDEO BUTTON CLICKED — Sending video request');
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'video_request',
@@ -556,6 +619,7 @@ export const PRODUCT_DETECTOR_JS = `
     try {
       var data = JSON.parse(event.data);
       if (data.type === 'tryon_loading') {
+        __tryonBusy = true;
         if (data.duration) __tryonDuration = data.duration;
         log('📨', 'RN MESSAGE — Try-on loading started (duration: ' + __tryonDuration + 'ms)');
         showLoadingOverlay();
@@ -564,23 +628,28 @@ export const PRODUCT_DETECTOR_JS = `
         __tryonDuration = data.duration;
         log('📨', 'RN MESSAGE — Duration updated to ' + __tryonDuration + 'ms');
       } else if (data.type === 'tryon_result' && data.base64) {
+        __tryonBusy = false;
         log('📨', 'RN MESSAGE — Try-on result received (base64 length: ' + data.base64.length + ')');
         replaceProductImage(data.base64);
       } else if (data.type === 'tryon_error') {
+        __tryonBusy = false;
         log('📨', 'RN MESSAGE — Try-on generation failed');
         removeLoadingOverlay();
         // Show try-on button again (no video since it failed)
         showButtonRow(false);
       } else if (data.type === 'video_loading') {
+        __tryonBusy = true;
         log('📨', 'RN MESSAGE — Video generation started');
         // Hide buttons during video generation
         removeBtnRow();
         showLoadingOverlay('video');
       } else if (data.type === 'video_done') {
+        __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation complete');
         removeLoadingOverlay();
         showButtonRow(true);
       } else if (data.type === 'video_error') {
+        __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation failed');
         removeLoadingOverlay();
         showButtonRow(true);

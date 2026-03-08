@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,70 @@ export default function TryOnModal() {
   } = useAppStore();
 
   const [error, setError] = useState<string | null>(null);
+  const [loadingQuip, setLoadingQuip] = useState('');
+  const quipInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const visible = currentProduct !== null;
+
+  const LOADING_QUIPS = [
+    'mentally undressing you...',
+    'its giving main character...',
+    'okay u kinda ate that...',
+    'checking you out... for science...',
+    'not me blushing at pixels...',
+    'ur outfit has trust issues...',
+    'stripping... the old clothes off...',
+    'the AI said wow btw...',
+    'fitting room but make it AI...',
+    'this is fashion not a crime...',
+    'wardrobe malfunction loading...',
+    'drip check in progress...',
+    'styling you like my crush...',
+    'be honest u look expensive...',
+    'AI went feral for this one...',
+    'the fit is fitting...',
+    'gaslight gatekeep girlboss...',
+    'ur giving rich auntie vibes...',
+    'alexa play sexy back...',
+    'mirror mirror on the wall...',
+    'no thoughts just drip...',
+    'ur card declined but u still ate...',
+    'downloading rizz...',
+    'AI caught feelings ngl...',
+    'objectifying you respectfully...',
+    'hold my pixels...',
+    'ur body said yes already...',
+    'this is legal i promise...',
+    'the mannequin is shaking rn...',
+    'couture but make it unhinged...',
+    'outfit so fire calling 911...',
+    'dressing u up like my sim...',
+    'the algorithm has a crush...',
+    'serving cunt honestly...',
+    'ur closet could never...',
+    'AI is down bad for u...',
+  ];
+
+  const lastQuipRef = useRef('');
+  const pickQuip = useCallback(() => {
+    let next = LOADING_QUIPS[Math.floor(Math.random() * LOADING_QUIPS.length)];
+    while (next === lastQuipRef.current) {
+      next = LOADING_QUIPS[Math.floor(Math.random() * LOADING_QUIPS.length)];
+    }
+    lastQuipRef.current = next;
+    return next;
+  }, []);
+
+  // Cycle quips fast (every 2s) while loading
+  useEffect(() => {
+    if (tryOnLoading) {
+      setLoadingQuip(pickQuip());
+      quipInterval.current = setInterval(() => setLoadingQuip(pickQuip()), 2000);
+    } else if (quipInterval.current) {
+      clearInterval(quipInterval.current);
+      quipInterval.current = null;
+    }
+    return () => { if (quipInterval.current) clearInterval(quipInterval.current); };
+  }, [tryOnLoading]);
 
   useEffect(() => {
     if (currentProduct && selfieUri && !tryOnResult && !tryOnLoading) {
@@ -134,10 +197,7 @@ export default function TryOnModal() {
                 <View style={styles.loadingCircle}>
                   <ActivityIndicator size="large" color="#0D0D0D" />
                 </View>
-                <Text style={styles.loadingText}>Generating your try-on...</Text>
-                <Text style={styles.loadingSubtext}>
-                  AI is dressing you up right now
-                </Text>
+                <Text style={styles.loadingText}>{loadingQuip}</Text>
               </View>
             )}
 

@@ -79,10 +79,12 @@ export default function ChatBubble() {
     }
   };
 
-  if (!chatBubbleExpanded) {
-    // Hide chat bubble entirely during try-on or video generation
-    if (tryOnLoading || videoLoading) return null;
+  const isGenerating = tryOnLoading || videoLoading;
 
+  // Hide bubble & collapse expanded panel during try-on or video generation
+  if (isGenerating) return null;
+
+  if (!chatBubbleExpanded) {
     return (
       <TouchableOpacity
         activeOpacity={0.85}
