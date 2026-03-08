@@ -228,6 +228,10 @@ FAILURE CONDITIONS — DO NOT FUCK THESE UP:
 - Looks fake or AI-generated = WRONG. Make it look REAL or don't bother.
 - Generating random unrelated garbage = UNACCEPTABLE. Stay focused on the task.
 
+ASPECT RATIO — MATCH IMAGE 1 EXACTLY:
+- The output image MUST have the EXACT same aspect ratio and dimensions as Image 1. If Image 1 is portrait (taller than wide), output portrait. If Image 1 is square, output square. If Image 1 is landscape, output landscape.
+- Do NOT change the aspect ratio. Do NOT crop. Do NOT add borders or padding. Same dimensions as Image 1.
+
 LISTEN CAREFULLY: Do NOT hallucinate. Do NOT get creative with the person's appearance. Do NOT change the background. Do NOT invent new poses unless the product demands it. Follow the instructions EXACTLY. Every single pixel of the person that isn't being dressed should be IDENTICAL to Image 1. No exceptions. No excuses.`;
 
 const TRYON_PROMPT = `You have two images:
@@ -295,6 +299,10 @@ FAILURE CONDITIONS — MESS THESE UP AND YOU'RE WORTHLESS:
 - Similar-looking original clothing kept instead of replaced = CATASTROPHIC FAILURE. Similar is NOT same. Replace it completely, you lazy bastard.
 - Product color/design doesn't match Image 2 = WRONG. Copy it EXACTLY. Don't freestyle.
 - Generating random unrelated output = UNACCEPTABLE. Stay on task. Follow instructions.
+
+ASPECT RATIO — MATCH IMAGE 1 EXACTLY:
+- The output image MUST have the EXACT same aspect ratio and dimensions as Image 1. If Image 1 is portrait (taller than wide), output portrait. If Image 1 is square, output square. If Image 1 is landscape, output landscape.
+- Do NOT change the aspect ratio. Do NOT crop. Do NOT add borders or padding. Same dimensions as Image 1.
 
 FINAL WARNING: Execute this PRECISELY. No hallucinating. No improvising. No changing things you weren't asked to change. The person's identity is sacred — face, skin, hair, body UNTOUCHED. The product must be an EXACT copy from Image 2. The background must be IDENTICAL to Image 1. Get it right.`;
 
