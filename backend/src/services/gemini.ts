@@ -5,6 +5,7 @@ const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
+  DETECT: 'gemini-3-flash-preview',
   IMAGE_GEN: 'gemini-3.1-flash-image-preview',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
@@ -58,58 +59,73 @@ const TRYON_DETECT_PROMPT = `You were given two labeled images above.
 - IMAGE 1 is the CUSTOMER'S photo (selfie/personal photo). Check THIS image for body part visibility.
 - IMAGE 2 is the PRODUCT photo. Check THIS image to identify what the product is.
 
-IMPORTANT: When checking zone_visible, ONLY look at IMAGE 1 (the customer's photo). Do NOT look at Image 2 for visibility — Image 2 may show a model wearing the product but that is NOT the customer.
+CRITICAL RULES:
+1. To determine product_zone → ONLY analyze IMAGE 2 (the product). Ignore any model/mannequin in Image 2 — focus on WHAT the product itself IS.
+2. To determine zone_visible → ONLY analyze IMAGE 1 (the customer). Do NOT look at Image 2 for visibility. Image 2 may show a model wearing the product — that person is NOT the customer.
+3. If Image 2 shows MULTIPLE products (e.g. a model wearing a full outfit), classify based on the PRIMARY/MAIN product being sold (usually the most prominent item).
 
 Answer in EXACTLY this JSON format:
 {"product_zone": "...", "zone_visible": true/false}
 
-product_zone — what body part does the product go on?
-- "upper" = tops, shirts, tshirts, jackets, hoodies, kurtas, blouses, sweaters
-- "lower" = pants, jeans, trousers, skirts, shorts, leggings
-- "full" = dresses, sarees, lehengas, jumpsuits, suit sets, gowns
-- "feet" = shoes, sneakers, heels, boots, sandals, slippers
-- "hands" = rings, bracelets, bangles, watches (needs FINGERS or WRIST visible)
-- "ears" = earrings, ear cuffs (needs EARS visible)
-- "neck" = necklaces, chains, pendants, chokers (needs NECK/CHEST visible)
-- "face" = sunglasses, eyewear, glasses (needs FACE visible)
-- "head" = hats, caps, beanies, headbands (needs TOP OF HEAD visible)
-- "carry" = bags, handbags, backpacks, totes (needs HANDS or SHOULDERS visible)
+STEP 1 — product_zone: What body part does the product in IMAGE 2 go on?
+- "upper" = tops, shirts, tshirts, jackets, hoodies, kurtas, blouses, sweaters, crop tops, tank tops, vests, coats, blazers, cardigans, shrugs, polo shirts, sweatshirts, tunics
+- "lower" = pants, jeans, trousers, skirts, shorts, leggings, palazzos, culottes, joggers, track pants, chinos, cargo pants, capris
+- "full" = dresses, sarees, lehengas, jumpsuits, suit sets, gowns, rompers, overalls, anarkalis, kaftans, co-ord sets (top+bottom sold together), ethnic sets
+- "feet" = shoes, sneakers, heels, boots, sandals, slippers, flats, loafers, mules, wedges, flip-flops, sports shoes, formal shoes
+- "hands" = rings, bracelets, bangles, watches, hand chains, wrist cuffs (needs FINGERS or WRIST visible)
+- "ears" = earrings, ear cuffs, studs, jhumkas, hoops, danglers (needs EARS visible)
+- "neck" = necklaces, chains, pendants, chokers, mangalsutra, neck chains, lockets (needs NECK/CHEST visible)
+- "face" = sunglasses, eyewear, glasses, reading glasses, blue-light glasses (needs FACE visible)
+- "head" = hats, caps, beanies, headbands, turbans, bandanas, hair clips, tiaras (needs TOP OF HEAD visible)
+- "carry" = bags, handbags, backpacks, totes, clutches, sling bags, wallets, purses, laptop bags, duffel bags (needs HANDS or SHOULDERS visible)
 
-zone_visible — is the SPECIFIC body part needed actually visible in Image 1?
-Look at Image 1 carefully. Can you SEE the body part where this product would go?
-- "upper" zone: is the TORSO (chest, shoulders, arms) visible? → usually true in most photos
-- "lower" zone: are the LEGS visible from WAIST to ANKLES? If photo cuts off at waist or hips → false
-- "full" zone: is the ENTIRE BODY visible from HEAD to FEET? If ANY part is cut off (legs, feet, waist down) → false. A torso/selfie photo is ALWAYS false for full zone.
-- "feet" zone: are the FEET visible? If photo is waist-up or knee-up → false
-- "hands" zone: are FINGERS and HANDS clearly visible in frame? If only face/torso is shown and hands are NOT in the photo → false. Hands at sides cut off by frame → false. Hand on hip or hand holding phone visibly → true
-- "ears" zone: is at least one EAR clearly visible? If hair covers both ears completely → false
-- "neck" zone: is the NECK and UPPER CHEST visible? → usually true in most photos
-- "face" zone: is the FACE visible? → usually true
-- "head" zone: is the TOP OF HEAD visible? → usually true
-- "carry" zone: are HANDS or SHOULDERS visible enough to hold/carry a bag? If only face closeup → false. If torso with shoulders visible → true
+COMMON MISTAKES TO AVOID when detecting product_zone:
+- A product page showing a model in a full outfit but selling ONLY a shirt → "upper", NOT "full"
+- A kurta set image but the listing is for the kurta only → "upper", NOT "full"
+- Jeans shown on a full-body model → "lower", NOT "full"
+- A co-ord set (matching top and bottom sold as ONE product) → "full"
+- A blazer/jacket → "upper" even if model is shown full body
+- Shoes shown being worn by a standing model → "feet", NOT "full"
 
-Be STRICT. If you cannot CLEARLY see the required body part in Image 1, answer false. When in doubt, answer false.
+STEP 2 — zone_visible: Is the SPECIFIC body part needed actually visible in IMAGE 1?
+Carefully examine IMAGE 1 (the customer's photo). Can you CLEARLY SEE the body part where this product would be placed?
+
+- "upper" zone: Is the TORSO visible (chest/shoulders/arms)? A standard selfie or half-body photo showing chest area → true. Face-only extreme closeup with no chest → false.
+- "lower" zone: Are LEGS visible from at least WAIST to KNEES or below? Photo cuts off at waist, hips, or above → false. Must see leg area.
+- "full" zone: Is the ENTIRE BODY visible from HEAD to at minimum SHINS/ANKLES? If legs are cut off at thighs, knees, or waist → false. A selfie/torso photo is ALWAYS false for full zone. Only true if you can see nearly the whole person.
+- "feet" zone: Are FEET actually visible in frame? Waist-up or knee-up photo → false. Must see feet.
+- "hands" zone: Are FINGERS, HANDS, or WRISTS clearly visible? If only face/torso shown with hands NOT in frame → false. Hands cut off by frame edges → false. Hand visibly on hip, holding phone, or resting somewhere in frame → true.
+- "ears" zone: Is at least ONE EAR clearly visible and not fully covered? Both ears hidden by hair → false. One ear peeking through hair → true.
+- "neck" zone: Is NECK or UPPER CHEST area visible? → true in most selfies and half-body photos. Extreme face closeup cropping at chin → false.
+- "face" zone: Is the FACE clearly visible? → true in almost all photos unless back is turned or face is obscured.
+- "head" zone: Is the TOP OF HEAD visible? → true in most photos unless cropped at forehead.
+- "carry" zone: Are SHOULDERS or HANDS visible enough to realistically hold/carry a bag? Torso with shoulders visible → true. Extreme face-only closeup → false.
+
+Be STRICT about zone_visible. If you cannot CLEARLY see the required body part in Image 1, answer false. When in doubt, answer false. It is better to say false and use the photoshoot model than to say true and produce a bad result.
 
 Examples:
-- Shirt, photo shows head to waist → {"product_zone": "upper", "zone_visible": true}
-- Jeans, photo shows head to waist → {"product_zone": "lower", "zone_visible": false}
-- Full dress, photo shows head to waist (legs not visible) → {"product_zone": "full", "zone_visible": false}
-- Full dress, photo shows entire body head to toe → {"product_zone": "full", "zone_visible": true}
+- Shirt, selfie showing head to waist → {"product_zone": "upper", "zone_visible": true}
+- Shirt, extreme face closeup no chest visible → {"product_zone": "upper", "zone_visible": false}
+- Jeans, photo shows head to waist only → {"product_zone": "lower", "zone_visible": false}
+- Jeans, photo shows waist to feet → {"product_zone": "lower", "zone_visible": true}
+- Dress, photo shows head to waist (legs not visible) → {"product_zone": "full", "zone_visible": false}
+- Dress, photo shows entire body head to toe → {"product_zone": "full", "zone_visible": true}
 - Saree, photo shows torso only → {"product_zone": "full", "zone_visible": false}
-- Jumpsuit, photo shows head to knees → {"product_zone": "full", "zone_visible": false}
-- Ring, photo shows face and torso but NO hands in frame → {"product_zone": "hands", "zone_visible": false}
-- Ring, photo shows person with hand on hip clearly visible → {"product_zone": "hands", "zone_visible": true}
-- Watch, photo shows face only → {"product_zone": "hands", "zone_visible": false}
-- Bracelet, photo shows wrist in frame → {"product_zone": "hands", "zone_visible": true}
-- Earrings, photo shows face with ears visible → {"product_zone": "ears", "zone_visible": true}
-- Earrings, photo shows face but hair covers both ears → {"product_zone": "ears", "zone_visible": false}
-- Sneakers, photo shows full body → {"product_zone": "feet", "zone_visible": true}
-- Heels, photo shows waist-up → {"product_zone": "feet", "zone_visible": false}
-- Necklace, photo shows head and chest → {"product_zone": "neck", "zone_visible": true}
-- Sunglasses, photo shows face → {"product_zone": "face", "zone_visible": true}
-- Hat, photo shows head → {"product_zone": "head", "zone_visible": true}
-- Handbag, photo shows torso and shoulders → {"product_zone": "carry", "zone_visible": true}
-- Backpack, photo shows face closeup only → {"product_zone": "carry", "zone_visible": false}
+- Jumpsuit, photo shows head to knees (feet cut off) → {"product_zone": "full", "zone_visible": false}
+- Co-ord set, photo shows full body → {"product_zone": "full", "zone_visible": true}
+- Ring, face and torso but NO hands in frame → {"product_zone": "hands", "zone_visible": false}
+- Ring, person with hand on hip clearly visible → {"product_zone": "hands", "zone_visible": true}
+- Watch, face-only photo → {"product_zone": "hands", "zone_visible": false}
+- Bracelet, wrist visible in frame → {"product_zone": "hands", "zone_visible": true}
+- Earrings, face with ears visible → {"product_zone": "ears", "zone_visible": true}
+- Earrings, face but hair covers both ears → {"product_zone": "ears", "zone_visible": false}
+- Sneakers, full body photo → {"product_zone": "feet", "zone_visible": true}
+- Heels, waist-up photo → {"product_zone": "feet", "zone_visible": false}
+- Necklace, head and chest visible → {"product_zone": "neck", "zone_visible": true}
+- Sunglasses, face visible → {"product_zone": "face", "zone_visible": true}
+- Hat, head visible → {"product_zone": "head", "zone_visible": true}
+- Handbag, torso and shoulders visible → {"product_zone": "carry", "zone_visible": true}
+- Backpack, face closeup only → {"product_zone": "carry", "zone_visible": false}
 
 Respond with ONLY the raw JSON object. No markdown, no backticks, no explanation, no thinking. Just the JSON.`;
 
@@ -352,7 +368,7 @@ export async function prepareTryOn(
 
   // Zone detection
   const detectResponse = await ai.models.generateContent({
-    model: MODELS.CHAT,
+    model: MODELS.DETECT,
     contents: [
       {
         role: 'user',
@@ -368,7 +384,6 @@ export async function prepareTryOn(
     config: {
       temperature: 0,
       maxOutputTokens: 128,
-      thinkingConfig: { thinkingBudget: 0 },
     },
   });
 
