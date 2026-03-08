@@ -231,6 +231,13 @@ Take Image 1 as your base. Replace ONLY the relevant zone with the product from 
 
 THIS IS AN EDIT, NOT A NEW PHOTO. The output must look like Image 1 with only the clothing swapped.
 
+ABSOLUTE ZERO TOLERANCE ON BLENDING:
+- The person's ORIGINAL clothing in the replacement zone must be COMPLETELY GONE. Not faded, not blended, not ghosted, not mixed — GONE. Erased. Deleted. Nuked.
+- Even if the original clothing looks SIMILAR to the product (same color, same type, same style) — you MUST still do a FULL replacement. Similar does NOT mean same. A white tshirt is NOT the same as a white shirt. Replace it completely.
+- If I see even ONE pixel of the original garment bleeding through, peeking out, or merging with the new product — that is a FAILURE.
+- The replacement zone should contain ONLY the product from Image 2. Nothing from Image 1's clothing should survive in that zone.
+- Think of it like this: surgically remove the old clothing from that zone, then place the new product. Two separate operations. Never blend. Never merge. Never mix.
+
 THE PERSON — DO NOT CHANGE ANYTHING:
 - Face — IDENTICAL to Image 1. Same eyes, nose, lips, jawline, expression, eyebrows. The person must be instantly recognizable. If you showed both images to someone who knows this person, they must say "that's the same person."
 - Skin — IDENTICAL tone, complexion, undertone. No lightening. No darkening. No smoothing. No texture changes.
@@ -265,6 +272,8 @@ FAILURE CONDITIONS:
 - Background changed = WRONG
 - Lighting changed = WRONG
 - Pose changed = WRONG
-- Original clothing visible or blended with new product = WRONG
+- ANY trace of original clothing visible in the replacement zone = CATASTROPHIC FAILURE
+- Original clothing blended, ghosted, or mixed with new product = CATASTROPHIC FAILURE
+- Similar-looking original clothing kept instead of replaced = CATASTROPHIC FAILURE
 - Product color/design doesn't match Image 2 = WRONG`;
 

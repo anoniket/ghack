@@ -36,6 +36,7 @@ interface AppState {
     productName: string;
     productPrice?: string;
     pageUrl?: string;
+    retry?: boolean;
   } | null;
   setCurrentProduct: (product: AppState['currentProduct']) => void;
 

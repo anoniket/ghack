@@ -25,6 +25,7 @@ export const PRODUCT_DETECTOR_JS = `
   var TRYON_OVERLAY_ID = '__tryon-loading-overlay';
   var DETECTED_ATTR = 'data-tryon-detected';
   var productImg = null; // Reference to the detected product image
+  var originalProductSrc = null; // Original product image URL before replacement
   var __tryonBusy = false; // Guard against double-taps during generation
 
   // CSS for the floating Try On button + wave loading overlay
@@ -64,51 +65,58 @@ export const PRODUCT_DETECTOR_JS = `
     '  from { transform: translateX(-50%) translateY(80px); opacity: 0; }' +
     '  to { transform: translateX(-50%) translateY(0); opacity: 1; }' +
     '}' +
-    /* Container for both buttons side by side */
+    /* Container for icon buttons — bottom left */
     '.__tryon-btn-row {' +
     '  position: fixed !important;' +
     '  bottom: 100px !important;' +
-    '  left: 50% !important;' +
-    '  transform: translateX(-50%) !important;' +
+    '  left: 16px !important;' +
     '  display: flex !important;' +
     '  flex-direction: row !important;' +
     '  gap: 10px !important;' +
     '  z-index: 2147483647 !important;' +
-    '  animation: __tryon-slide-up 0.4s ease-out !important;' +
+    '  animation: __tryon-fade-in 0.3s ease-out !important;' +
     '}' +
-    /* Override fixed positioning when button is inside the row */
+    '@keyframes __tryon-fade-in {' +
+    '  from { opacity: 0; transform: translateY(10px); }' +
+    '  to { opacity: 1; transform: translateY(0); }' +
+    '}' +
+    /* Icon-only circular buttons inside row */
     '.__tryon-btn-row #' + TRYON_BTN_ID + ' {' +
     '  position: static !important;' +
     '  bottom: auto !important;' +
     '  left: auto !important;' +
     '  transform: none !important;' +
     '  animation: none !important;' +
+    '  width: 52px !important;' +
+    '  height: 52px !important;' +
+    '  border-radius: 26px !important;' +
+    '  padding: 0 !important;' +
+    '  font-size: 22px !important;' +
     '}' +
     '.__tryon-btn-row #' + TRYON_BTN_ID + ':active {' +
-    '  transform: scale(0.95) !important;' +
+    '  transform: scale(0.9) !important;' +
     '}' +
     '#' + VIDEO_BTN_ID + ' {' +
+    '  width: 52px !important;' +
+    '  height: 52px !important;' +
     '  background: #1A1A1A !important;' +
     '  color: #E8C8A0 !important;' +
     '  border: 1.5px solid rgba(232,200,160,0.35) !important;' +
-    '  border-radius: 28px !important;' +
-    '  padding: 14px 24px !important;' +
-    '  font-size: 16px !important;' +
+    '  border-radius: 26px !important;' +
+    '  padding: 0 !important;' +
+    '  font-size: 22px !important;' +
     '  font-weight: 700 !important;' +
     '  cursor: pointer !important;' +
     '  display: flex !important;' +
     '  align-items: center !important;' +
     '  justify-content: center !important;' +
-    '  gap: 8px !important;' +
     '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
-    '  transition: transform 0.2s ease, box-shadow 0.2s ease !important;' +
+    '  transition: transform 0.2s ease !important;' +
     '  line-height: 1 !important;' +
-    '  letter-spacing: 0.5px !important;' +
-    '  white-space: nowrap !important;' +
     '  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;' +
     '}' +
     '#' + VIDEO_BTN_ID + ':active {' +
-    '  transform: scale(0.95) !important;' +
+    '  transform: scale(0.9) !important;' +
     '}' +
     /* Wave loading overlay styles */
     '#' + TRYON_OVERLAY_ID + ' {' +
@@ -184,26 +192,31 @@ export const PRODUCT_DETECTOR_JS = `
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
-    if (!productImg) {
-      log('❌', 'OVERLAY — No product image reference to overlay');
-      return;
-    }
 
     // Remove existing overlay
     removeLoadingOverlay();
 
-    // Make the image container position:relative for overlay positioning
-    var parent = productImg.parentElement;
-    if (parent) {
-      var parentPos = window.getComputedStyle(parent).position;
-      if (parentPos === 'static') {
-        parent.style.position = 'relative';
+    var parent = null;
+    if (productImg) {
+      // Make the image container position:relative for overlay positioning
+      parent = productImg.parentElement;
+      if (parent) {
+        var parentPos = window.getComputedStyle(parent).position;
+        if (parentPos === 'static') {
+          parent.style.position = 'relative';
+        }
       }
     }
+
+    // If no product image or parent, use fixed full-screen overlay as fallback
+    var useFixed = !parent;
 
     // Create overlay
     var overlay = document.createElement('div');
     overlay.id = TRYON_OVERLAY_ID;
+    if (useFixed) {
+      overlay.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:2147483646!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(13,13,13,0.75)!important;overflow:hidden!important;';
+    }
 
     // Wave sweep element
     var wave = document.createElement('div');
@@ -237,20 +250,20 @@ export const PRODUCT_DETECTOR_JS = `
 
     overlay.appendChild(progressWrap);
 
-    // Insert overlay into the image's parent
+    // Insert overlay into the image's parent, or body as fallback
     if (parent) {
       parent.appendChild(overlay);
     } else {
       document.body.appendChild(overlay);
     }
 
-    log('🌊', 'OVERLAY — Wave loading overlay shown on product image');
+    log('🌊', 'OVERLAY — Wave loading overlay shown' + (useFixed ? ' (fixed fallback)' : ' on product image'));
 
-    // Hide all buttons during loading
+    // Remove all buttons during loading
     var btn = document.getElementById(TRYON_BTN_ID);
-    if (btn) btn.style.display = 'none';
+    if (btn) btn.remove();
     var btnRow = document.querySelector('.' + BTN_ROW_CLASS);
-    if (btnRow) btnRow.style.display = 'none';
+    if (btnRow) btnRow.remove();
 
     // Animate progress — reads __tryonDuration live so it can be updated mid-flight
     var startTime = Date.now();
@@ -273,8 +286,8 @@ export const PRODUCT_DETECTOR_JS = `
       'be honest u look expensive...',
       'AI went feral for this one...',
       'the fit is fitting...',
-      'gaslight gatekeep girlboss...',
-      'ur giving rich auntie vibes...',
+      'gaslight gatekeep slay...',
+      'ur giving old money vibes...',
       'alexa play sexy back...',
       'mirror mirror on the wall...',
       'no thoughts just drip...',
@@ -293,6 +306,40 @@ export const PRODUCT_DETECTOR_JS = `
       'serving cunt honestly...',
       'ur closet could never...',
       'AI is down bad for u...',
+      'virtual sugar daddy energy...',
+      'ctrl+z ur old outfit...',
+      'fashion emergency dispatched...',
+      'swipe right on this fit...',
+      'hotter than ur ex ngl...',
+      'ur stylist called. its me...',
+      'deleting ur old wardrobe...',
+      'the vibe check cleared...',
+      'giving renaissance era slay...',
+      'fabric physics go brr...',
+      'the AI needs a cold shower...',
+      'zara who? u ARE the brand...',
+      'god tier fit incoming...',
+      'ur reflection just gasped...',
+      'adding drip... please wait...',
+      'confidence.exe loading...',
+      'the cloth consented dw...',
+      'stitching pixels with love...',
+      'ur mom would be proud ngl...',
+      'the fit is about to slap...',
+      'breaking fashion laws rn...',
+      'outfit reveal in 3 2 1...',
+      'AI is sweating... respectfully...',
+      'this is art and ur the canvas...',
+      'certified hot person activity...',
+      'ur outfit just got evicted...',
+      'new drip who dis...',
+      'the try-on of the century...',
+      'processing hotness levels...',
+      'AI having a fashion orgasm...',
+      'upgrade in progress bestie...',
+      'the algorithm is blushing...',
+      'runway ready in seconds...',
+      'making mannequins unemployed...',
     ];
     var videoQuips = [
       'AI directing ur thirst trap...',
@@ -305,7 +352,7 @@ export const PRODUCT_DETECTOR_JS = `
       'making pixels jealous rn...',
       'this reel will break hearts...',
       'ur walk just ended careers...',
-      'giving victoria secret energy...',
+      'giving fashion week energy...',
       'the camera is obsessed w u...',
       'frame by frame of pure slay...',
       'recording evidence of a serve...',
@@ -313,17 +360,45 @@ export const PRODUCT_DETECTOR_JS = `
       'the AI is ur hype man now...',
       'walk like rent is due...',
       'tiktok isnt ready for this...',
+      'rendering ur glow up...',
+      'the camera adds 10 rizz...',
+      'oscar for best thirst trap...',
+      'slow mo slay activated...',
+      'ur video just cleared security...',
+      'spinning the slay reel...',
+      'more frames more fame...',
+      'instagram is shaking rn...',
+      'editing out the mid parts...',
+      'the video screamed slay...',
+      'capturing main character aura...',
+      'blockbuster vibes only...',
+      'viral speedrun any% ...',
+      'rendering ur runway walk...',
+      'this vid will do numbers...',
+      'cinematic universe: u...',
+      'buffering ur icon moment...',
     ];
-    function pickRandom(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+    // Shuffle array so no quip repeats until all have been shown
+    function shuffle(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+      }
+      return a;
+    }
     var activeQuips = isVideo ? videoQuips : tryonQuips;
-    var lastQuip = '';
-    // Cycle quips on a fast fixed timer (every 2s) — independent of progress bar
+    var shuffled = shuffle(activeQuips);
+    var quipIndex = 0;
+    // Cycle quips on a fast fixed timer (every 2s) — no repeats in a single generation
     if (quipTimerGlobal) clearInterval(quipTimerGlobal);
     quipTimerGlobal = setInterval(function() {
-      var next = pickRandom(activeQuips);
-      while (next === lastQuip && activeQuips.length > 1) next = pickRandom(activeQuips);
-      lastQuip = next;
-      statusText.textContent = next;
+      statusText.textContent = shuffled[quipIndex];
+      quipIndex++;
+      if (quipIndex >= shuffled.length) {
+        shuffled = shuffle(activeQuips);
+        quipIndex = 0;
+      }
     }, 2000);
 
     progressInterval = setInterval(function() {
@@ -393,48 +468,7 @@ export const PRODUCT_DETECTOR_JS = `
     return info;
   }
 
-  function isPDP() {
-    // Heuristic: a product detail page typically has a price AND a product title
-    var hasPrice = false;
-    var hasTitle = false;
-
-    // Check for price patterns in page text
-    var pageText = document.body.innerText || '';
-    if (pageText.match(/[\\u20B9$\\u20AC\\u00A3]\\s*[\\d,]+\\.?\\d*/)) {
-      hasPrice = true;
-    }
-
-    // Check for product title elements
-    var titleEl = document.querySelector(
-      'h1, ' +
-      '[class*="product-title"], [class*="product-name"], [class*="productTitle"], ' +
-      '[class*="pdp-title"], [class*="product-brand"], ' +
-      '[data-testid*="title"], [data-testid*="name"], ' +
-      '[class*="product-info"], [class*="productInfo"], [class*="pdp-"]'
-    );
-    if (titleEl) hasTitle = true;
-
-    // Also check for common PDP indicators: add-to-cart/bag buttons, size selectors
-    var pdpIndicators = document.querySelector(
-      '[class*="add-to-cart"], [class*="add-to-bag"], [class*="addtocart"], [class*="addtobag"], ' +
-      '[class*="add-to-Cart"], [class*="add-to-Bag"], [class*="AddToCart"], [class*="AddToBag"], ' +
-      'button[class*="cart"], button[class*="bag"], button[class*="buy"], ' +
-      '[class*="size-selector"], [class*="sizeSelector"], [class*="size-buttons"], ' +
-      '[class*="size-chart"], [class*="sizeChart"]'
-    );
-
-    var result = hasPrice && (hasTitle || !!pdpIndicators);
-    log('🏪', 'PDP CHECK — hasPrice: ' + hasPrice + ', hasTitle: ' + hasTitle + ', hasPdpIndicators: ' + !!pdpIndicators + ' → isPDP: ' + result);
-    return result;
-  }
-
   function findProductImage() {
-    // First check if this looks like a product detail page
-    if (!isPDP()) {
-      log('⏭️', 'SCAN — Not a product detail page, skipping image detection');
-      return null;
-    }
-
     var screenW = window.innerWidth;
     var threshold = screenW * 0.75;
     var minHeight = 200;
@@ -492,6 +526,7 @@ export const PRODUCT_DETECTOR_JS = `
     if (img.getAttribute(DETECTED_ATTR)) return;
     img.setAttribute(DETECTED_ATTR, 'true');
     productImg = img;
+    originalProductSrc = img.currentSrc || img.src || img.dataset.src;
 
     // Remove existing buttons
     removeBtnRow();
@@ -499,13 +534,14 @@ export const PRODUCT_DETECTOR_JS = `
     // Create floating button fixed to bottom of screen
     var btn = document.createElement('button');
     btn.id = TRYON_BTN_ID;
-    btn.innerHTML = '\\u{1F453} Try This On';
+    btn.innerHTML = '\\u{1F455} Try This On';
 
     btn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       if (__tryonBusy) return;
       __tryonBusy = true;
+      btn.remove();
 
       var imgSrc = img.currentSrc || img.src || img.dataset.src;
       var info = getProductInfo();
@@ -527,7 +563,7 @@ export const PRODUCT_DETECTOR_JS = `
     log('🔘', 'BUTTON — Floating Try On button added to page');
   }
 
-  function showButtonRow(showVideo) {
+  function showButtonRow(showVideo, tryLabel) {
     // Remove existing buttons first
     removeBtnRow();
 
@@ -538,16 +574,19 @@ export const PRODUCT_DETECTOR_JS = `
     // Re-create Try On button (CSS overrides fixed positioning when inside row)
     var tryBtn = document.createElement('button');
     tryBtn.id = TRYON_BTN_ID;
-    tryBtn.innerHTML = '\\u{1F453} Try On';
+    tryBtn.innerHTML = tryLabel || '\\u{1F455}';
 
     tryBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       if (!productImg || __tryonBusy) return;
       __tryonBusy = true;
-      var imgSrc = productImg.currentSrc || productImg.src || productImg.dataset.src;
+      row.remove();
+      // Always use the original product image URL (not the replaced try-on base64)
+      var imgSrc = originalProductSrc || productImg.currentSrc || productImg.src || productImg.dataset.src;
       var info = getProductInfo();
-      log('👆', 'BUTTON CLICKED — Sending try-on request');
+      var isRetry = !!originalProductSrc && (productImg.src || '').indexOf('data:image') === 0;
+      log('👆', 'BUTTON CLICKED — Sending try-on request' + (isRetry ? ' (RETRY)' : ''));
       log('🖼️', 'IMAGE URL —', imgSrc);
       log('📦', 'PRODUCT —', info);
       window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -556,6 +595,7 @@ export const PRODUCT_DETECTOR_JS = `
         productName: info.name || 'Product',
         productPrice: info.price,
         pageUrl: window.location.href,
+        retry: isRetry,
       }));
     });
 
@@ -564,12 +604,13 @@ export const PRODUCT_DETECTOR_JS = `
     if (showVideo) {
       var vidBtn = document.createElement('button');
       vidBtn.id = VIDEO_BTN_ID;
-      vidBtn.innerHTML = '\\u{1F3AC} Video';
+      vidBtn.innerHTML = '\\u{1F3AC}';
       vidBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
         if (__tryonBusy) return;
         __tryonBusy = true;
+        row.remove();
         log('🎬', 'VIDEO BUTTON CLICKED — Sending video request');
         window.ReactNativeWebView.postMessage(JSON.stringify({
           type: 'video_request',
@@ -610,8 +651,8 @@ export const PRODUCT_DETECTOR_JS = `
     productImg.src = 'data:image/png;base64,' + base64Data;
     log('✅', 'REPLACE — Product image replaced successfully! (base64 length: ' + base64Data.length + ')');
 
-    // Show button row with Video button
-    showButtonRow(true);
+    // Show button row with Video button — ↻ icon for retry
+    showButtonRow(true, '\\u{21BB}');
   }
 
   // Listen for messages from React Native (loading, result, error)
@@ -634,9 +675,22 @@ export const PRODUCT_DETECTOR_JS = `
       } else if (data.type === 'tryon_error') {
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Try-on generation failed');
-        removeLoadingOverlay();
-        // Show try-on button again (no video since it failed)
-        showButtonRow(false);
+        // Flash error text on overlay before removing
+        var overlay = document.getElementById(TRYON_OVERLAY_ID);
+        if (overlay) {
+          var statusEl = overlay.querySelector('.__tryon-status-text');
+          if (statusEl) statusEl.textContent = data.errorText || 'oof, that failed';
+          var progressEl = overlay.querySelector('.__tryon-progress-fill');
+          if (progressEl) progressEl.style.background = '#ef4444';
+        }
+        // Clear timers immediately
+        if (quipTimerGlobal) { clearInterval(quipTimerGlobal); quipTimerGlobal = null; }
+        if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+        // Remove overlay after brief flash, then show retry
+        setTimeout(function() {
+          removeLoadingOverlay();
+          showButtonRow(false, '\\u{21BB}');
+        }, 1500);
       } else if (data.type === 'video_loading') {
         __tryonBusy = true;
         log('📨', 'RN MESSAGE — Video generation started');

@@ -25,6 +25,7 @@ interface WebViewMessage {
   productPrice?: string;
   pageUrl?: string;
   url?: string;
+  retry?: boolean;
 }
 
 interface Props {
@@ -33,6 +34,7 @@ interface Props {
     productName: string;
     productPrice?: string;
     pageUrl?: string;
+    retry?: boolean;
   }) => void;
 }
 
@@ -112,8 +114,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         currentProduct.imageUrl
       );
 
+      // Force Pro model on retry — user didn't like the previous result
+      const finalUsePhotoshoot = currentProduct.retry ? true : usePhotoshoot;
+
       // Step 2: Update duration now that we know the mode
-      const estimatedDuration = usePhotoshoot ? 35000 : 12000;
+      const estimatedDuration = finalUsePhotoshoot ? 35000 : 12000;
       if (webViewRef.current) {
         console.log('🌐 [WebView] Updating duration:', estimatedDuration + 'ms');
         webViewRef.current.injectJavaScript(`
@@ -122,8 +127,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
 
-      // Step 3: Generate
-      const resultBase64 = await generateTryOn(selfieBase64, productBase64, usePhotoshoot);
+      // Step 3: Generate (retry always uses Pro model)
+      const resultBase64 = await generateTryOn(selfieBase64, productBase64, finalUsePhotoshoot);
       console.log('🎭 [TryOn] Generation SUCCESS! Result base64 length:', resultBase64.length);
       setTryOnResult(resultBase64);
 
@@ -145,10 +150,18 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         console.error('💾 [TryOn] Auto-save failed:', saveErr);
       }
     } catch (err: any) {
-      console.error('🎭 [TryOn] Generation FAILED:', err.message || err);
+      console.log('🎭 [TryOn] Generation FAILED:', err.message || err);
+      const errorQuips = [
+        'faah, retry? \u{1F972}',
+        'AI tripped lol, again?',
+        'oops, one more time?',
+        'servers ghosted us, retry?',
+        'bruh moment, try again?',
+      ];
+      const errorText = errorQuips[Math.floor(Math.random() * errorQuips.length)];
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'tryon_error' }), '*');
+          window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(errorText)} }), '*');
           true;
         `);
       }
@@ -198,7 +211,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
     } catch (err: any) {
-      console.error('🎬 [Video] Generation FAILED:', err.message || err);
+      console.log('🎬 [Video] Generation FAILED:', err.message || err);
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
           window.postMessage(JSON.stringify({ type: 'video_error' }), '*');
@@ -226,6 +239,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             productName: data.productName || 'Product',
             productPrice: data.productPrice,
             pageUrl: data.pageUrl,
+            retry: data.retry,
           });
         } else if (data.type === 'video_request') {
           console.log('🌐 [WebView] Video request received from page');
@@ -238,13 +252,25 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     [onTryOnRequest, lastTryOnBase64, lastProductName, videoLoading]
   );
 
+  const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleNavigationStateChange = (navState: any) => {
     setCanGoBack(navState.canGoBack);
     setPageTitle(navState.title || '');
     if (navState.url !== currentUrl) {
       // Actual page navigation — reset so next load shows spinner
       initialLoadDone.current = false;
-      setLoading(navState.loading);
+      // Only show loading if WebView says it's actively loading
+      if (navState.loading) {
+        setLoading(true);
+        // Safety timeout — if onLoadEnd never fires (SPA nav), clear loading after 3s
+        if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+        navTimeoutRef.current = setTimeout(() => {
+          setLoading(false);
+          initialLoadDone.current = true;
+          navTimeoutRef.current = null;
+        }, 3000);
+      }
     }
     setCurrentUrl(navState.url);
   };
@@ -324,6 +350,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           onLoadEnd={() => {
             initialLoadDone.current = true;
             setLoading(false);
+            // Clear safety timeout since load completed normally
+            if (navTimeoutRef.current) {
+              clearTimeout(navTimeoutRef.current);
+              navTimeoutRef.current = null;
+            }
             // Debounce product detector injection — only inject once after loads settle
             if (loadTimerRef.current) {
               clearTimeout(loadTimerRef.current);

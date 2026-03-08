@@ -36,6 +36,7 @@ export default function HomeScreen() {
     productName: string;
     productPrice?: string;
     pageUrl?: string;
+    retry?: boolean;
   }) => {
     console.log('🏠 [Home] Try-on request received from WebView');
     console.log('🏠 [Home] Product:', data.productName, '| Price:', data.productPrice);

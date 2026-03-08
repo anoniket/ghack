@@ -51,8 +51,8 @@ export default function TryOnModal() {
     'be honest u look expensive...',
     'AI went feral for this one...',
     'the fit is fitting...',
-    'gaslight gatekeep girlboss...',
-    'ur giving rich auntie vibes...',
+    'gaslight gatekeep slay...',
+    'ur giving old money vibes...',
     'alexa play sexy back...',
     'mirror mirror on the wall...',
     'no thoughts just drip...',
@@ -71,23 +71,72 @@ export default function TryOnModal() {
     'serving cunt honestly...',
     'ur closet could never...',
     'AI is down bad for u...',
+    'virtual sugar daddy energy...',
+    'ctrl+z ur old outfit...',
+    'fashion emergency dispatched...',
+    'swipe right on this fit...',
+    'hotter than ur ex ngl...',
+    'ur stylist called. its me...',
+    'deleting ur old wardrobe...',
+    'the vibe check cleared...',
+    'giving renaissance era slay...',
+    'fabric physics go brr...',
+    'the AI needs a cold shower...',
+    'zara who? u ARE the brand...',
+    'god tier fit incoming...',
+    'ur reflection just gasped...',
+    'adding drip... please wait...',
+    'confidence.exe loading...',
+    'the cloth consented dw...',
+    'stitching pixels with love...',
+    'ur mom would be proud ngl...',
+    'the fit is about to slap...',
+    'breaking fashion laws rn...',
+    'outfit reveal in 3 2 1...',
+    'AI is sweating... respectfully...',
+    'this is art and ur the canvas...',
+    'certified hot person activity...',
+    'ur outfit just got evicted...',
+    'new drip who dis...',
+    'the try-on of the century...',
+    'processing hotness levels...',
+    'AI having a fashion orgasm...',
+    'upgrade in progress bestie...',
+    'the algorithm is blushing...',
+    'runway ready in seconds...',
+    'making mannequins unemployed...',
   ];
 
-  const lastQuipRef = useRef('');
-  const pickQuip = useCallback(() => {
-    let next = LOADING_QUIPS[Math.floor(Math.random() * LOADING_QUIPS.length)];
-    while (next === lastQuipRef.current) {
-      next = LOADING_QUIPS[Math.floor(Math.random() * LOADING_QUIPS.length)];
+  // Shuffle-based no-repeat: cycles through all quips before repeating any
+  const shuffledRef = useRef<string[]>([]);
+  const quipIndexRef = useRef(0);
+
+  const shuffleArray = useCallback((arr: string[]) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
     }
-    lastQuipRef.current = next;
-    return next;
+    return a;
   }, []);
 
-  // Cycle quips fast (every 2s) while loading
+  const nextQuip = useCallback(() => {
+    if (quipIndexRef.current >= shuffledRef.current.length) {
+      shuffledRef.current = shuffleArray(LOADING_QUIPS);
+      quipIndexRef.current = 0;
+    }
+    const q = shuffledRef.current[quipIndexRef.current];
+    quipIndexRef.current++;
+    return q;
+  }, []);
+
+  // Cycle quips fast (every 2s) while loading — no repeats in a single generation
   useEffect(() => {
     if (tryOnLoading) {
-      setLoadingQuip(pickQuip());
-      quipInterval.current = setInterval(() => setLoadingQuip(pickQuip()), 2000);
+      shuffledRef.current = shuffleArray(LOADING_QUIPS);
+      quipIndexRef.current = 0;
+      setLoadingQuip(nextQuip());
+      quipInterval.current = setInterval(() => setLoadingQuip(nextQuip()), 2000);
     } else if (quipInterval.current) {
       clearInterval(quipInterval.current);
       quipInterval.current = null;
