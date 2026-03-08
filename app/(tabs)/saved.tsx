@@ -106,6 +106,24 @@ export default function SavedScreen() {
     setRefreshing(false);
   }, []);
 
+  const handleDeleteAll = () => {
+    Alert.alert('Delete All', 'Delete all saved try-ons? This cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete All',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await api.deleteAllSessions();
+            setSavedTryOns([]);
+          } catch (err) {
+            Alert.alert('Error', 'Failed to delete all try-ons.');
+          }
+        },
+      },
+    ]);
+  };
+
   const handleDelete = (item: SavedTryOn) => {
     Alert.alert('Delete Try-On', 'Are you sure? This will remove it from the cloud.', [
       { text: 'Cancel', style: 'cancel' },
@@ -255,8 +273,17 @@ export default function SavedScreen() {
     <View style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>Saved</Text>
-          <Text style={styles.headerCount}>{savedTryOns.length} try-ons</Text>
+          <View style={styles.headerRow}>
+            <View>
+              <Text style={styles.headerTitle}>Saved</Text>
+              <Text style={styles.headerCount}>{savedTryOns.length} try-ons</Text>
+            </View>
+            {savedTryOns.length > 0 && (
+              <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllBtn}>
+                <Text style={styles.deleteAllText}>Delete All</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {savedTryOns.length === 0 ? (
@@ -309,6 +336,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 16,
     paddingBottom: 20,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  deleteAllBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: 'rgba(239,68,68,0.15)',
+  },
+  deleteAllText: {
+    color: '#ef4444',
+    fontSize: 13,
+    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 30,

@@ -296,6 +296,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const navTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleNavigationStateChange = (navState: any) => {
+    // Ignore internal WebView frames (iframes, injected scripts)
+    if (navState.url === 'about:srcdoc' || navState.url === 'about:blank') return;
     setCanGoBack(navState.canGoBack);
     setPageTitle(navState.title || '');
     if (navState.url !== currentUrl) {

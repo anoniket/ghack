@@ -122,3 +122,20 @@ export async function deleteSession(
 
   return session;
 }
+
+export async function deleteAllSessions(
+  deviceId: string
+): Promise<TryOnSession[]> {
+  const sessions = await queryByDevice(deviceId);
+
+  for (const session of sessions) {
+    await ddb.send(
+      new DeleteCommand({
+        TableName: TABLE,
+        Key: { deviceId, sessionId: session.sessionId },
+      })
+    );
+  }
+
+  return sessions;
+}

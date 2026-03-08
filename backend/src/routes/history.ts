@@ -3,6 +3,7 @@ import {
   queryByDevice,
   queryBySourceUrl,
   deleteSession as deleteSessionFromDb,
+  deleteAllSessions as deleteAllFromDb,
 } from '../services/dynamo';
 import { deleteObject, getReadUrl } from '../services/s3';
 
@@ -25,6 +26,34 @@ historyRouter.get('/history', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error(`[${req.deviceId}] History ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to fetch history' });
+  }
+});
+
+historyRouter.delete('/history', async (req: Request, res: Response) => {
+  const tag = `[${req.deviceId}]`;
+  try {
+    console.log(`${tag} DeleteAll → starting`);
+    const sessions = await deleteAllFromDb(req.deviceId);
+
+    // Clean up all S3 objects
+    let cleaned = 0;
+    for (const session of sessions) {
+      const keys = [session.tryonS3Key, session.videoS3Key].filter(Boolean) as string[];
+      for (const key of keys) {
+        try {
+          await deleteObject(key);
+          cleaned++;
+        } catch {
+          // Non-critical
+        }
+      }
+    }
+    console.log(`${tag} DeleteAll → done, deleted ${sessions.length} sessions, cleaned ${cleaned} S3 objects`);
+
+    res.json({ ok: true, deleted: sessions.length });
+  } catch (err: any) {
+    console.error(`[${req.deviceId}] DeleteAll ERROR:`, err.message);
+    res.status(500).json({ error: err.message || 'Failed to delete all sessions' });
   }
 });
 

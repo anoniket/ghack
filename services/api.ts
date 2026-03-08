@@ -196,6 +196,10 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await apiFetch(`/api/history/${sessionId}`, { method: 'DELETE' });
 }
 
+export async function deleteAllSessions(): Promise<{ deleted: number }> {
+  return apiFetch('/api/history', { method: 'DELETE' });
+}
+
 // ---- Product Try-On Check ----
 
 export interface ProductTryOnResult {
