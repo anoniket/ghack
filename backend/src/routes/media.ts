@@ -32,7 +32,7 @@ mediaRouter.post('/upload-url', async (req: Request, res: Response) => {
     const uploadUrl = await getPresignedUploadUrl(s3Key, ct, 300);
     res.json({ uploadUrl, s3Key, expiresIn: 300 });
   } catch (err: any) {
-    console.error('Upload URL error:', err);
+    console.error(`[${req.deviceId.substring(0, 8)}] UploadURL ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to generate upload URL' });
   }
 });

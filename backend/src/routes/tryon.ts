@@ -14,15 +14,17 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
     return;
   }
 
+  const tag = `[${req.deviceId.substring(0, 8)}]`;
+
   try {
     const selfieBuffer = await downloadToBuffer(selfieS3Key);
     const selfieBase64 = selfieBuffer.toString('base64');
 
-    console.log(`🎭 [Prepare] Zone detection for device=${req.deviceId.substring(0,12)}...`);
+    console.log(`${tag} Prepare → zone detection started`);
     const { usePhotoshoot } = await prepareTryOn(selfieBase64, productImageUrl);
 
     const finalUsePhotoshoot = retry ? true : usePhotoshoot;
-    console.log(`🎭 [Prepare] result→usePhotoshoot=${usePhotoshoot}, retry=${!!retry}, final→${finalUsePhotoshoot ? 'PRO' : 'FLASH'}`);
+    console.log(`${tag} Prepare → model=${finalUsePhotoshoot ? 'PRO' : 'FLASH'} (zone=${usePhotoshoot ? 'hidden' : 'visible'}, retry=${!!retry})`);
 
     res.json({
       usePhotoshoot: finalUsePhotoshoot,
@@ -30,7 +32,7 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
       estimatedDuration: finalUsePhotoshoot ? 35000 : 12000,
     });
   } catch (err: any) {
-    console.error('Prepare error:', err);
+    console.error(`${tag} Prepare ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Prepare failed' });
   }
 });
@@ -45,25 +47,22 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     return;
   }
 
+  const tag = `[${req.deviceId.substring(0, 8)}]`;
+
   try {
-    // Download both images (no zone detection — already done in /prepare)
     const selfieBuffer = await downloadToBuffer(selfieS3Key);
     const selfieBase64 = selfieBuffer.toString('base64');
     const productBase64 = await downloadImageToBase64(productImageUrl);
 
-    console.log(`🎨 [Generate] model=${usePhotoshoot ? 'PRO' : 'FLASH'} for device=${req.deviceId.substring(0,12)}...`);
+    console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started`);
     const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot);
-    console.log(`🎨 [Generate] Got image base64, length=${resultBase64.length}`);
 
-    // Upload result to S3
     const sessionId = `ses_${Date.now()}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
     const resultBuffer = Buffer.from(resultBase64, 'base64');
     await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
-    console.log(`🎨 [Generate] Uploaded to S3: ${tryonS3Key}`);
 
     const tryonImageUrl = await getReadUrl(tryonS3Key);
-    console.log(`🎨 [Generate] Got read URL, sending response`);
 
     await putSession({
       deviceId: req.deviceId,
@@ -77,6 +76,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     });
 
     const durationMs = Date.now() - startTime;
+    console.log(`${tag} Generate → done in ${durationMs}ms, session=${sessionId}`);
     res.json({
       sessionId,
       tryonImageUrl,
@@ -85,7 +85,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
       durationMs,
     });
   } catch (err: any) {
-    console.error('Generate error:', err);
+    console.error(`${tag} Generate ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Try-on generation failed' });
   }
 });

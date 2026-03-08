@@ -368,19 +368,15 @@ export async function prepareTryOn(
   });
 
   const detectText = detectResponse.text || '';
-  console.log('🔍 [ZoneDetect] Raw response:', detectText);
   let usePhotoshoot = false;
   try {
     const jsonMatch = detectText.match(/\{[^}]+\}/);
     if (jsonMatch) {
       const detection = JSON.parse(jsonMatch[0]);
-      console.log('🔍 [ZoneDetect] Parsed:', JSON.stringify(detection), '→ usePhotoshoot:', detection.zone_visible === false);
       usePhotoshoot = detection.zone_visible === false;
-    } else {
-      console.log('🔍 [ZoneDetect] No JSON found in response, defaulting to flash');
     }
-  } catch (e) {
-    console.log('🔍 [ZoneDetect] Parse error, defaulting to flash:', e);
+  } catch {
+    // Parse error — default to flash
   }
 
   return { selfieBase64, productBase64, usePhotoshoot };
@@ -393,7 +389,6 @@ export async function generateTryOn(
 ): Promise<string> {
   const prompt = usePhotoshoot ? TRYON_PHOTOSHOOT_PROMPT : TRYON_PROMPT;
   const model = usePhotoshoot ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
-  console.log(`🎨 [Generate] Using model: ${model} (${usePhotoshoot ? 'PRO/photoshoot' : 'FLASH/replacement'})`);
 
   const genStart = Date.now();
   const response = await ai.models.generateContent({
@@ -416,7 +411,6 @@ export async function generateTryOn(
   });
 
   const genMs = Date.now() - genStart;
-  console.log(`🎨 [Generate] Model responded in ${genMs}ms`);
 
   const parts = response.candidates?.[0]?.content?.parts;
   if (parts) {

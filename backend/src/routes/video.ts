@@ -14,40 +14,40 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     return;
   }
 
+  const tag = `[${req.deviceId.substring(0, 8)}]`;
+
   try {
-    // Download the try-on image from S3
     const tryonBuffer = await downloadToBuffer(tryonS3Key);
     const tryonBase64 = tryonBuffer.toString('base64');
 
     const jobId = uuid();
+    console.log(`${tag} Video → job=${jobId} started`);
 
-    // Start async video generation
     startVideoGeneration(
       jobId,
       tryonBase64,
       'outfit',
       async (videoBuffer: Buffer) => {
-        // Upload video to S3
         const videoS3Key = `${req.deviceId}/videos/${jobId}.mp4`;
         await uploadBuffer(videoS3Key, videoBuffer, 'video/mp4');
         const videoReadUrl = await getReadUrl(videoS3Key);
 
-        // Update DynamoDB if we have a session
         if (sessionId) {
           try {
             await updateSessionVideo(req.deviceId, sessionId, videoS3Key, videoS3Key);
           } catch (e) {
-            console.error('Failed to update session with video:', e);
+            console.error(`${tag} Video → failed to update session:`, (e as any).message);
           }
         }
 
+        console.log(`${tag} Video → job=${jobId} complete`);
         return { s3Key: videoS3Key, cdnUrl: videoReadUrl };
       }
     );
 
     res.json({ jobId });
   } catch (err: any) {
-    console.error('Video start error:', err);
+    console.error(`${tag} Video ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to start video generation' });
   }
 });

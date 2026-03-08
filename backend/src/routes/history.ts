@@ -21,7 +21,7 @@ historyRouter.get('/history', async (req: Request, res: Response) => {
     })));
     res.json({ items });
   } catch (err: any) {
-    console.error('History error:', err);
+    console.error(`[${req.deviceId.substring(0, 8)}] History ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to fetch history' });
   }
 });
@@ -46,7 +46,7 @@ historyRouter.delete('/history/:id', async (req: Request, res: Response) => {
 
     res.json({ ok: true });
   } catch (err: any) {
-    console.error('Delete error:', err);
+    console.error(`[${req.deviceId.substring(0, 8)}] Delete ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to delete session' });
   }
 });
@@ -72,7 +72,7 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
       res.json({ found: false });
     }
   } catch (err: any) {
-    console.error('Product tryon check error:', err);
+    console.error(`[${req.deviceId.substring(0, 8)}] ProductTryOn ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Failed to check product try-on' });
   }
 });

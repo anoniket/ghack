@@ -11,6 +11,8 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     return;
   }
 
+  const tag = `[${req.deviceId.substring(0, 8)}]`;
+
   try {
     const text = await sendChatMessage(req.deviceId, message, history);
 
@@ -28,7 +30,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 
     res.json({ text, url });
   } catch (err: any) {
-    console.error('Chat error:', err);
+    console.error(`${tag} Chat ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Chat failed' });
   }
 });
