@@ -73,15 +73,15 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
 
     let productBase64 = cached?.productBase64;
     if (!productBase64) {
-      let t = Date.now();
+      const pt = Date.now();
       productBase64 = await downloadImageToBase64(productImageUrl);
-      console.log(`${tag} Generate → product image download (fallback): ${Date.now() - t}ms`);
+      console.log(`${tag} Generate → product image download (fallback): ${Date.now() - pt}ms`);
     }
 
-    t = Date.now();
+    const geminiStart = Date.now();
     console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started`);
     const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot);
-    const geminiMs = Date.now() - t;
+    const geminiMs = Date.now() - geminiStart;
     console.log(`${tag} Generate → Gemini API: ${geminiMs}ms, base64 length=${resultBase64.length}`);
 
     // Respond immediately with base64 — app can inject into WebView right away
