@@ -13,7 +13,7 @@ import { WebView } from 'react-native-webview';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore } from '@/services/store';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
-import { generateTryOn, generateVideo } from '@/services/gemini';
+import { prepareTryOn, generateTryOn, generateVideo } from '@/services/gemini';
 import { saveTryOnResult, getSavedTryOns } from '@/utils/imageUtils';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -62,6 +62,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const initialLoadDone = useRef(false);
 
   const videoPlayer = useVideoPlayer(null, (player) => {
     player.loop = true;
@@ -94,7 +96,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setTryOnLoading(true);
     console.log('🎭 [TryOn] ---- GENERATION STARTED ----');
 
-    // Tell WebView to show loading overlay on product image
+    // Show loading overlay immediately
     if (webViewRef.current) {
       console.log('🌐 [WebView] Sending tryon_loading to WebView');
       webViewRef.current.injectJavaScript(`
@@ -104,11 +106,24 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
-      const resultBase64 = await generateTryOn(
+      // Step 1: Prepare — detect zone, download images (~2-3s)
+      const { selfieBase64, productBase64, usePhotoshoot } = await prepareTryOn(
         selfieUri,
-        currentProduct.imageUrl,
-        currentProduct.productName
+        currentProduct.imageUrl
       );
+
+      // Step 2: Update duration now that we know the mode
+      const estimatedDuration = usePhotoshoot ? 35000 : 12000;
+      if (webViewRef.current) {
+        console.log('🌐 [WebView] Updating duration:', estimatedDuration + 'ms');
+        webViewRef.current.injectJavaScript(`
+          window.postMessage(JSON.stringify({ type: 'tryon_duration', duration: ${estimatedDuration} }), '*');
+          true;
+        `);
+      }
+
+      // Step 3: Generate
+      const resultBase64 = await generateTryOn(selfieBase64, productBase64, usePhotoshoot);
       console.log('🎭 [TryOn] Generation SUCCESS! Result base64 length:', resultBase64.length);
       setTryOnResult(resultBase64);
 
@@ -131,7 +146,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
     } catch (err: any) {
       console.error('🎭 [TryOn] Generation FAILED:', err.message || err);
-      // Tell WebView to remove loading overlay on error
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
           window.postMessage(JSON.stringify({ type: 'tryon_error' }), '*');
@@ -227,6 +241,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const handleNavigationStateChange = (navState: any) => {
     setCanGoBack(navState.canGoBack);
     setPageTitle(navState.title || '');
+    if (navState.url !== currentUrl) {
+      // Actual page navigation — reset so next load shows spinner
+      initialLoadDone.current = false;
+      setLoading(navState.loading);
+    }
     setCurrentUrl(navState.url);
   };
 
@@ -291,14 +310,64 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           onMessage={handleMessage}
           onNavigationStateChange={handleNavigationStateChange}
           onShouldStartLoadWithRequest={handleShouldStartLoad}
-          onLoadStart={() => setLoading(true)}
+          onLoadStart={() => {
+            // Only show loading spinner for the initial page load
+            if (!initialLoadDone.current) {
+              setLoading(true);
+            }
+            // Clear any pending dismiss timer
+            if (loadTimerRef.current) {
+              clearTimeout(loadTimerRef.current);
+              loadTimerRef.current = null;
+            }
+          }}
           onLoadEnd={() => {
+            initialLoadDone.current = true;
             setLoading(false);
-            console.log('🌐 [WebView] Page loaded, injecting product detector');
-            webViewRef.current?.injectJavaScript(PRODUCT_DETECTOR_JS);
+            // Debounce product detector injection — only inject once after loads settle
+            if (loadTimerRef.current) {
+              clearTimeout(loadTimerRef.current);
+            }
+            loadTimerRef.current = setTimeout(() => {
+              console.log('🌐 [WebView] Page settled, injecting product detector');
+              webViewRef.current?.injectJavaScript(PRODUCT_DETECTOR_JS);
+              loadTimerRef.current = null;
+            }, 500);
           }}
           injectedJavaScriptBeforeContentLoaded={`
             window.__tryonInjected = false;
+            // Track navigation history depth
+            window.__historyDepth = 0;
+            var origPushState = history.pushState;
+            var origReplaceState = history.replaceState;
+            history.pushState = function() {
+              window.__historyDepth++;
+              return origPushState.apply(this, arguments);
+            };
+            history.replaceState = function() {
+              return origReplaceState.apply(this, arguments);
+            };
+            window.addEventListener('popstate', function() {
+              window.__historyDepth = Math.max(0, window.__historyDepth - 1);
+            });
+            var origBack = history.back;
+            history.back = function() {
+              if (window.__historyDepth <= 0) {
+                var homepage = location.protocol + '//' + location.hostname;
+                location.href = homepage;
+              } else {
+                origBack.apply(this, arguments);
+              }
+            };
+            var origGo = history.go;
+            history.go = function(n) {
+              if (n < 0 && window.__historyDepth <= 0) {
+                var homepage = location.protocol + '//' + location.hostname;
+                location.href = homepage;
+              } else {
+                origGo.apply(this, arguments);
+              }
+            };
             true;
           `}
           javaScriptEnabled

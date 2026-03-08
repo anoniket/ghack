@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { File, Directory, Paths } from 'expo-file-system';
-import { GEMINI_API_KEY, MODELS, CHAT_SYSTEM_PROMPT, TRYON_PROMPT } from '@/utils/constants';
+import { GEMINI_API_KEY, MODELS, CHAT_SYSTEM_PROMPT, TRYON_PROMPT, TRYON_DETECT_PROMPT, TRYON_PHOTOSHOOT_PROMPT } from '@/utils/constants';
 import { imageUriToBase64, downloadImageToBase64 } from '@/utils/imageUtils';
 
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
@@ -36,7 +36,7 @@ export async function sendChatMessage(userMessage: string): Promise<string> {
       config: {
         systemInstruction: CHAT_SYSTEM_PROMPT,
         temperature: 0.7,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 256,
         tools: [{ googleSearch: {} }],
       },
     });
@@ -77,14 +77,12 @@ export function cleanResponseText(text: string): string {
   return text.replace(/```json\s*\n?\s*\{[^}]*"action"\s*:\s*"open_url"[^}]*\}\s*```/g, '').trim();
 }
 
-export async function generateTryOn(
+// Prepares images and runs zone detection. Returns data needed for generation.
+export async function prepareTryOn(
   selfieUri: string,
-  productImageUrl: string,
-  garmentType: string = 'clothing item'
-): Promise<string> {
-  console.log('🧠 [Gemini] ======== TRY-ON GENERATION ========');
-  console.log('🧠 [Gemini] Model:', MODELS.IMAGE_GEN);
-  console.log('🧠 [Gemini] Garment type:', garmentType);
+  productImageUrl: string
+): Promise<{ selfieBase64: string; productBase64: string; usePhotoshoot: boolean }> {
+  console.log('🧠 [Gemini] ======== TRY-ON PREPARE ========');
   console.log('🧠 [Gemini] Product image URL (full):', productImageUrl);
 
   console.log('🧠 [Gemini] Converting selfie to base64...');
@@ -95,21 +93,24 @@ export async function generateTryOn(
   const productBase64 = await downloadImageToBase64(productImageUrl);
   console.log('🧠 [Gemini] Product base64 ready — length:', productBase64.length);
 
-  console.log('🧠 [Gemini] Sending to Gemini API...');
-  const startTime = Date.now();
+  // Quick detection — is the product zone visible in the selfie?
+  console.log('🔍 [Detect] Running zone detection with Flash...');
+  const detectStart = Date.now();
 
-  const response = await ai.models.generateContent({
-    model: MODELS.IMAGE_GEN,
+  const detectResponse = await ai.models.generateContent({
+    model: MODELS.CHAT,
     contents: [
       {
         role: 'user',
         parts: [
+          { text: 'IMAGE 1 (the customer\'s selfie/photo — analyze THIS for body visibility):' },
           {
             inlineData: {
               mimeType: 'image/jpeg',
               data: selfieBase64,
             },
           },
+          { text: 'IMAGE 2 (the product to try on — analyze THIS to determine product type):' },
           {
             inlineData: {
               mimeType: 'image/jpeg',
@@ -117,7 +118,74 @@ export async function generateTryOn(
             },
           },
           {
-            text: TRYON_PROMPT(garmentType),
+            text: TRYON_DETECT_PROMPT,
+          },
+        ],
+      },
+    ],
+    config: {
+      temperature: 0,
+      maxOutputTokens: 128,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  });
+
+  const detectText = detectResponse.text || '';
+  const detectElapsed = Date.now() - detectStart;
+  console.log('🔍 [Detect] Response in', detectElapsed + 'ms:', detectText);
+
+  let usePhotoshoot = false;
+  try {
+    const jsonMatch = detectText.match(/\{[^}]+\}/);
+    if (jsonMatch) {
+      const detection = JSON.parse(jsonMatch[0]);
+      console.log('🔍 [Detect] Product zone:', detection.product_zone, '| Zone visible:', detection.zone_visible);
+      usePhotoshoot = detection.zone_visible === false;
+    }
+  } catch (parseErr) {
+    console.warn('🔍 [Detect] Failed to parse detection, defaulting to replacement prompt');
+  }
+
+  console.log('🧠 [Gemini] Mode:', usePhotoshoot ? 'PHOTOSHOOT (Pro ~30s)' : 'REPLACEMENT (Flash ~10s)');
+  return { selfieBase64, productBase64, usePhotoshoot };
+}
+
+// Generates the try-on image using pre-prepared data
+export async function generateTryOn(
+  selfieBase64: string,
+  productBase64: string,
+  usePhotoshoot: boolean
+): Promise<string> {
+  const prompt = usePhotoshoot ? TRYON_PHOTOSHOOT_PROMPT : TRYON_PROMPT;
+  const model = usePhotoshoot ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
+  console.log('🧠 [Gemini] ======== TRY-ON GENERATION ========');
+  console.log('🧠 [Gemini] Using prompt:', usePhotoshoot ? 'PHOTOSHOOT' : 'REPLACEMENT');
+  console.log('🧠 [Gemini] Using model:', model);
+  console.log('🧠 [Gemini] Sending to Gemini API...');
+  const startTime = Date.now();
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: 'Image 1 — the customer\'s photo:' },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: selfieBase64,
+            },
+          },
+          { text: 'Image 2 — the product:' },
+          {
+            inlineData: {
+              mimeType: 'image/jpeg',
+              data: productBase64,
+            },
+          },
+          {
+            text: prompt,
           },
         ],
       },
@@ -166,14 +234,14 @@ export async function generateVideo(
 
   let operation = await (ai.models as any).generateVideos({
     model: MODELS.VIDEO_GEN,
-    prompt: `A professional fashion model wearing a ${productName} walks toward the camera on a runway, does a confident stop-and-pose, turns to show the outfit from the side, then looks back over the shoulder with attitude. Dynamic full-body movement — walking, turning, hand on hip, fabric flowing with motion. Cinematic fashion film look, dramatic studio lighting with rim light, shallow depth of field, shot on 85mm lens, 4K editorial quality`,
+    prompt: `The exact same person from the image, wearing the exact same ${productName}, in the exact same setting. The person starts still, then does a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
     image: {
       imageBytes: imageBase64,
       mimeType: 'image/png',
     },
     config: {
       aspectRatio: '9:16',
-      durationSeconds: 4,
+      durationSeconds: 8,
       personGeneration: 'allow_adult',
     },
   });

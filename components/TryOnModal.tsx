@@ -12,7 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useAppStore } from '@/services/store';
-import { generateTryOn } from '@/services/gemini';
+import { prepareTryOn, generateTryOn } from '@/services/gemini';
 import { saveTryOnResult, getSavedTryOns } from '@/utils/imageUtils';
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -48,11 +48,11 @@ export default function TryOnModal() {
     setError(null);
     console.log('🎭 [TryOn] ---- GENERATION STARTED ----');
     try {
-      const resultBase64 = await generateTryOn(
+      const { selfieBase64, productBase64, usePhotoshoot } = await prepareTryOn(
         selfieUri,
-        currentProduct.imageUrl,
-        currentProduct.productName
+        currentProduct.imageUrl
       );
+      const resultBase64 = await generateTryOn(selfieBase64, productBase64, usePhotoshoot);
       console.log('🎭 [TryOn] Generation SUCCESS! Result base64 length:', resultBase64.length);
       setTryOnResult(resultBase64);
       // Result will be picked up by WebViewBrowser useEffect and sent to the page

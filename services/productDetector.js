@@ -178,6 +178,8 @@ export const PRODUCT_DETECTOR_JS = `
 
   var progressInterval = null;
 
+  var __tryonDuration = 12000; // default for Flash, overridden by message
+
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
     if (!productImg) {
@@ -245,10 +247,10 @@ export const PRODUCT_DETECTOR_JS = `
     var btnRow = document.querySelector('.' + BTN_ROW_CLASS);
     if (btnRow) btnRow.style.display = 'none';
 
-    // Animate progress — 20s for try-on, 60s for video
+    // Animate progress — reads __tryonDuration live so it can be updated mid-flight
     var startTime = Date.now();
-    var duration = mode === 'video' ? 60000 : 20000;
-    var statusMessages = mode === 'video' ? [
+    var isVideo = mode === 'video';
+    var statusMessages = isVideo ? [
       { at: 0, text: 'Generating video...' },
       { at: 10, text: 'Preparing image...' },
       { at: 25, text: 'AI is animating...' },
@@ -266,7 +268,8 @@ export const PRODUCT_DETECTOR_JS = `
 
     progressInterval = setInterval(function() {
       var elapsed = Date.now() - startTime;
-      var pct = Math.min(95, Math.round((elapsed / duration) * 100));
+      var activeDuration = isVideo ? 60000 : __tryonDuration;
+      var pct = Math.min(95, Math.round((elapsed / activeDuration) * 100));
 
       progressFill.style.width = pct + '%';
       percentText.textContent = pct + '%';
@@ -553,8 +556,13 @@ export const PRODUCT_DETECTOR_JS = `
     try {
       var data = JSON.parse(event.data);
       if (data.type === 'tryon_loading') {
-        log('📨', 'RN MESSAGE — Try-on loading started');
+        if (data.duration) __tryonDuration = data.duration;
+        log('📨', 'RN MESSAGE — Try-on loading started (duration: ' + __tryonDuration + 'ms)');
         showLoadingOverlay();
+      } else if (data.type === 'tryon_duration' && data.duration) {
+        // Update duration mid-flight after detection completes
+        __tryonDuration = data.duration;
+        log('📨', 'RN MESSAGE — Duration updated to ' + __tryonDuration + 'ms');
       } else if (data.type === 'tryon_result' && data.base64) {
         log('📨', 'RN MESSAGE — Try-on result received (base64 length: ' + data.base64.length + ')');
         replaceProductImage(data.base64);

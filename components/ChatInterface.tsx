@@ -76,21 +76,20 @@ export default function ChatInterface() {
     }
   };
 
-  const handleSend = async () => {
-    const text = inputText.trim();
-    if (!text || isTyping) return;
-    setInputText('');
+  const handleSendText = async (text: string) => {
+    if (!text.trim() || isTyping) return;
+    const msg = text.trim();
 
     addMessage({
       id: `msg_user_${Date.now()}`,
       role: 'user',
-      text,
+      text: msg,
       timestamp: Date.now(),
     });
 
     setIsTyping(true);
     try {
-      const response = await sendChatMessage(text);
+      const response = await sendChatMessage(msg);
       const url = extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);
 
@@ -119,6 +118,13 @@ export default function ChatInterface() {
     } finally {
       setIsTyping(false);
     }
+  };
+
+  const handleSend = async () => {
+    const text = inputText.trim();
+    if (!text || isTyping) return;
+    setInputText('');
+    handleSendText(text);
   };
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
@@ -160,29 +166,27 @@ export default function ChatInterface() {
           onContentSizeChange={() =>
             flatListRef.current?.scrollToEnd({ animated: true })
           }
-          ListEmptyComponent={
-            !isTyping ? (
-              <View style={styles.emptyContainer}>
-                <View style={styles.emptyIconBg}>
-                  <Text style={styles.emptyIcon}>AI</Text>
-                </View>
-                <Text style={styles.emptyTitle}>TryOnAI</Text>
-                <Text style={styles.emptyText}>
-                  Your universal shopping assistant{'\n'}Try on clothes from any website
-                </Text>
-                <View style={styles.chipRow}>
-                  {['Myntra shirts', 'Zara jackets', 'Nike shoes'].map((c) => (
-                    <TouchableOpacity
-                      key={c}
-                      style={styles.chip}
-                      onPress={() => setInputText(c)}
-                    >
-                      <Text style={styles.chipText}>{c}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+          ListHeaderComponent={
+            <View style={styles.headerContainer}>
+              <View style={styles.headerIconBg}>
+                <Text style={styles.headerIcon}>AI</Text>
               </View>
-            ) : null
+              <Text style={styles.headerTitle}>TryOnAI</Text>
+              <Text style={styles.headerText}>
+                Your universal shopping assistant
+              </Text>
+              <View style={styles.chipRow}>
+                {['Myntra shirts', 'Zara jackets', 'Nike shoes'].map((c) => (
+                  <TouchableOpacity
+                    key={c}
+                    style={styles.chip}
+                    onPress={() => handleSendText(c)}
+                  >
+                    <Text style={styles.chipText}>{c}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
           }
           ListFooterComponent={
             isTyping ? (
@@ -367,39 +371,39 @@ const styles = StyleSheet.create({
   sendBtnTextActive: {
     color: '#0D0D0D',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  headerContainer: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingTop: 32,
+    paddingBottom: 24,
+    marginBottom: 8,
   },
-  emptyIconBg: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  headerIconBg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 14,
     backgroundColor: '#E8C8A0',
   },
-  emptyIcon: {
-    fontSize: 22,
+  headerIcon: {
+    fontSize: 18,
     fontWeight: '900',
     color: '#0D0D0D',
   },
-  emptyTitle: {
-    fontSize: 26,
+  headerTitle: {
+    fontSize: 22,
     fontWeight: '800',
     color: '#F5F5F5',
-    marginBottom: 10,
+    marginBottom: 6,
     letterSpacing: 0.5,
   },
-  emptyText: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.4)',
+  headerText: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.35)',
     textAlign: 'center',
-    lineHeight: 21,
-    marginBottom: 28,
+    lineHeight: 19,
+    marginBottom: 20,
   },
   chipRow: {
     flexDirection: 'row',
