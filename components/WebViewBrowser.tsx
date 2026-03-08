@@ -129,9 +129,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
 
-      // Step 3: Generate — actual image generation
+      // Step 3: Generate — server uses cached selfie+product from prepare
       const result = await api.generateTryOn({
-        selfieBase64,
         selfieS3Key: selfieS3Key || undefined,
         productImageUrl: currentProduct.imageUrl,
         sourceUrl: currentProduct.pageUrl,
@@ -145,7 +144,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       setLastTryonS3Key(result.tryonS3Key);
 
       // Inject base64 immediately — S3 upload happens in background on server
-      setTryOnResult(`data:image/png;base64,${result.resultBase64}`);
+      setTryOnResult(result.resultBase64);
 
       // Refresh saved history
       try {
@@ -323,7 +322,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         // ignore non-JSON messages
       }
     },
-    [onTryOnRequest, lastTryonS3Key, lastSessionId, videoLoading, selfieS3Key]
+    [onTryOnRequest, lastTryonS3Key, lastSessionId, videoLoading, selfieUri]
   );
 
   const checkPreviousTryOn = async (pageUrl: string) => {

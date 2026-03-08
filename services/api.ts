@@ -105,7 +105,6 @@ export interface TryOnResult {
 }
 
 export async function generateTryOn(params: {
-  selfieBase64: string;
   selfieS3Key?: string;
   productImageUrl: string;
   sourceUrl?: string;

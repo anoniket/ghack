@@ -5,7 +5,16 @@ import { putSession } from '../services/dynamo';
 
 export const tryonRouter = Router();
 
-// Step 1: Zone detection — fast, returns which model will be used
+// Server-side cache: prepare caches selfie + product base64 for generate (5 min TTL)
+const prepareCache = new Map<string, { selfieBase64: string; productBase64: string; ts: number }>();
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, val] of prepareCache) {
+    if (now - val.ts > 5 * 60 * 1000) prepareCache.delete(key);
+  }
+}, 60 * 1000);
+
+// Step 1: Zone detection — caches selfie + product base64 for step 2
 tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   const { selfieBase64, productImageUrl, retry } = req.body;
 
@@ -19,8 +28,11 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   try {
     const t = Date.now();
     console.log(`${tag} Prepare → zone detection started`);
-    const { usePhotoshoot } = await prepareTryOn(selfieBase64, productImageUrl);
+    const { usePhotoshoot, productBase64 } = await prepareTryOn(selfieBase64, productImageUrl);
     console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
+
+    // Cache for generate step — no need to re-upload or re-download
+    prepareCache.set(req.deviceId, { selfieBase64, productBase64, ts: Date.now() });
 
     const finalUsePhotoshoot = retry ? true : usePhotoshoot;
     console.log(`${tag} Prepare → model=${finalUsePhotoshoot ? 'PRO' : 'FLASH'} (zone=${usePhotoshoot ? 'hidden' : 'visible'}, retry=${!!retry})`);
@@ -36,22 +48,35 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   }
 });
 
-// Step 2: Generate — image generation, returns base64 immediately, S3+DynamoDB async
+// Step 2: Generate — uses cached selfie+product from prepare, returns base64 immediately
 tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { selfieBase64, selfieS3Key, productImageUrl, sourceUrl, usePhotoshoot } = req.body;
-
-  if (!selfieBase64 || !productImageUrl) {
-    res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
-    return;
-  }
+  const { selfieS3Key, productImageUrl, sourceUrl, usePhotoshoot } = req.body;
 
   const tag = `[${req.deviceId}]`;
 
+  // Use cached data from prepare step
+  const cached = prepareCache.get(req.deviceId);
+  prepareCache.delete(req.deviceId);
+
+  if (!cached && !productImageUrl) {
+    res.status(400).json({ error: 'No cached prepare data and no productImageUrl provided' });
+    return;
+  }
+
   try {
-    let t = Date.now();
-    const productBase64 = await downloadImageToBase64(productImageUrl);
-    console.log(`${tag} Generate → product image download: ${Date.now() - t}ms`);
+    const selfieBase64 = cached?.selfieBase64;
+    if (!selfieBase64) {
+      res.status(400).json({ error: 'No selfie data — call prepare first' });
+      return;
+    }
+
+    let productBase64 = cached?.productBase64;
+    if (!productBase64) {
+      let t = Date.now();
+      productBase64 = await downloadImageToBase64(productImageUrl);
+      console.log(`${tag} Generate → product image download (fallback): ${Date.now() - t}ms`);
+    }
 
     t = Date.now();
     console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started`);
