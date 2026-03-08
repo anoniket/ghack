@@ -37,20 +37,19 @@ CRITICAL SEARCH RULES:
 - **Always verify the URL exists** from search results — never guess or construct URLs manually
 - **Go as deep as possible** — category pages, search result pages, filtered pages. NEVER return just a homepage when the user asked for a specific product
 
-URL EXTRACTION — include this JSON block in your response:
-\`\`\`json
-{"action": "open_url", "url": "https://www.example.com/specific-page"}
-\`\`\`
+When you find a URL to open, call the open_url function with the URL. Do NOT write URLs, JSON blocks, or any code in your reply — just conversational text. The app handles navigation automatically when you call the function.
 
 EXAMPLES:
-- "show me tshirts on myntra" → search "myntra tshirts India" → return the Myntra t-shirts category URL
-- "red sneakers" → search "red sneakers buy online India 2025" → return best Indian store result
-- "zara men jackets" → search "zara men jackets India site:zara.com/in" → return Zara India men's jackets page
-- "amazon kurta" → search "amazon.in kurta for men" → return Amazon India search URL
-- "show me something for a wedding" → suggest specific items + search "wedding outfit men/women India 2025" → return relevant store page
-- "open flipkart" → just return https://www.flipkart.com (homepage only when no product specified)
+- "show me tshirts on myntra" → search "myntra tshirts India" → call open_url with the Myntra t-shirts category URL
+- "red sneakers" → search "red sneakers buy online India 2025" → call open_url with best Indian store result
+- "zara men jackets" → search "zara men jackets India site:zara.com/in" → call open_url with Zara India men's jackets page
+- "amazon kurta" → search "amazon.in kurta for men" → call open_url with Amazon India search URL
+- "show me something for a wedding" → suggest specific items + search "wedding outfit men/women India 2025" → call open_url with relevant store page
+- "open flipkart" → call open_url with https://www.flipkart.com (homepage only when no product specified)
 
 If a user asks about a product WITHOUT naming a store, pick the best Indian store for that category and search there. Myntra/Ajio for fashion, Amazon.in for general, Nykaa for beauty, etc.
+
+NEVER include URLs, JSON, code blocks, or action commands in your text response. Only use conversational text. The open_url function handles navigation separately.
 
 FIRST MESSAGE:
 Greet the user with energy. Ask what they're looking to shop for. Keep it short and vibey — like "Hey! What are we shopping for today? Drop a vibe, a brand, or just tell me what you need 👀"`;
@@ -288,7 +287,7 @@ export async function sendChatMessage(
   deviceId: string,
   userMessage: string,
   history?: Array<{ role: string; text: string }>
-): Promise<string> {
+): Promise<{ text: string; url?: string }> {
   let chatHistory = chatHistories.get(deviceId) || [];
 
   // If client sends history, rebuild from that
@@ -312,11 +311,40 @@ export async function sendChatMessage(
         systemInstruction: CHAT_SYSTEM_PROMPT,
         temperature: 0.7,
         maxOutputTokens: 256,
-        tools: [{ googleSearch: {} }],
+        tools: [
+          { googleSearch: {} },
+          {
+            functionDeclarations: [{
+              name: 'open_url',
+              description: 'Open a URL in the in-app browser to navigate the user to a product page or store',
+              parameters: {
+                type: 'object' as any,
+                properties: {
+                  url: { type: 'string' as any, description: 'The URL to open' },
+                },
+                required: ['url'],
+              },
+            }],
+          },
+        ],
       },
     });
 
-    const text = response.text || 'Sorry, I could not process that. Please try again.';
+    // Extract text from response
+    let text = '';
+    let url: string | undefined;
+
+    const parts = response.candidates?.[0]?.content?.parts || [];
+    for (const part of parts) {
+      if ((part as any).text) {
+        text += (part as any).text;
+      }
+      if ((part as any).functionCall?.name === 'open_url') {
+        url = (part as any).functionCall.args?.url;
+      }
+    }
+
+    text = text.trim() || 'Sorry, I could not process that. Please try again.';
 
     chatHistory.push({
       role: 'model',
@@ -324,7 +352,7 @@ export async function sendChatMessage(
     });
 
     chatHistories.set(deviceId, chatHistory);
-    return text;
+    return { text, url };
   } catch (err) {
     // Rollback the user message so history stays consistent
     chatHistory.pop();

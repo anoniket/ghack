@@ -15,29 +15,10 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 
   try {
     console.log(`${tag} Chat → message received`);
-    const text = await sendChatMessage(req.deviceId, message, history);
-    console.log(`${tag} Chat → response generated, length=${text.length}`);
-
-    // Extract URL from response (same logic as client-side)
-    let url: string | null = null;
-    const jsonMatch = text.match(
-      /```json\s*\n?\s*\{[^}]*"action"\s*:\s*"open_url"[^}]*"url"\s*:\s*"([^"]+)"[^}]*\}/
-    );
-    if (jsonMatch) {
-      url = jsonMatch[1];
-    } else {
-      const urlMatch = text.match(/https?:\/\/[^\s"'<>)]+/);
-      if (urlMatch) url = urlMatch[0];
-    }
-
-    // Strip the JSON block and raw URLs from the user-facing text
-    let cleanText = text
-      .replace(/```json\s*\n?\s*\{[^}]*"action"\s*:\s*"open_url"[^}]*\}\s*\n?\s*```/g, '')
-      .replace(/```json\s*\n?\s*\{[^}]*"url"\s*:[^}]*\}\s*\n?\s*```/g, '')
-      .trim();
-
-    if (url) console.log(`${tag} Chat → extracted URL: ${url}`);
-    res.json({ text: cleanText, url });
+    const result = await sendChatMessage(req.deviceId, message, history);
+    console.log(`${tag} Chat → response generated, length=${result.text.length}`);
+    if (result.url) console.log(`${tag} Chat → function call open_url: ${result.url}`);
+    res.json({ text: result.text, url: result.url });
   } catch (err: any) {
     console.error(`${tag} Chat ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Chat failed' });
