@@ -437,17 +437,18 @@ export async function prepareTryOn(
   });
 
   const detectText = detectResponse.text || '';
+  console.log(`[DETECT RAW] ${detectText}`);
   let usePhotoshoot = false;
   let productZone = 'unknown';
   let reasoning = '';
   try {
-    const jsonMatch = detectText.match(/\{[^}]+\}/);
+    const jsonMatch = detectText.match(/\{[\s\S]*?\}/);
     if (jsonMatch) {
       // Everything before the JSON is the reasoning
       reasoning = detectText.slice(0, detectText.indexOf(jsonMatch[0])).trim();
       const detection = JSON.parse(jsonMatch[0]);
       usePhotoshoot = detection.zone_visible === false;
-      productZone = detection.product_zone || 'unknown';
+      productZone = detection.product_zone || detection.productZone || 'unknown';
     }
   } catch {
     // Parse error — default to flash
