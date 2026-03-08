@@ -767,6 +767,22 @@ export const PRODUCT_DETECTOR_JS = `
         // Inject previous try-on from cloud (persistent try-ons)
         log('📨', 'RN MESSAGE — Previous try-on found for this product');
         replaceProductImage(data.imageUrl);
+      } else if (data.type === 'tryon_no_retry') {
+        // Non-retryable error (e.g. selfie missing) — clean up, no retry button
+        __tryonBusy = false;
+        log('📨', 'RN MESSAGE — Non-retryable error: ' + (data.errorText || ''));
+        if (quipTimerGlobal) { clearInterval(quipTimerGlobal); quipTimerGlobal = null; }
+        if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+        var nrOverlay = document.getElementById(TRYON_OVERLAY_ID);
+        if (nrOverlay) {
+          var nrStatus = nrOverlay.querySelector('.__tryon-status-text');
+          if (nrStatus) nrStatus.textContent = data.errorText || 'something went wrong';
+          var nrProgress = nrOverlay.querySelector('.__tryon-progress-fill');
+          if (nrProgress) nrProgress.style.background = '#ef4444';
+        }
+        setTimeout(function() {
+          removeLoadingOverlay();
+        }, 2000);
       } else if (data.type === 'tryon_error') {
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Try-on generation failed');
@@ -828,6 +844,10 @@ export const PRODUCT_DETECTOR_JS = `
     // Remove old buttons and overlay
     removeBtnRow();
     removeLoadingOverlay();
+
+    // Reset busy flag so new page can trigger try-ons
+    __tryonBusy = false;
+    originalProductSrc = null;
 
     // Clear detected attribute from old image
     if (productImg) {

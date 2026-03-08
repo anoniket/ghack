@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore } from '@/services/store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
 import * as api from '@/services/api';
 import { rlog } from '@/services/logger';
@@ -81,8 +82,18 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     if (currentProduct && selfieS3Key && !tryOnResult && !tryOnLoading) {
       rlog('TryOn', 'product received, starting generation');
       startTryOn();
+    } else if (currentProduct && !selfieS3Key) {
+      // Selfie missing — tell WebView to unlock and reset
+      rlog('TryOn', 'product received but no selfie — aborting');
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(`
+          window.postMessage(JSON.stringify({ type: 'tryon_no_retry', errorText: 'Take a selfie first' }), '*');
+          true;
+        `);
+      }
+      setCurrentProduct(null);
     }
-  }, [currentProduct]);
+  }, [currentProduct, selfieS3Key]);
 
   const startTryOn = async () => {
     if (!selfieS3Key || !currentProduct) return;
@@ -147,12 +158,13 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
 
       if (err.message === 'SELFIE_NOT_FOUND') {
-        // Selfie was deleted from S3 — clear local state and prompt re-take
+        // Selfie was deleted from S3 — clear both zustand AND AsyncStorage
         setSelfieS3Key(null);
         setSelfieUri(null);
+        AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
-            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: 'Selfie expired, please retake' }), '*');
+            window.postMessage(JSON.stringify({ type: 'tryon_no_retry', errorText: 'Selfie expired, please retake' }), '*');
             true;
           `);
         }
@@ -189,8 +201,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         window.postMessage(JSON.stringify({ type: 'tryon_result', imageUrl: ${JSON.stringify(tryOnResult)} }), '*');
         true;
       `);
-      // Clear result after sending
-      setTimeout(() => setTryOnResult(null), 500);
+      // Clear immediately — WebView already has the data
+      setTryOnResult(null);
     }
   }, [tryOnResult]);
 
