@@ -376,7 +376,7 @@ export async function prepareTryOn(
 
   // Zone detection
   const detectResponse = await ai.models.generateContent({
-    model: MODELS.CHAT,
+    model: MODELS.DETECT,
     contents: [
       {
         role: 'user',
