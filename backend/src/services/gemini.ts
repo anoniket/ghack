@@ -528,12 +528,58 @@ export async function generateTryOn(
 // Just: here's a person, here's a product, make them wear it.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. Maintain realistic body proportions — head, torso, limbs must be naturally sized relative to each other. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.`;
+const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. Maintain realistic body proportions — head, torso, limbs must be naturally sized relative to each other. Everything shown in Image 2 must be on the person — if it's a full outfit with top, bottom, shoes, accessories, put ALL of it on, do not skip any piece. Change pose if needed to show both the person's face and the complete product. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.`;
+
+// Detect image dimensions from base64 (supports JPEG + PNG)
+function getImageDimensions(base64: string): { width: number; height: number } | null {
+  const buf = Buffer.from(base64, 'base64');
+  // PNG: width at bytes 16-19, height at bytes 20-23
+  if (buf[0] === 0x89 && buf[1] === 0x50) {
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  // JPEG: scan for SOF0 (0xFFC0) or SOF2 (0xFFC2) marker
+  for (let i = 0; i < buf.length - 8; i++) {
+    if (buf[i] === 0xFF && (buf[i + 1] === 0xC0 || buf[i + 1] === 0xC2)) {
+      return { width: buf.readUInt16BE(i + 7), height: buf.readUInt16BE(i + 5) };
+    }
+  }
+  return null;
+}
+
+// Map actual aspect ratio to nearest supported Gemini ratio
+function matchAspectRatio(width: number, height: number): string {
+  const ratio = width / height;
+  const supported = [
+    { r: 1/4, label: '1:4' },
+    { r: 9/16, label: '9:16' },
+    { r: 2/3, label: '2:3' },
+    { r: 3/4, label: '3:4' },
+    { r: 4/5, label: '4:5' },
+    { r: 1, label: '1:1' },
+    { r: 5/4, label: '5:4' },
+    { r: 4/3, label: '4:3' },
+    { r: 3/2, label: '3:2' },
+    { r: 16/9, label: '16:9' },
+    { r: 4/1, label: '4:1' },
+  ];
+  let best = supported[5]; // default 1:1
+  let bestDiff = Infinity;
+  for (const s of supported) {
+    const diff = Math.abs(ratio - s.r);
+    if (diff < bestDiff) { bestDiff = diff; best = s; }
+  }
+  return best.label;
+}
 
 export async function generateTryOnV2(
   selfieBase64: string,
   productBase64: string,
 ): Promise<string> {
+  // Detect product image aspect ratio
+  const dims = getImageDimensions(productBase64);
+  const aspectRatio = dims ? matchAspectRatio(dims.width, dims.height) : '3:4';
+  console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}`);
+
   const response = await ai.models.generateContent({
     model: MODELS.IMAGE_GEN_V2,
     contents: [
@@ -552,8 +598,8 @@ export async function generateTryOnV2(
       responseModalities: ['Text', 'Image'] as any,
       temperature: 0.35,
       personGeneration: 'allow_adult',
-      thinkingConfig: {
-        thinkingBudget: 1024,
+      imageConfig: {
+        aspectRatio,
       },
     } as any,
   });
