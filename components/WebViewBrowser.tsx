@@ -252,20 +252,28 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       });
       rlog('Video', `job=${jobId} started, polling`);
 
-      // Poll for completion — max 10 minutes
-      const MAX_POLL_MS = 10 * 60 * 1000;
+      // Poll for completion — max 90s, 10s fetch timeout, exponential backoff
+      const MAX_POLL_MS = 90 * 1000;
+      const FETCH_TIMEOUT_MS = 10 * 1000;
       const pollStart = Date.now();
       let status = 'pending';
       let videoUrl: string | undefined;
       let pollCount = 0;
+      let consecutiveErrors = 0;
+      let pollInterval = 3000; // start at 3s, backoff to 10s
       while (status === 'pending') {
         if (Date.now() - pollStart > MAX_POLL_MS) {
           throw new Error('Video generation timed out');
         }
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+        await new Promise((resolve) => setTimeout(resolve, pollInterval));
+        pollInterval = Math.min(pollInterval * 1.5, 10000);
         pollCount++;
         try {
-          const poll = await api.pollVideo(jobId);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+          const poll = await api.pollVideo(jobId, controller.signal);
+          clearTimeout(timeoutId);
+          consecutiveErrors = 0;
           status = poll.status;
           videoUrl = poll.videoUrl;
           rlog('Video', `poll #${pollCount} status=${poll.status}`);
@@ -273,12 +281,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             throw new Error(poll.error || 'Video generation failed');
           }
         } catch (pollErr: any) {
-          // Network error during poll — retry up to 3 consecutive failures
-          if (pollErr.message?.includes('generation failed') || pollErr.message?.includes('timed out')) {
-            throw pollErr; // Real failure, don't retry
+          if (pollErr.message?.includes('generation failed')) {
+            throw pollErr;
           }
-          rlog('Video', `poll #${pollCount} network error: ${pollErr.message}, retrying`);
-          // Don't throw — let the while loop retry on next iteration
+          consecutiveErrors++;
+          rlog('Video', `poll #${pollCount} error (${consecutiveErrors}/5): ${pollErr.message}`);
+          if (consecutiveErrors >= 5) {
+            throw new Error('Video generation timed out');
+          }
         }
       }
 

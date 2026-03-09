@@ -160,9 +160,10 @@ export async function startVideo(params: {
 }
 
 export async function pollVideo(
-  jobId: string
+  jobId: string,
+  signal?: AbortSignal
 ): Promise<{ status: 'pending' | 'complete' | 'failed'; videoUrl?: string; error?: string }> {
-  return apiFetch(`/api/video/${jobId}`);
+  return apiFetch(`/api/video/${jobId}`, { signal });
 }
 
 // ---- Media (selfie upload) ----
