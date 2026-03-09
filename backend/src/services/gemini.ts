@@ -528,7 +528,7 @@ export async function generateTryOn(
 // Just: here's a person, here's a product, make them wear it.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.`;
+const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. Maintain realistic body proportions — head, torso, limbs must be naturally sized relative to each other. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.`;
 
 export async function generateTryOnV2(
   selfieBase64: string,
@@ -552,6 +552,9 @@ export async function generateTryOnV2(
       responseModalities: ['Text', 'Image'] as any,
       temperature: 0.35,
       personGeneration: 'allow_adult',
+      thinkingConfig: {
+        thinkingBudget: 1024,
+      },
     } as any,
   });
 

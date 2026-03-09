@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64 } from '../services/gemini';
-import { uploadBuffer } from '../services/s3';
+import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
 
 export const tryonRouter = Router();
@@ -176,7 +176,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       try {
         const resultBuffer = Buffer.from(resultBase64, 'base64');
         await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
-        console.log(`${tag} V2 → S3 upload (bg): done`);
+        console.log(`${tag} V2 → S3 upload (bg): done → ${cdnUrl(tryonS3Key)}`);
 
         await putSession({
           deviceId: req.deviceId,
