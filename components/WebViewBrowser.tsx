@@ -118,12 +118,21 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Read selfie from local file — no S3 round trip
       const selfieBase64 = await imageUriToBase64(selfieUri);
 
+      // On retry, use pro model — update duration to 45s
+      if (currentProduct.retry && webViewRef.current) {
+        webViewRef.current.injectJavaScript(`
+          if (window.__tryonSetDuration) { window.__tryonSetDuration(45000); }
+          true;
+        `);
+      }
+
       // Single-step V2 — no zone detection, no prepare
       const result = await api.tryOnV2({
         selfieBase64,
         productImageUrl: currentProduct.imageUrl,
         selfieS3Key: selfieS3Key || undefined,
         sourceUrl: currentProduct.pageUrl,
+        retry: currentProduct.retry,
       });
 
       rlog('TryOn', `SUCCESS model=${result.model} session=${result.sessionId}`);

@@ -574,14 +574,16 @@ function matchAspectRatio(width: number, height: number): string {
 export async function generateTryOnV2(
   selfieBase64: string,
   productBase64: string,
+  usePro: boolean = false,
 ): Promise<string> {
   // Detect product image aspect ratio
   const dims = getImageDimensions(productBase64);
   const aspectRatio = dims ? matchAspectRatio(dims.width, dims.height) : '3:4';
-  console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}`);
+  const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN_V2;
+  console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
   const response = await ai.models.generateContent({
-    model: MODELS.IMAGE_GEN_V2,
+    model,
     contents: [
       {
         role: 'user',

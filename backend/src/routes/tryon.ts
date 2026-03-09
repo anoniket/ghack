@@ -138,8 +138,9 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   const startTime = Date.now();
-  const { selfieBase64, productImageUrl, selfieS3Key, sourceUrl } = req.body;
+  const { selfieBase64, productImageUrl, selfieS3Key, sourceUrl, retry } = req.body;
   const tag = `[${req.deviceId}]`;
+  const usePro = !!retry;
 
   if (!selfieBase64 || !productImageUrl) {
     res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
@@ -152,10 +153,11 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const productBase64 = await downloadImageToBase64(productImageUrl);
     console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
 
-    // Single Nano Banana 2 call — no zone detection, no thinking
+    // Generate — same prompt, pro model on retry
     const genStart = Date.now();
-    console.log(`${tag} V2 → generating with nano-banana-2`);
-    const resultBase64 = await generateTryOnV2(selfieBase64, productBase64);
+    const modelLabel = usePro ? 'pro' : 'nano-banana-2';
+    console.log(`${tag} V2 → generating with ${modelLabel}${retry ? ' (retry)' : ''}`);
+    const resultBase64 = await generateTryOnV2(selfieBase64, productBase64, usePro);
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
@@ -167,7 +169,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       sessionId,
       tryonS3Key,
       resultBase64,
-      model: 'v2',
+      model: usePro ? 'v2-pro' : 'v2',
       durationMs,
     });
 
@@ -185,7 +187,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
           selfieS3Key,
           tryonS3Key,
           tryonCdnUrl: tryonS3Key,
-          model: 'v2',
+          model: usePro ? 'v2-pro' : 'v2',
           createdAt: new Date().toISOString(),
         });
         console.log(`${tag} V2 → DynamoDB save (bg): done`);

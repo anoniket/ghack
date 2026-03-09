@@ -123,6 +123,7 @@ export async function tryOnV2(params: {
   productImageUrl: string;
   selfieS3Key?: string;
   sourceUrl?: string;
+  retry?: boolean;
 }): Promise<TryOnResult> {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',

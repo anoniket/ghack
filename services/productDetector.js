@@ -230,7 +230,7 @@ export const PRODUCT_DETECTOR_JS = `
   var progressInterval = null;
   var quipTimerGlobal = null;
 
-  var __tryonDuration = 17000; // default for Flash, overridden by server
+  var __tryonDuration = 25000; // default for V2 (Nano Banana 2), ~16-25s typical
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
