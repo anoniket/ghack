@@ -116,6 +116,20 @@ export async function generateTryOn(params: {
   });
 }
 
+// ---- Try-On V2 (single-step, Nano Banana 2) ----
+
+export async function tryOnV2(params: {
+  selfieBase64: string;
+  productImageUrl: string;
+  selfieS3Key?: string;
+  sourceUrl?: string;
+}): Promise<TryOnResult> {
+  return apiFetch('/api/tryon/v2', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
 // ---- Chat ----
 
 export async function sendChat(

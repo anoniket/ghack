@@ -118,32 +118,12 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Read selfie from local file — no S3 round trip
       const selfieBase64 = await imageUriToBase64(selfieUri);
 
-      // Step 1: Prepare — zone detection, returns which model (~2-3s)
-      const prepResult = await api.prepareTryOn({
+      // Single-step V2 — no zone detection, no prepare
+      const result = await api.tryOnV2({
         selfieBase64,
         productImageUrl: currentProduct.imageUrl,
-        retry: currentProduct.retry,
-      });
-
-      // Step 2: Update duration now that we know the model
-      if (webViewRef.current) {
-        rlog('TryOn', `model=${prepResult.model} duration=${prepResult.estimatedDuration}ms`);
-        webViewRef.current.injectJavaScript(`
-          if (window.__tryonSetDuration) {
-            window.__tryonSetDuration(${prepResult.estimatedDuration});
-          } else {
-            window.postMessage(JSON.stringify({ type: 'tryon_duration', duration: ${prepResult.estimatedDuration} }), '*');
-          }
-          true;
-        `);
-      }
-
-      // Step 3: Generate — server uses cached selfie+product from prepare
-      const result = await api.generateTryOn({
         selfieS3Key: selfieS3Key || undefined,
-        productImageUrl: currentProduct.imageUrl,
         sourceUrl: currentProduct.pageUrl,
-        usePhotoshoot: prepResult.usePhotoshoot,
       });
 
       rlog('TryOn', `SUCCESS model=${result.model} session=${result.sessionId}`);
