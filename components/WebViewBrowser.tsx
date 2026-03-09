@@ -252,8 +252,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       });
       rlog('Video', `job=${jobId} started, polling`);
 
-      // Poll for completion — max 90s, 10s fetch timeout, exponential backoff
-      const MAX_POLL_MS = 90 * 1000;
+      // Poll for completion — max 3min, 10s fetch timeout, exponential backoff
+      const MAX_POLL_MS = 3 * 60 * 1000;
       const FETCH_TIMEOUT_MS = 10 * 1000;
       const pollStart = Date.now();
       let status = 'pending';

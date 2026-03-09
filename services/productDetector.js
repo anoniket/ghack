@@ -446,7 +446,7 @@ export const PRODUCT_DETECTOR_JS = `
     var lastPct = 0;
     progressInterval = setInterval(function() {
       var elapsed = Date.now() - startTime;
-      var activeDuration = isVideo ? 65000 : __tryonDuration;
+      var activeDuration = isVideo ? 120000 : __tryonDuration;
       var pct = Math.min(95, Math.round((elapsed / activeDuration) * 100));
 
       // Never go backward — if duration was updated mid-flight, just slow down from current position
