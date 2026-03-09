@@ -111,7 +111,7 @@ export default function ChatBubble() {
             <View style={styles.headerDot}>
               <Text style={styles.headerDotText}>AI</Text>
             </View>
-            <Text style={styles.headerTitle}>TryOnAI</Text>
+            <Text style={styles.headerTitle}>mrigAI</Text>
           </View>
           <TouchableOpacity
             onPress={() => setChatBubbleExpanded(false)}

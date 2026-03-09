@@ -173,7 +173,7 @@ export default function ChatInterface() {
               <View style={styles.headerIconBg}>
                 <Text style={styles.headerIcon}>AI</Text>
               </View>
-              <Text style={styles.headerTitle}>TryOnAI</Text>
+              <Text style={styles.headerTitle}>mrigAI</Text>
               <Text style={styles.headerText}>
                 Your universal shopping assistant
               </Text>

@@ -7,7 +7,7 @@ export const PRODUCT_DETECTOR_JS = `
   if (window.__tryonInjected) return;
   window.__tryonInjected = true;
 
-  var LOG_PREFIX = '[TryOnAI]';
+  var LOG_PREFIX = '[mrigAI]';
 
   function log(emoji, label, data) {
     var msg = emoji + ' ' + LOG_PREFIX + ' ' + label;

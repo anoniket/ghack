@@ -57,7 +57,7 @@ app.use('/api', mediaRouter);
 app.use('/api', historyRouter);
 
 app.listen(config.port, () => {
-  console.log(`TryOnAI backend listening on port ${config.port}`);
+  console.log(`mrigAI backend listening on port ${config.port}`);
   if (!config.appSecret) {
     console.warn('⚠️  APP_SECRET not set — HMAC verification disabled (dev mode)');
   }

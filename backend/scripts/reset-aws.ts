@@ -83,7 +83,7 @@ async function nukeDynamo() {
 }
 
 async function main() {
-  console.log('🔄 TryOnAI AWS Reset');
+  console.log('🔄 mrigAI AWS Reset');
   console.log('====================');
   await nukeS3();
   await nukeDynamo();

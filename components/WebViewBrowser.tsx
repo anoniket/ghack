@@ -210,14 +210,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         try {
           if (window.__tryonReplaceImage) {
             window.__tryonReplaceImage(${JSON.stringify(tryOnResult)});
-            console.log('[TryOnAI] replaceImage called successfully');
+            console.log('[mrigAI] replaceImage called successfully');
           } else {
-            console.log('[TryOnAI] __tryonReplaceImage not found, removing overlay');
+            console.log('[mrigAI] __tryonReplaceImage not found, removing overlay');
             var ov = document.getElementById('__tryon-loading-overlay');
             if (ov) ov.remove();
           }
         } catch(e) {
-          console.log('[TryOnAI] inject error: ' + e.message);
+          console.log('[mrigAI] inject error: ' + e.message);
           var ov = document.getElementById('__tryon-loading-overlay');
           if (ov) ov.remove();
         }

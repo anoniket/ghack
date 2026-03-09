@@ -158,7 +158,7 @@ export default function ProfileScreen() {
               <View style={styles.aboutLogo}>
                 <Text style={styles.aboutLogoText}>AI</Text>
               </View>
-              <Text style={styles.aboutName}>TryOnAI</Text>
+              <Text style={styles.aboutName}>mrigAI</Text>
               <Text style={styles.aboutDesc}>
                 Universal virtual try-on assistant.{'\n'}Works on any e-commerce website in any language.
               </Text>

@@ -79,7 +79,7 @@ export default function OnboardingCamera() {
         <View style={styles.content}>
           <View style={styles.header}>
             <Text style={styles.badge}>VIRTUAL TRY-ON</Text>
-            <Text style={styles.title}>Welcome to{'\n'}TryOnAI</Text>
+            <Text style={styles.title}>Welcome to{'\n'}mrigAI</Text>
             <Text style={styles.subtitle}>
               Upload a photo of yourself to start trying on clothes from any store
             </Text>
