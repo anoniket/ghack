@@ -46,11 +46,10 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
       [s.tryonS3Key, s.videoS3Key].filter(Boolean) as string[]
     );
 
-    // Step 2: DynamoDB batch-delete + S3 bulk-delete + selfie prefix delete run concurrently
+    // Step 2: DynamoDB batch-delete + S3 bulk-delete (keep selfies)
     const [failedS3Keys] = await Promise.all([
-      deleteObjects(allKeys),                        // tryons + videos
+      deleteObjects(allKeys),                        // tryons + videos only
       deleteAllFromDb(req.deviceId),                 // DynamoDB rows
-      deletePrefix(`${req.deviceId}/selfies/`),      // selfie images
     ]);
 
     if (failedS3Keys.length > 0) {

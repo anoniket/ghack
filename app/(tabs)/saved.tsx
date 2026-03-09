@@ -126,11 +126,6 @@ export default function SavedScreen() {
           try {
             await api.deleteAllSessions();
             setSavedTryOns([]);
-            // Clear selfie state — forces re-onboarding
-            setSelfieS3Key(null);
-            setSelfieUri(null);
-            setOnboardingComplete(false);
-            await deleteSelfie(); // clears local file + AsyncStorage
           } catch (err) {
             Alert.alert('Error', 'Failed to delete all try-ons.');
           } finally {
