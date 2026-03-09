@@ -8,6 +8,7 @@ const MODELS = {
   DETECT: 'gemini-2.5-pro',
   IMAGE_GEN: 'gemini-2.5-flash-image',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
+  IMAGE_GEN_V2: 'gemini-3.1-flash-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
 
@@ -508,6 +509,51 @@ export async function generateTryOn(
   });
 
   const genMs = Date.now() - genStart;
+
+  const parts = response.candidates?.[0]?.content?.parts;
+  if (parts) {
+    for (const part of parts) {
+      if ((part as any).inlineData) {
+        return (part as any).inlineData.data;
+      }
+    }
+  }
+
+  throw new Error('No image generated. The model did not return an image.');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// V2 — Single-step try-on using Nano Banana 2
+// No zone detection, no thinking, no multi-step.
+// Just: here's a person, here's a product, make them wear it.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.`;
+
+export async function generateTryOnV2(
+  selfieBase64: string,
+  productBase64: string,
+): Promise<string> {
+  const response = await ai.models.generateContent({
+    model: MODELS.IMAGE_GEN_V2,
+    contents: [
+      {
+        role: 'user',
+        parts: [
+          { text: TRYON_V2_PROMPT },
+          { text: '\n\nImage 1 (the person):' },
+          { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
+          { text: '\n\nImage 2 (the product):' },
+          { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
+        ],
+      },
+    ],
+    config: {
+      responseModalities: ['Text', 'Image'] as any,
+      temperature: 0.35,
+      personGeneration: 'allow_adult',
+    } as any,
+  });
 
   const parts = response.candidates?.[0]?.content?.parts;
   if (parts) {

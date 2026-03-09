@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prepareTryOn, generateTryOn, downloadImageToBase64 } from '../services/gemini';
+import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64 } from '../services/gemini';
 import { uploadBuffer } from '../services/s3';
 import { putSession } from '../services/dynamo';
 
@@ -129,5 +129,72 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
   } catch (err: any) {
     console.error(`${tag} Generate ERROR:`, err.message);
     res.status(500).json({ error: err.message || 'Try-on generation failed' });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// V2 — Single-step try-on. No prepare, no zone detection.
+// One call: selfie + product image → result.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  const { selfieBase64, productImageUrl, selfieS3Key, sourceUrl } = req.body;
+  const tag = `[${req.deviceId}]`;
+
+  if (!selfieBase64 || !productImageUrl) {
+    res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
+    return;
+  }
+
+  try {
+    // Download product image
+    const dlStart = Date.now();
+    const productBase64 = await downloadImageToBase64(productImageUrl);
+    console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
+
+    // Single Nano Banana 2 call — no zone detection, no thinking
+    const genStart = Date.now();
+    console.log(`${tag} V2 → generating with nano-banana-2`);
+    const resultBase64 = await generateTryOnV2(selfieBase64, productBase64);
+    const genMs = Date.now() - genStart;
+    console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
+
+    const sessionId = `ses_${Date.now()}`;
+    const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
+    const durationMs = Date.now() - startTime;
+
+    res.json({
+      sessionId,
+      tryonS3Key,
+      resultBase64,
+      model: 'v2',
+      durationMs,
+    });
+
+    // Background: S3 + DynamoDB
+    (async () => {
+      try {
+        const resultBuffer = Buffer.from(resultBase64, 'base64');
+        await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
+        console.log(`${tag} V2 → S3 upload (bg): done`);
+
+        await putSession({
+          deviceId: req.deviceId,
+          sessionId,
+          sourceUrl: sourceUrl || undefined,
+          selfieS3Key,
+          tryonS3Key,
+          tryonCdnUrl: tryonS3Key,
+          model: 'v2',
+          createdAt: new Date().toISOString(),
+        });
+        console.log(`${tag} V2 → DynamoDB save (bg): done`);
+      } catch (bgErr: any) {
+        console.error(`${tag} V2 → background save FAILED: ${bgErr.message}`);
+      }
+    })();
+  } catch (err: any) {
+    console.error(`${tag} V2 ERROR:`, err.message);
+    res.status(500).json({ error: err.message || 'V2 try-on failed' });
   }
 });
