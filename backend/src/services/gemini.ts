@@ -593,7 +593,8 @@ export async function generateTryOnV2(
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN_V2;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const response = await ai.models.generateContent({
+  const timeoutMs = usePro ? 60000 : 30000;
+  const genPromise = ai.models.generateContent({
     model,
     contents: [
       {
@@ -616,6 +617,12 @@ export async function generateTryOnV2(
       },
     } as any,
   });
+
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+  );
+
+  const response = await Promise.race([genPromise, timeoutPromise]);
 
   const parts = response.candidates?.[0]?.content?.parts;
   if (parts) {

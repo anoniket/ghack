@@ -196,7 +196,10 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       }
     })();
   } catch (err: any) {
-    console.error(`${tag} V2 ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'V2 try-on failed' });
+    const isTimeout = err.message === 'TIMEOUT';
+    console.error(`${tag} V2 ${isTimeout ? 'TIMEOUT' : 'ERROR'}:`, err.message);
+    res.status(isTimeout ? 504 : 500).json({
+      error: isTimeout ? 'TIMEOUT' : (err.message || 'V2 try-on failed'),
+    });
   }
 });

@@ -171,6 +171,12 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         }
         Alert.alert('Selfie not found', 'Your selfie has expired. Please go to the Profile tab and take a new selfie.');
       } else {
+        const isTimeout = err.message === 'TIMEOUT';
+        const timeoutQuips = [
+          'took too long, retry?',
+          'AI froze up, again?',
+          'timed out, one more shot?',
+        ];
         const errorQuips = [
           'faah, retry? \u{1F972}',
           'AI tripped lol, again?',
@@ -178,14 +184,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           'servers ghosted us, retry?',
           'bruh moment, try again?',
         ];
-        const errorText = errorQuips[Math.floor(Math.random() * errorQuips.length)];
+        const quips = isTimeout ? timeoutQuips : errorQuips;
+        const errorText = quips[Math.floor(Math.random() * quips.length)];
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
             window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(errorText)} }), '*');
             true;
           `);
         }
-        Alert.alert('Try-on failed', errorText);
       }
     } finally {
       setTryOnLoading(false);
