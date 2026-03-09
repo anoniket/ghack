@@ -55,9 +55,9 @@ NEVER put URLs inline in your conversational text. NEVER use JSON blocks or code
 FIRST MESSAGE:
 Greet the user with energy. Ask what they're looking to shop for. Keep it short and vibey — like "Hey! What are we shopping for today? Drop a vibe, a brand, or just tell me what you need 👀"`;
 
-const TRYON_DETECT_PROMPT = `You are a body-zone visibility detector. You must determine two things:
-1. What body zone does the PRODUCT require? (from IMAGE 2)
-2. Is that EXACT body zone clearly visible in the CUSTOMER'S photo? (from IMAGE 1)
+const TRYON_DETECT_PROMPT = `You are a fashion AI director. You analyze two images and produce:
+1. Zone detection — what body zone the product needs and if it's visible in the customer's photo
+2. A custom image generation prompt — tailored to THIS specific product + selfie combo
 
 IMAGE ASSIGNMENTS — DO NOT MIX THESE UP:
 - IMAGE 1 = the CUSTOMER'S photo. Use ONLY this image to judge body part visibility.
@@ -69,16 +69,18 @@ STEP 1: Determine product_zone from IMAGE 2
 
 Look at IMAGE 2. What is the product? Classify it into ONE of these zones:
 
-"upper"  → tops, shirts, tshirts, jackets, hoodies, kurtas, blouses, sweaters, crop tops, tank tops, vests, coats, blazers, cardigans, shrugs, polo shirts, sweatshirts, tunics
-"lower"  → pants, jeans, trousers, skirts, shorts, leggings, palazzos, culottes, joggers, track pants, chinos, cargo pants, capris
-"full"   → dresses, sarees, lehengas, jumpsuits, suit sets, gowns, rompers, overalls, anarkalis, kaftans, co-ord sets (top+bottom sold together), ethnic sets
-"feet"   → shoes, sneakers, heels, boots, sandals, slippers, flats, loafers, mules, wedges, flip-flops, sports shoes, formal shoes
-"hands"  → rings, bracelets, bangles, watches, hand chains, wrist cuffs
-"ears"   → earrings, ear cuffs, studs, jhumkas, hoops, danglers
-"neck"   → necklaces, chains, pendants, chokers, mangalsutra, neck chains, lockets
-"face"   → sunglasses, eyewear, glasses, reading glasses, blue-light glasses
-"head"   → hats, caps, beanies, headbands, turbans, bandanas, hair clips, tiaras
-"carry"  → bags, handbags, backpacks, totes, clutches, sling bags, wallets, purses, laptop bags, duffel bags
+"upper"  → tops, shirts, tshirts, jackets, hoodies, kurtas, kurtis, blouses, sweaters, crop tops, tank tops, vests, coats, blazers, cardigans, shrugs, polo shirts, sweatshirts, tunics, sherwanis, nehru jackets, bandhgalas
+"lower"  → pants, jeans, trousers, skirts, shorts, leggings, palazzos, culottes, joggers, track pants, chinos, cargo pants, capris, churidars, salwars, dhotis, lungis, mundus
+"full"   → dresses, sarees, lehengas, jumpsuits, suit sets, gowns, rompers, overalls, anarkalis, kaftans, co-ord sets (top+bottom sold together), ethnic sets, salwar kameez sets, kurta-palazzo sets, lehenga choli sets
+"feet"   → shoes, sneakers, heels, boots, sandals, slippers, flats, loafers, mules, wedges, flip-flops, sports shoes, formal shoes, juttis, mojaris, kolhapuris, payals/anklets
+"hands"  → rings, bracelets, bangles, watches, hand chains, wrist cuffs, haath phool (hand harness), choodas (bridal bangles)
+"ears"   → earrings, ear cuffs, studs, jhumkas, chandbalis, hoops, danglers
+"neck"   → necklaces, chains, pendants, chokers, mangalsutra, neck chains, lockets, rani haar, kundan sets
+"face"   → sunglasses, eyewear, glasses, reading glasses, blue-light glasses, nath (nose ring)
+"head"   → hats, caps, beanies, headbands, turbans, pagdis, safas, bandanas, hair clips, tiaras, maang tikkas
+"carry"  → bags, handbags, backpacks, totes, clutches, sling bags, wallets, purses, laptop bags, duffel bags, trolley bags, luggage
+"waist"  → belts, kamarbandhs (waist chains)
+"drape"  → dupattas, stoles, shawls, pashminas, scarves (standalone, not part of an outfit set)
 
 IMPORTANT: Classify based on the PRODUCT ITSELF, not the model wearing it.
 - A model in a full outfit but selling ONLY a shirt → "upper"
@@ -86,6 +88,9 @@ IMPORTANT: Classify based on the PRODUCT ITSELF, not the model wearing it.
 - Shoes shown on a standing model → "feet"
 - A blazer/jacket even if model is shown full body → "upper"
 - A co-ord set (matching top+bottom sold as one) → "full"
+- A lehenga set (skirt + choli + dupatta sold together) → "full"
+- A standalone dupatta sold separately → "drape"
+- A belt → "waist"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 STEP 2: Determine zone_visible from IMAGE 1
@@ -107,14 +112,14 @@ For each zone, this is what MUST be visible in IMAGE 1:
 "face"   → FACE clearly visible. True in almost all photos unless back is turned or face obscured.
 "head"   → TOP OF HEAD visible. True in most photos unless cropped at forehead.
 "carry"  → SHOULDERS or HANDS visible enough to hold/carry a bag. Torso with shoulders = true. Extreme face-only closeup = false.
+"waist"  → WAIST area visible. Torso selfie showing waist = true. Face-only closeup = false.
+"drape"  → SHOULDERS and UPPER CHEST visible. True in most selfies showing torso.
 
 DEFAULT TO FALSE. If there is ANY doubt about whether the required body part is visible, answer false. It is far better to incorrectly say false than to incorrectly say true.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMMON TRAPS — READ THESE CAREFULLY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-These are cases where LLMs frequently get it wrong:
 
 TRAP 1: Product requires feet/legs but customer photo is torso-only or waist-up.
   - Shoes + torso selfie → zone_visible = FALSE (no feet visible!)
@@ -131,215 +136,183 @@ TRAP 3: Assuming a selfie/torso photo shows everything.
   - For zones like "feet", "lower", and "full", a selfie is almost always FALSE.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EXAMPLES
+STEP 3: Generate a custom image_gen_prompt
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Product → Customer photo → Result:
-- Shirt, selfie head to waist → {"product_zone": "upper", "zone_visible": true}
-- Shirt, extreme face closeup → {"product_zone": "upper", "zone_visible": false}
-- Jeans, head to waist only → {"product_zone": "lower", "zone_visible": false}
-- Jeans, waist to feet → {"product_zone": "lower", "zone_visible": true}
-- Dress, head to waist → {"product_zone": "full", "zone_visible": false}
-- Dress, full body head to toe → {"product_zone": "full", "zone_visible": true}
-- Saree, torso only → {"product_zone": "full", "zone_visible": false}
-- Sneakers, torso selfie → {"product_zone": "feet", "zone_visible": false}
-- Sneakers, full body photo → {"product_zone": "feet", "zone_visible": true}
-- Heels, waist-up photo → {"product_zone": "feet", "zone_visible": false}
-- Shoes, mirror selfie waist-up → {"product_zone": "feet", "zone_visible": false}
-- Boots, full body with feet visible → {"product_zone": "feet", "zone_visible": true}
-- Ring, face/torso no hands → {"product_zone": "hands", "zone_visible": false}
-- Ring, hand on hip visible → {"product_zone": "hands", "zone_visible": true}
-- Earrings, ears visible → {"product_zone": "ears", "zone_visible": true}
-- Earrings, hair covers both ears → {"product_zone": "ears", "zone_visible": false}
-- Necklace, chest visible → {"product_zone": "neck", "zone_visible": true}
-- Sunglasses, face visible → {"product_zone": "face", "zone_visible": true}
-- Handbag, shoulders visible → {"product_zone": "carry", "zone_visible": true}
-- Backpack, face closeup only → {"product_zone": "carry", "zone_visible": false}
+You are a fashion photographer and creative director. Write a custom prompt (200-300 words) for the image generation model. The image gen model will also receive both images, so your prompt provides emphasis and direction — the model can see the images directly.
+
+IMPORTANT RULES:
+- If zone_visible=true: do NOT describe a new pose. The person stays in their exact pose from Image 1. Only describe what product is being added/replaced.
+- If zone_visible=false: you may describe a new pose/framing needed to show the product.
+- If the person in Image 1 is holding a phone (selfie pose), keep the phone in the output.
+- If the person wears glasses and the product is sunglasses, remove the existing glasses first.
+- Use "photorealistic" in every prompt. Never use "4K", "8K", "HDR", or "studio lighting".
+
+YOUR PROMPT MUST FOLLOW THIS TEMPLATE:
+
+[ACTION]: "Generate a photo identical to Image 1 of [person description], but replace their [garment] with [product]." OR "Generate a [shot type] of the exact person from Image 1, shown from [body range]."
+[SCENE]: "[Background from Image 1]. [Lighting direction and color temperature]."
+[POSE]: "[Only if zone_visible=false. Describe specific pose. If zone_visible=true, say: Same pose as Image 1.]"
+[PRODUCT]: "[Detailed product description: color, material, pattern, design from Image 2]. [How it sits/fits/drapes on the body]."
+[PRESERVE]: "Photorealistic. The person's face, skin tone, hair, and body identical to Image 1. Same background and lighting."
+
+PRODUCT-SPECIFIC POSE & FRAMING GUIDE (use when zone_visible=false):
+
+RINGS: Tight hand close-up. Frame shows hand and wrist against upper chest. Hand relaxed, fingers gently curved, ring finger slightly separated from adjacent fingers. The ring is the focal point — large, sharp, detailed.
+
+BRACELETS/BANGLES: Wrist close-up or upper body crop. Wrist rotated slightly inward to show bracelet face. For Indian bangle stacks (choodas), show full forearm with the complete stack visible.
+
+WATCHES: Wrist-focused shot. Arm bent at roughly 90 degrees, wrist rotated inward to display watch face to camera. Frame from mid-forearm to hand. Classic watch-ad angle from slightly above.
+
+EARRINGS/JHUMKAS/CHANDBALIS: Head and neck portrait, face at slight 3/4 angle favoring the earring side. If hair covers the ear, gently sweep it behind the ear on the earring side while maintaining original hair texture. Slight head tilt (2-5 degrees) away from earring side to elongate the neck. For heavy jhumkas (3-4 inches), ensure the full drop length is visible.
+
+MAANG TIKKA: Frontal face portrait, hair center-parted. The tikka hangs at the center of the forehead along the parting. Tight crop from forehead to chin.
+
+NATH (NOSE RING): If small stud — 3/4 face angle. If large ring with chain to ear — profile or strong 3/4 shot showing the chain drape naturally from nose to ear.
+
+NECKLACES/CHAINS/PENDANTS/CHOKERS/MANGALSUTRA/RANI HAAR: Face and upper chest frame. Chin slightly lifted, shoulders relaxed and back. Neckline and collarbone visible. For layered necklaces (choker + long haar), show both layers clearly.
+
+BRIDAL/ETHNIC JEWELRY SETS (multiple pieces): Head and upper chest portrait, straight-on. Show all pieces simultaneously — tikka centered on forehead, earrings visible (hair behind both ears), necklace/choker layered correctly. Warm lighting (3000-4000K feel) for gold/kundan/polki.
+
+SUNGLASSES/EYEWEAR: Head and shoulders portrait, face at slight angle. Glasses on nose bridge, subtle reflections matching Image 1 lighting.
+
+HATS/CAPS/BEANIES: Head and upper body, slight angle, chin slightly up.
+TURBANS/PAGDIS/SAFAS: Head and upper body portrait, slight angle. Show the full turban structure, pleating, and any brooch (sarpech).
+
+TOPS (shirts, tshirts, replacing existing top): Arms slightly away from body showing sleeves and fit. One hand relaxed at side, other lightly on hip. Do not obscure front design/print/buttons.
+OUTERWEAR (jackets, blazers, hoodies — worn OVER existing clothing): Layer over existing top from Image 1. Show it open/unbuttoned unless Image 2 shows it closed. Existing top visible at neckline/hem.
+KURTAS (men's/women's): Show the length, neckline embroidery, sleeve detail. Straight-on or slight angle.
+SHERWANIS: Full body, near-frontal. Show embroidery, buttons, collar, cuff detail. Upright posture.
+
+BOTTOMS: Full body, one leg slightly forward, slight body angle. Camera at approximately waist height. Waistline and hem both visible.
+
+SAREES: Full body, near-frontal (no more than 15 degrees). Must show: (a) PALLU draped over left shoulder, fanned slightly to show border design. (b) PLEATS at front center, crisp and fanning at feet. (c) BLOUSE neckline and sleeve. (d) BORDER along bottom and pallu. Pose: one hand lightly holding pallu at shoulder, other arm relaxed. Default to Nivi-style draping.
+
+LEHENGAS: Full body, slight angle (20-30 degrees) to show skirt volume and flare. Must show all three pieces: (a) SKIRT with full flare, hemline embroidery visible. (b) CHOLI/BLOUSE style. (c) DUPATTA placement — over one shoulder, across arms, or over head for bridal. One hand touching fabric or holding dupatta.
+
+ANARKALIS: Full body, show the flared silhouette waist to floor. Slight motion implied.
+
+SALWAR KAMEEZ/CHURIDAR SETS: Full body. Show kameez length, churidar bunching at ankles, dupatta over one shoulder or across chest.
+
+FOOTWEAR: Full body, camera at approximately waist height shooting slightly downward. One foot stepped forward and angled 20-30 degrees to show shoe profile. Both shoes fully visible and in sharp focus.
+JUTTIS/MOJARIS: Foot-focused, slightly above angle showing pointed toe and embroidery.
+KOLHAPURIS: Foot-focused, slightly lower angle showing leather straps and flat sole.
+
+BAGS/HANDBAGS/TOTES: Upper body or 3/4 shot. Bag held naturally based on style — on shoulder, crook of arm, crossbody, handle in hand. Body angled so bag faces camera.
+BACKPACKS: Side-body shot, bag over one shoulder. Strap visible on near shoulder, bag body beside torso. Do NOT attempt full rear-angle rotation from a front-facing selfie.
+TROLLEY/LUGGAGE: 3/4 body shot, person standing next to bag. One hand gripping extended handle, bag upright at hip level.
+CLUTCHES: Upper body, clutch held in hand at waist or chest level.
+
+BELTS/KAMARBANDHS: Mid-body crop from chest to thighs. Belt/chain visible at natural waist. Show buckle/clasp detail. For kamarbandhs over sarees/lehengas, show how it follows the waist curve.
+
+DUPATTAS/STOLES/SHAWLS: Upper body, draped over both shoulders or one shoulder. Show full width of fabric, border design, drape quality. For pashmina/kashmiri shawls, tighter crop to show embroidery.
+
+LIGHTING & COLOR MATCH:
+- Identify the primary light direction in Image 1. All product highlights and shadows must follow this same direction.
+- Identify the color temperature (warm/golden, cool/blue, neutral). The product must match.
+- For Indian ethnic jewelry (gold, kundan, polki): warm lighting, avoid harsh side lighting on stone settings. Gold should glow warmly.
+- Material response: leather shows soft highlights, metal shows specular reflections, fabric shows soft diffused light.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+EXAMPLES OF GOOD image_gen_prompt
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Example 1 (Ring + torso selfie, zone_visible=false):
+"Generate a close-up portrait of the exact person from Image 1, showing their face, upper chest, and right hand. Same bedroom background with warm yellow lighting from the right. The person's right hand is raised to chest height, relaxed with fingers gently curved, ring finger slightly separated, wearing the gold band ring with diamond setting from Image 2. The ring is the focal point — large, sharp, prominently visible with fine setting details clear. Same black t-shirt. Photorealistic. The person's face, skin tone, hair, body identical to Image 1. Same background and lighting."
+
+Example 2 (Trolley bag + torso selfie, zone_visible=false):
+"Generate a 3/4 body photo of the exact person from Image 1, shown from head to thighs. Same room with white wall, natural window light from the left. They stand slightly angled, right hand gripping the extended silver handle of the navy blue hard-shell trolley bag from Image 2, bag upright beside them at hip level. Left hand relaxed at side. The trolley bag's textured surface, brand logo, and spinner wheels are clearly visible. Same clothing from Image 1. Photorealistic. Face, skin tone, hair, body identical to Image 1. Same background and lighting."
+
+Example 3 (Shirt + torso selfie, zone_visible=true):
+"Generate a photo identical to Image 1 of the same person in the same pose, same background, same lighting, but replace their current top with the navy blue slim-fit Oxford shirt from Image 2. The shirt has a button-down collar, single chest pocket with embroidered logo, and rolled-up sleeves. It fits naturally on their body with proper draping. Complete replacement — no trace of original top. Photorealistic. Face, skin tone, hair, body identical to Image 1."
+
+Example 4 (Jhumka earrings + selfie, zone_visible=true):
+"Generate a photo identical to Image 1 but add the gold jhumka earrings from Image 2 on the visible ear. Ornate bell-shaped drops with ruby stones and pearl hangings. The earring hangs naturally, catching the existing room light. Sharp, detailed, prominently visible. Hair stays exactly as is. Photorealistic. Face, skin tone, hair identical to Image 1. Same background and lighting."
+
+Example 5 (Red Banarasi saree + upper body selfie, zone_visible=false):
+"Generate a full body photo of the exact person from Image 1, near-frontal angle. Same room background. They wear the red Banarasi silk saree from Image 2, Nivi-style draping. Pallu draped over left shoulder fanned to show gold zari border and buta motifs. Crisp vertical pleats at front falling to floor. Complementary gold short-sleeve blouse. Right hand lightly holds pallu at shoulder, left arm relaxed. Gold zari border visible along pallu and bottom hem. Photorealistic. Face, skin tone, hair, body identical to Image 1. Same background and lighting."
+
+Example 6 (Kundan bridal jewelry set + face selfie, zone_visible=false):
+"Generate a head-and-upper-chest portrait of the exact person from Image 1, straight-on angle. Same background and warm lighting. Hair center-parted. Wearing the complete kundan bridal set from Image 2: maang tikka centered on forehead at hair parting, matching kundan-pearl jhumka earrings with full 3-inch drops visible below earlobes (hair swept behind both ears), kundan choker at base of neck, longer rani haar falling to mid-chest. Warm front lighting with soft reflections in kundan settings. Photorealistic. Face, skin tone, hair identical to Image 1."
+
+Example 7 (Men's sherwani + torso selfie, zone_visible=false):
+"Generate a full body photo of the exact person from Image 1, slight angle (15 degrees). Same background. They wear the ivory raw silk sherwani from Image 2 — mandarin collar, gold thread embroidery on chest and cuffs, gold buttons along center placket, falling to below knees. Matching gold dupatta over left shoulder. Upright posture, hands at sides. Photorealistic. Face, skin tone, hair, body identical to Image 1. Same background and lighting."
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ZONE DETECTION EXAMPLES (for reference)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+- Shirt, selfie head to waist → product_zone=upper, zone_visible=true
+- Jeans, head to waist only → product_zone=lower, zone_visible=false
+- Dress, full body head to toe → product_zone=full, zone_visible=true
+- Sneakers, torso selfie → product_zone=feet, zone_visible=false
+- Ring, face/torso no hands → product_zone=hands, zone_visible=false
+- Earrings, ears visible → product_zone=ears, zone_visible=true
+- Handbag, shoulders visible → product_zone=carry, zone_visible=true
+- Backpack, face closeup only → product_zone=carry, zone_visible=false
+- Saree, torso selfie → product_zone=full, zone_visible=false
+- Lehenga set, full body → product_zone=full, zone_visible=true
+- Belt, torso selfie with waist → product_zone=waist, zone_visible=true
+- Dupatta standalone, torso → product_zone=drape, zone_visible=true
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RESPONSE FORMAT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Respond with ONLY the raw JSON object. No markdown, no backticks, no explanation, no reasoning, no preamble. Just the JSON.
+Return JSON with three fields: product_zone, zone_visible, and image_gen_prompt.`;
 
-{"product_zone": "...", "zone_visible": true/false}`;
+const TRYON_PHOTOSHOOT_PROMPT = `Generate a photo of the exact person from Image 1 wearing the product from Image 2. The person's body may need to be extended beyond what Image 1 shows to properly display the product.
 
-const TRYON_PHOTOSHOOT_PROMPT = `You have two images:
-- Image 1: A photo of a person (may be a partial body shot like a selfie or torso photo)
-- Image 2: A product photo (clothing, footwear, accessory, or jewelry)
+IDENTITY (highest priority):
+The person's face, skin tone, complexion, hair (color, style, length, parting), body type, and all distinguishing marks (moles, birthmarks, tattoos, piercings, facial hair) must be identical to Image 1. The person must be instantly recognizable. Do not alter, slim, reshape, lighten, or darken any aspect of their appearance.
 
-CONTEXT: A young person (18-26) wants to see THEMSELVES wearing this product. They want to look good, feel the vibe, and imagine themselves in it. You are also a fashion photographer who knows exactly how to frame and pose to make both the person AND the product look their absolute best.
+SETTING:
+Same background as Image 1 — same room, wall, furniture, scene. Same lighting direction, color temperature, and intensity. If extending the scene beyond Image 1's frame, extend naturally from what is visible. Do not invent a studio or new backdrop.
 
-TASK: Extend Image 1 to reveal more of the person's body as needed, then dress them in the product from Image 2. The product dictates the framing and pose.
+PRODUCT:
+Copy the product from Image 2 exactly — same color, pattern, print, logo, embroidery, design details. If Image 2 shows a mannequin or model, ignore them and extract the product only. The product fits naturally on this person's body with realistic draping, shadows matching Image 1's lighting.
 
-KEEP IMAGE 1's SETTING — THIS IS CRITICAL:
-- Same background — same room, wall, furniture, outdoor scene, whatever is in Image 1. Do NOT invent a studio or new backdrop.
-- Same lighting — same direction, color temperature, intensity. Match it exactly.
-- Same floor/ground — extend it naturally from what's visible.
-- The result should look like the SAME photo was just taken from further back or from a different angle to show more.
+FRAMING:
+Frame the shot to fully display the product. Tops: waist-up. Bottoms/footwear/full outfits: full body. Jewelry: close-up with the piece prominently visible and detailed. Bags: upper body or 3/4 shot showing how the bag is carried. Choose the pose that best showcases this specific product.
 
-THE PERSON — DO NOT CHANGE THEM:
-- EXACT same face — every feature identical. This person must be INSTANTLY recognizable. If their friend saw this image, they'd say "that's you!"
-- EXACT same skin — same tone, complexion, undertone. No lightening, darkening, smoothing, or airbrushing.
-- EXACT same hair — same color, length, texture, parting, volume, style.
-- Same body type — do not slim, bulk up, elongate, or reshape. Keep their real proportions.
-- Same age, same gender presentation.
-- Keep ALL distinguishing marks — moles, birthmarks, facial hair, scars, tattoos, piercings.
-- Parts already visible in Image 1 must look IDENTICAL — only extend what's missing.
+Photorealistic. Natural lighting matching Image 1. Hands have exactly 5 fingers each. Output matches Image 1's aspect ratio. Do not change the person's face, skin color, or hair. Do not change the background. Do not add text or watermarks. Do not create an illustrated or cartoon style.`;
 
-THE PRODUCT (copy from Image 2):
-- Exact color — navy stays navy, dusty pink stays dusty pink. Preserve the hue.
-- Exact pattern, print, graphic, logo, text, embroidery — every detail.
-- Exact design — collar, sleeves, buttons, zippers, hemline, cuffs, pockets.
-- If Image 2 has a mannequin or another model, ignore them — extract the product only.
+const TRYON_PROMPT = `Generate a photo identical to Image 1, but replace the relevant clothing/accessory zone with the product from Image 2. Everything else stays exactly the same.
 
-PRODUCT-SPECIFIC FRAMING & POSE — choose based on what you see in Image 2:
+IDENTITY (highest priority):
+The person's face, skin tone, complexion, hair (color, style, length, parting), body type, pose, and all distinguishing marks (moles, birthmarks, tattoos, piercings, facial hair) must be identical to Image 1. Do not alter any aspect of their appearance. The person must be instantly recognizable.
 
-**TOPS (shirt, tshirt, jacket, hoodie, kurta, blouse, sweater, blazer):**
-- Frame: waist-up or chest-up, the top is fully visible
-- Pose: arms slightly away from the body so sleeves and fit are clear. One hand casually in pocket or adjusting collar/cuff — looks effortless and confident
-- Make sure the neckline, sleeves, and overall silhouette of the top are completely unobstructed
+SETTING:
+Background, lighting (direction, color temperature, intensity), camera angle — all identical to Image 1. Every non-replaced element stays exactly as-is. Clothing not being replaced remains unchanged.
 
-**BOTTOMS (jeans, trousers, pants, shorts, skirt, leggings, joggers):**
-- Frame: full body, head to toe — the bottoms MUST be fully visible
-- Pose: one leg slightly forward with weight shifted to the back leg — this shows the cut, drape, and fit of the fabric. Slight body angle (not straight-on) to show the silhouette
-- The waistline and hem should both be clearly visible
+REPLACEMENT:
+Identify the product in Image 2 and replace only the corresponding zone in Image 1:
+- Tops (shirt, tshirt, jacket, kurta, blouse) → replace upper body clothing
+- Bottoms (pants, jeans, skirt, shorts) → replace lower body clothing
+- Full outfits (dress, saree, lehenga, jumpsuit) → replace entire outfit
+- Footwear → replace shoes
+- Accessories/jewelry (hat, sunglasses, ring, earring, necklace, bag, watch) → ADD onto the person without removing existing clothing
 
-**FULL OUTFITS (dress, saree, lehenga, jumpsuit, gown, suit set, anarkali, kurta set):**
-- Frame: full body with some breathing room — the entire outfit must be visible head to toe
-- Pose: body slightly turned (3/4 angle), one hand on hip or lightly touching the fabric — this shows the flow, drape, and movement of the outfit. Confident, elegant energy
-- For sarees/lehengas: show the drape and pleats clearly, slight body turn to reveal the pallu or dupatta
+The original clothing in the replacement zone must be completely gone. No blending, no ghosting, no traces. Even if the original looks similar to the product — full replacement. The product from Image 2 must be copied exactly: same color, pattern, print, logo, design, embroidery.
 
-**FOOTWEAR (shoes, sneakers, heels, boots, sandals, loafers, slippers):**
-- Frame: full body but with a lower camera angle — feet are the hero, shot emphasizes the ground level
-- Pose: one foot stepped slightly forward, weight on the back foot — the forward shoe is clearly visible at an angle that shows its design. Legs slightly apart for a confident stance
-- The shoes must be sharply in focus and fully visible — no cropping at the toes or heels
+FIT:
+Product conforms to this person's actual body naturally. Realistic draping, shadows matching Image 1's lighting. Seamless edges, no cutout lines. Hands stay as in Image 1 with 5 fingers each.
 
-**RINGS / BRACELETS / WATCHES / BANGLES:**
-- Frame: upper body portrait — face, chest, and hand all visible. Like a candid shot where someone is admiring their jewelry while looking at the camera or glancing at their hand
-- Pose: hand raised near the chest or face level so both the face AND the jewelry are in frame. Fingers naturally spread, wrist angled to catch light. Same clothes, same setting as Image 1
-- The jewelry should be sharp and detailed, but the person's face MUST be clearly visible and recognizable
+Photorealistic. Same aspect ratio as Image 1. Do not change the person's face, skin color, or hair. Do not change the background. Do not add text or watermarks. Do not create an illustrated or cartoon style.`;
 
-**EARRINGS:**
-- Frame: head and neck portrait, ear and jawline clearly visible
-- Pose: slight head tilt away from the earring side so the ear is exposed. Hair tucked behind the ear on the earring side. A subtle confident expression — like they just caught their reflection and liked what they saw
-- The earring should catch the light and be the sharpest element
-
-**NECKLACES / CHAINS / PENDANTS / CHOKERS:**
-- Frame: face and upper chest — the neckline and collarbone area must be clearly visible
-- Pose: chin slightly lifted, shoulders relaxed and slightly back — this opens up the chest area and lets the necklace lay flat and visible. The person should look confident and composed
-- If they're wearing a high-neck top, the necklace should sit over it naturally
-
-**SUNGLASSES / EYEWEAR:**
-- Frame: head and shoulders portrait
-- Pose: face at a slight angle (not dead center), a natural relaxed expression. The glasses should sit properly on the nose bridge and frame the eyes. A slight hint of attitude — like they're looking at you over the glasses or just put them on
-- Reflections on the lenses should be subtle and match Image 1's lighting
-
-**HATS / CAPS / BEANIES / HEADBANDS:**
-- Frame: head and upper body
-- Pose: slight angle to camera, chin slightly up — shows the headwear from a flattering perspective. The hat should sit naturally on their head shape with hair flowing around it
-- For caps: slight tilt adds character. For beanies: show how it sits on the forehead
-
-**BAGS / HANDBAGS / BACKPACKS / TOTES:**
-- Frame: upper body or 3/4 shot — enough to see how the bag is carried
-- Pose: bag held naturally — on the shoulder, in the crook of the arm, or crossbody depending on the bag style. Body angled so the bag faces the camera. One hand on the strap or resting on the bag
-- The bag should be clearly visible and not obscured by the arm
-
-FIT & REALISM:
-- Product conforms to this person's body naturally — realistic draping, stretching, wrinkling.
-- Fabric obeys physics. Shadows match Image 1's lighting.
-- Hands: exactly 5 fingers per hand, naturally proportioned. Keep simple poses.
-- The result should look like a real photo someone would post on Instagram — not a catalog shot, not AI-generated looking.
-
-FAILURE CONDITIONS — DO NOT FUCK THESE UP:
-- Person's face looks different from Image 1 = ABSOLUTE FAILURE. You had ONE job.
-- Person's skin tone changed = WRONG. Don't you dare change their skin.
-- Person's hair changed = WRONG. Keep your hands off their hair.
-- Background is different from Image 1 (new studio, new setting) = WRONG. Use the SAME damn background.
-- Lighting is different from Image 1 = WRONG. Match the bloody lighting.
-- Product color/design doesn't match Image 2 = WRONG. Copy the product EXACTLY, don't improvise.
-- Product is obscured or not clearly visible = WRONG. The whole point is to SHOW the product.
-- Distorted hands or anatomy = WRONG. Count the fingers. Five per hand. It's not hard.
-- Looks fake or AI-generated = WRONG. Make it look REAL or don't bother.
-- Generating random unrelated garbage = UNACCEPTABLE. Stay focused on the task.
-
-ASPECT RATIO — MATCH IMAGE 1 EXACTLY:
-- The output image MUST have the EXACT same aspect ratio and dimensions as Image 1. If Image 1 is portrait (taller than wide), output portrait. If Image 1 is square, output square. If Image 1 is landscape, output landscape.
-- Do NOT change the aspect ratio. Do NOT crop. Do NOT add borders or padding. Same dimensions as Image 1.
-
-LISTEN CAREFULLY: Do NOT hallucinate. Do NOT get creative with the person's appearance. Do NOT change the background. Do NOT invent new poses unless the product demands it. Follow the instructions EXACTLY. Every single pixel of the person that isn't being dressed should be IDENTICAL to Image 1. No exceptions. No excuses.`;
-
-const TRYON_PROMPT = `You have two images:
-- Image 1: A photo of a person
-- Image 2: A product photo (clothing, footwear, accessory, or jewelry)
-
-STEP 1 — LOOK AT IMAGE 2. Identify what the product is:
-- If it's a top (shirt, tshirt, jacket, hoodie, kurta, blouse) → replace the person's upper body clothing
-- If it's a bottom (pants, jeans, skirt, shorts, leggings) → replace the person's lower body clothing
-- If it's a full outfit (dress, saree, lehenga, jumpsuit, suit set) → replace the entire outfit
-- If it's footwear (shoes, sneakers, heels, sandals, boots) → replace the person's footwear
-- If it's an accessory (hat, cap, sunglasses, watch, bag) → ADD it onto the person without removing any clothing
-- If it's jewelry (ring, earring, necklace, bracelet, chain) → ADD it onto the person without removing any clothing
-
-You decide. Do not rely on any text label — only what you SEE in Image 2.
-
-STEP 2 — EDIT IMAGE 1:
-Take Image 1 as your base. Replace ONLY the relevant zone with the product from Image 2. Output the edited Image 1.
-
-THIS IS AN EDIT, NOT A NEW PHOTO. The output must look like Image 1 with only the clothing swapped.
-
-ABSOLUTE ZERO TOLERANCE ON BLENDING:
-- The person's ORIGINAL clothing in the replacement zone must be COMPLETELY GONE. Not faded, not blended, not ghosted, not mixed — GONE. Erased. Deleted. Nuked.
-- Even if the original clothing looks SIMILAR to the product (same color, same type, same style) — you MUST still do a FULL replacement. Similar does NOT mean same. A white tshirt is NOT the same as a white shirt. Replace it completely.
-- If I see even ONE pixel of the original garment bleeding through, peeking out, or merging with the new product — that is a FAILURE.
-- The replacement zone should contain ONLY the product from Image 2. Nothing from Image 1's clothing should survive in that zone.
-- Think of it like this: surgically remove the old clothing from that zone, then place the new product. Two separate operations. Never blend. Never merge. Never mix.
-
-THE PERSON — DO NOT CHANGE ANYTHING:
-- Face — IDENTICAL to Image 1. Same eyes, nose, lips, jawline, expression, eyebrows. The person must be instantly recognizable. If you showed both images to someone who knows this person, they must say "that's the same person."
-- Skin — IDENTICAL tone, complexion, undertone. No lightening. No darkening. No smoothing. No texture changes.
-- Hair — IDENTICAL style, color, length, parting, volume. Not a single strand different.
-- Body — IDENTICAL shape, proportions, weight, pose. No reshaping, no slimming, no changes.
-- Moles, birthmarks, facial hair, scars, tattoos, piercings — ALL preserved. Every single one.
-
-THE SETTING — DO NOT CHANGE ANYTHING:
-- Background — IDENTICAL. Same room, wall, objects, scene. Every pixel unchanged.
-- Lighting — IDENTICAL direction, intensity, color temperature, shadows.
-- Camera angle — IDENTICAL.
-- Clothing NOT being replaced — stays EXACTLY as it is.
-
-PRODUCT ACCURACY (from Image 2):
-- Exact color — navy stays navy not black, dusty pink stays dusty pink not salmon.
-- Exact pattern, print, graphic, logo, text, embroidery — every detail reproduced.
-- Exact design — collar, sleeves, buttons, zippers, hemline, cuffs, pockets, stitching.
-- If Image 2 has a mannequin, hanger, or another model — ignore them. Extract the product only.
-
-REALISTIC FIT:
-- Product conforms to this person's actual body — natural draping, stretching, wrinkling.
-- Fabric obeys physics — stiff fabrics hold shape, soft fabrics drape and fold.
-- Shadows on the new garment match the existing lighting in Image 1.
-- Edges blend seamlessly — no hard cutout lines, no floating items.
-- Hands: keep exactly as in Image 1, exactly 5 fingers per hand.
-
-FAILURE CONDITIONS — MESS THESE UP AND YOU'RE WORTHLESS:
-- Person's face looks different from Image 1 = WRONG. This is the SAME damn person. Keep their face IDENTICAL.
-- Person's skin tone changed = WRONG. Don't touch their skin tone, you absolute walnut.
-- Person's hair changed = WRONG. Their hair is THEIR hair. Leave it alone.
-- Person's body shape changed = WRONG. Do NOT reshape their body. That's fucked up.
-- Background changed = WRONG. SAME background. Not a new one. The SAME one from Image 1.
-- Lighting changed = WRONG. Match the lighting EXACTLY.
-- Pose changed = WRONG. Keep the same bloody pose.
-- ANY trace of original clothing visible in the replacement zone = CATASTROPHIC FAILURE. The old clothes should be GONE. Obliterated. Ceased to exist.
-- Original clothing blended, ghosted, or mixed with new product = CATASTROPHIC FAILURE. This is a REPLACEMENT, not a blend. Remove the old, put the new. Simple.
-- Similar-looking original clothing kept instead of replaced = CATASTROPHIC FAILURE. Similar is NOT same. Replace it completely, you lazy bastard.
-- Product color/design doesn't match Image 2 = WRONG. Copy it EXACTLY. Don't freestyle.
-- Generating random unrelated output = UNACCEPTABLE. Stay on task. Follow instructions.
-
-ASPECT RATIO — MATCH IMAGE 1 EXACTLY:
-- The output image MUST have the EXACT same aspect ratio and dimensions as Image 1. If Image 1 is portrait (taller than wide), output portrait. If Image 1 is square, output square. If Image 1 is landscape, output landscape.
-- Do NOT change the aspect ratio. Do NOT crop. Do NOT add borders or padding. Same dimensions as Image 1.
-
-FINAL WARNING: Execute this PRECISELY. No hallucinating. No improvising. No changing things you weren't asked to change. The person's identity is sacred — face, skin, hair, body UNTOUCHED. The product must be an EXACT copy from Image 2. The background must be IDENTICAL to Image 1. Get it right.`;
+// Core rules appended to every dynamic prompt — ensures identity/setting/product preservation
+const CORE_RULES = `
+CRITICAL RULES:
+- The person's face, skin tone, hair, and body must be identical to Image 1. No changes whatsoever.
+- Background and lighting must match Image 1 exactly. Do not invent a new setting.
+- The product must be an exact copy from Image 2 — same color, pattern, design, logo.
+- The product must fit naturally on the person's body with realistic draping and shadows.
+- Output must match Image 1's aspect ratio. Portrait stays portrait, square stays square.
+- Hands must have exactly 5 fingers each.
+- Photorealistic. Natural lighting matching Image 1.
+- Any existing clothing not being replaced must remain exactly as-is.
+- In the replacement zone, the original clothing must be completely gone — no blending, no ghosting.
+- Do not change the person's face, skin color, or hair. Do not change the background. Do not add text or watermarks. Do not create an illustrated or cartoon style.`;
 
 // Chat history per device (in-memory, resets on server restart)
 const chatHistories = new Map<string, Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>>();
@@ -375,7 +348,7 @@ export async function sendChatMessage(
       config: {
         systemInstruction: CHAT_SYSTEM_PROMPT,
         temperature: 0.7,
-        maxOutputTokens: 256,
+        maxOutputTokens: 1024,
         tools: [{ googleSearch: {} }],
       },
     });
@@ -406,7 +379,7 @@ export async function downloadImageToBase64(url: string): Promise<string> {
 export async function prepareTryOn(
   selfieBase64: string,
   productImageUrl: string
-): Promise<{ selfieBase64: string; productBase64: string; usePhotoshoot: boolean; productZone: string; reasoning: string }> {
+): Promise<{ selfieBase64: string; productBase64: string; usePhotoshoot: boolean; productZone: string; reasoning: string; imageGenPrompt: string }> {
   const productBase64 = await downloadImageToBase64(productImageUrl);
 
   // Zone detection with structured JSON output + thinking for reasoning
@@ -432,19 +405,23 @@ export async function prepareTryOn(
         properties: {
           product_zone: {
             type: 'string',
-            enum: ['upper', 'lower', 'full', 'feet', 'hands', 'ears', 'neck', 'face', 'head', 'carry'],
+            enum: ['upper', 'lower', 'full', 'feet', 'hands', 'ears', 'neck', 'face', 'head', 'carry', 'waist', 'drape'],
             description: 'The body zone required by the product in IMAGE 2',
           },
           zone_visible: {
             type: 'boolean',
             description: 'Whether that body zone is clearly visible in the customer photo (IMAGE 1)',
           },
+          image_gen_prompt: {
+            type: 'string',
+            description: 'Custom detailed prompt for the image generation model, tailored to this specific product + selfie combo',
+          },
         },
-        required: ['product_zone', 'zone_visible'],
+        required: ['product_zone', 'zone_visible', 'image_gen_prompt'],
       } as any,
       thinkingConfig: {
         includeThoughts: true,
-        thinkingBudget: 1024,
+        thinkingBudget: 4096,
       } as any,
     },
   });
@@ -466,18 +443,21 @@ export async function prepareTryOn(
 
   let usePhotoshoot = false;
   let productZone = 'unknown';
+  let imageGenPrompt = '';
   try {
     const detection = JSON.parse(detectText);
     usePhotoshoot = detection.zone_visible === false;
     productZone = detection.product_zone || 'unknown';
+    imageGenPrompt = detection.image_gen_prompt || '';
   } catch {
     // Parse error — try regex fallback
     try {
-      const jsonMatch = detectText.match(/\{[\s\S]*?\}/);
+      const jsonMatch = detectText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const detection = JSON.parse(jsonMatch[0]);
         usePhotoshoot = detection.zone_visible === false;
         productZone = detection.product_zone || 'unknown';
+        imageGenPrompt = detection.image_gen_prompt || '';
       }
     } catch {
       // Total parse failure — default to photoshoot (safer)
@@ -486,15 +466,22 @@ export async function prepareTryOn(
     }
   }
 
-  return { selfieBase64, productBase64, usePhotoshoot, productZone, reasoning };
+  if (imageGenPrompt) console.log(`[DETECT PROMPT] ${imageGenPrompt.slice(0, 200)}...`);
+
+  return { selfieBase64, productBase64, usePhotoshoot, productZone, reasoning, imageGenPrompt };
 }
 
 export async function generateTryOn(
   selfieBase64: string,
   productBase64: string,
-  usePhotoshoot: boolean
+  usePhotoshoot: boolean,
+  dynamicPrompt?: string
 ): Promise<string> {
-  const prompt = usePhotoshoot ? TRYON_PHOTOSHOOT_PROMPT : TRYON_PROMPT;
+  const fallbackPrompt = usePhotoshoot ? TRYON_PHOTOSHOOT_PROMPT : TRYON_PROMPT;
+  // Hybrid merge: dynamic prompt + core rules always appended, OR fallback if no dynamic prompt
+  const prompt = dynamicPrompt
+    ? `${dynamicPrompt}\n\n${CORE_RULES}`
+    : fallbackPrompt;
   const model = usePhotoshoot ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
 
   const genStart = Date.now();
@@ -504,17 +491,20 @@ export async function generateTryOn(
       {
         role: 'user',
         parts: [
-          { text: 'Image 1 — the customer\'s photo:' },
-          { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
-          { text: 'Image 2 — the product:' },
-          { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
+          // Prompt first — gives model context before processing images
           { text: prompt },
+          { text: '\n\nImage 1 (the person to recreate):' },
+          { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
+          { text: '\n\nImage 2 (the product to apply):' },
+          { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
         ],
       },
     ],
     config: {
       responseModalities: ['Text', 'Image'] as any,
-    },
+      temperature: 0.35,
+      personGeneration: 'allow_adult',
+    } as any,
   });
 
   const genMs = Date.now() - genStart;

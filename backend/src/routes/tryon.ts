@@ -5,8 +5,8 @@ import { putSession } from '../services/dynamo';
 
 export const tryonRouter = Router();
 
-// Server-side cache: prepare caches selfie + product base64 for generate (5 min TTL)
-const prepareCache = new Map<string, { selfieBase64: string; productBase64: string; ts: number }>();
+// Server-side cache: prepare caches selfie + product base64 + dynamic prompt for generate (5 min TTL)
+const prepareCache = new Map<string, { selfieBase64: string; productBase64: string; imageGenPrompt: string; ts: number }>();
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of prepareCache) {
@@ -28,13 +28,14 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   try {
     const t = Date.now();
     console.log(`${tag} Prepare → zone detection started`);
-    const { usePhotoshoot, productBase64, productZone, reasoning } = await prepareTryOn(selfieBase64, productImageUrl);
+    const { usePhotoshoot, productBase64, productZone, reasoning, imageGenPrompt } = await prepareTryOn(selfieBase64, productImageUrl);
     console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
     console.log(`${tag} Prepare → product_zone=${productZone}, zone_visible=${!usePhotoshoot}`);
     if (reasoning) console.log(`${tag} Prepare → reasoning: ${reasoning}`);
+    if (imageGenPrompt) console.log(`${tag} Prepare → dynamic prompt: ${imageGenPrompt.slice(0, 150)}...`);
 
     // Cache for generate step — no need to re-upload or re-download
-    prepareCache.set(req.deviceId, { selfieBase64, productBase64, ts: Date.now() });
+    prepareCache.set(req.deviceId, { selfieBase64, productBase64, imageGenPrompt, ts: Date.now() });
 
     const finalUsePhotoshoot = retry ? true : usePhotoshoot;
     console.log(`${tag} Prepare → model=${finalUsePhotoshoot ? 'PRO' : 'FLASH'} (zone=${usePhotoshoot ? 'hidden' : 'visible'}, retry=${!!retry})`);
@@ -80,9 +81,10 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
       console.log(`${tag} Generate → product image download (fallback): ${Date.now() - pt}ms`);
     }
 
+    const dynamicPrompt = cached?.imageGenPrompt;
     const geminiStart = Date.now();
-    console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started`);
-    const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot);
+    console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started (dynamic prompt: ${dynamicPrompt ? 'yes' : 'no, using fallback'})`);
+    const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot, dynamicPrompt);
     const geminiMs = Date.now() - geminiStart;
     console.log(`${tag} Generate → Gemini API: ${geminiMs}ms, base64 length=${resultBase64.length}`);
 
