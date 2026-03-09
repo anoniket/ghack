@@ -178,13 +178,23 @@ export default function ChatInterface() {
                 Your universal shopping assistant
               </Text>
               <View style={styles.chipRow}>
-                {['Myntra shirts', 'Zara jackets', 'Nike shoes'].map((c) => (
+                {[
+                  { label: 'Nike', url: 'https://www.nike.com/in' },
+                  { label: 'H&M', url: 'https://www2.hm.com/en_in/index.html' },
+                  { label: 'Puma', url: 'https://in.puma.com/' },
+                  { label: 'Snitch', url: 'https://www.snitch.com/' },
+                  { label: 'Zara', url: 'https://www.zara.com/in/' },
+                ].map((b) => (
                   <TouchableOpacity
-                    key={c}
+                    key={b.label}
                     style={styles.chip}
-                    onPress={() => handleSendText(c)}
+                    onPress={() => {
+                      setCurrentUrl(b.url);
+                      setMode('webview');
+                      setChatBubbleExpanded(false);
+                    }}
                   >
-                    <Text style={styles.chipText}>{c}</Text>
+                    <Text style={styles.chipText}>{b.label}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
