@@ -10,6 +10,7 @@ import { chatRouter } from './routes/chat';
 import { videoRouter } from './routes/video';
 import { mediaRouter } from './routes/media';
 import { historyRouter } from './routes/history';
+import { authRouter } from './routes/auth';
 
 const app = express();
 
@@ -43,7 +44,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-// All API routes require device ID + HMAC signature + rate limiting
+// Auth routes — rate limited but NO deviceIdMiddleware (they handle their own validation)
+app.use('/api/auth', limiter, authRouter);
+
+// All other API routes require device ID + JWT/HMAC auth + rate limiting
 app.use('/api', limiter, deviceIdMiddleware);
 
 // Stricter limits on generation endpoints
@@ -60,5 +64,8 @@ app.listen(config.port, () => {
   console.log(`mrigAI backend listening on port ${config.port}`);
   if (!config.appSecret) {
     console.warn('⚠️  APP_SECRET not set — HMAC verification disabled (dev mode)');
+  }
+  if (!config.jwtSecret) {
+    console.warn('⚠️  JWT_SECRET not set — JWT verification disabled (dev mode)');
   }
 });

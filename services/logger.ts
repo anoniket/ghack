@@ -1,6 +1,5 @@
 import { AppState } from 'react-native';
-import { API_URL } from '@/utils/constants';
-import { getDeviceId } from './api';
+import { sendLogs } from './api';
 
 interface LogEntry {
   tag: string;
@@ -21,15 +20,7 @@ async function flush() {
 
   const batch = buffer.splice(0, buffer.length);
   try {
-    const deviceId = await getDeviceId();
-    fetch(`${API_URL}/api/log`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-device-id': deviceId,
-      },
-      body: JSON.stringify({ logs: batch }),
-    }).catch(() => {}); // fire and forget
+    sendLogs(batch).catch(() => {}); // fire and forget
   } catch {}
 }
 
