@@ -6,7 +6,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Modal,
-  Dimensions,
+  useWindowDimensions,
+  Platform,
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,7 +20,6 @@ import * as api from '@/services/api';
 import { imageUriToBase64 } from '@/utils/imageUtils';
 import { rlog } from '@/services/logger';
 
-const { width: W, height: H } = Dimensions.get('window');
 
 interface WebViewMessage {
   type: string;
@@ -38,6 +38,7 @@ interface Props {
 }
 
 export default function WebViewBrowser({ onTryOnRequest }: Props) {
+  const { width: W, height: H } = useWindowDimensions();
   const webViewRef = useRef<WebView>(null);
   const {
     currentUrl,
@@ -78,6 +79,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   });
 
   const isLocked = tryOnLoading || videoLoading;
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
+      if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+    };
+  }, []);
 
   // Trigger try-on generation when currentProduct is set
   useEffect(() => {
@@ -144,11 +153,13 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Inject base64 immediately — S3 upload happens in background on server
       setTryOnResult(result.resultBase64);
 
-      // Optimistically add to saved try-ons immediately (CDN URL replaces base64 on next tab focus)
+      // Save with CDN URL (not base64) — avoids memory bloat
+      // CDN URL may 404 for 1-2s while S3 upload finishes in background,
+      // but user is viewing WebView result, not the Saved tab
       setSavedTryOns([
         {
           id: result.sessionId,
-          imageUri: `data:image/png;base64,${result.resultBase64}`,
+          imageUri: result.resultCdnUrl,
           sourceUrl: currentProduct.pageUrl,
           timestamp: Date.now(),
           sessionId: result.sessionId,
@@ -229,7 +240,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   }, [tryOnResult]);
 
   const startVideoGeneration = async () => {
-    if (!lastTryonS3Key || !lastSessionId) return;
+    // Read from store directly to avoid stale closure
+    const { lastTryonS3Key: s3Key, lastSessionId: sessId } = useAppStore.getState();
+    if (!s3Key || !sessId) return;
     // Use ref for atomic double-tap guard (React state is async)
     if (videoLoadingRef.current) return;
     videoLoadingRef.current = true;
@@ -247,8 +260,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     try {
       // Start video job
       const { jobId } = await api.startVideo({
-        sessionId: lastSessionId,
-        tryonS3Key: lastTryonS3Key,
+        sessionId: sessId,
+        tryonS3Key: s3Key,
       });
       rlog('Video', `job=${jobId} started, polling`);
 
@@ -294,6 +307,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
       rlog('Video', 'SUCCESS');
       setVideoDataUri(videoUrl || null);
+
+      // Update savedTryOns with video URL so Saved tab has it without refetching
+      if (videoUrl) {
+        const current = useAppStore.getState().savedTryOns;
+        setSavedTryOns(current.map(t =>
+          t.sessionId === sessId ? { ...t, videoUrl } : t
+        ));
+      }
 
       // Tell WebView generation is done
       if (webViewRef.current) {
@@ -350,7 +371,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         // ignore non-JSON messages
       }
     },
-    [onTryOnRequest, lastTryonS3Key, lastSessionId, videoLoading, selfieUri]
+    [onTryOnRequest]
   );
 
   const checkPreviousTryOn = async (pageUrl: string) => {
@@ -400,13 +421,15 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   const handleShouldStartLoad = useCallback(
     (request: any) => {
-      if (isLocked && request.navigationType === 'click') {
+      // Block navigation to different pages during generation
+      // Use URL comparison — navigationType is iOS-only
+      if (isLocked && request.url !== currentUrl) {
         rlog('WebView', 'blocked nav during generation');
         return false;
       }
       return true;
     },
-    [isLocked]
+    [isLocked, currentUrl]
   );
 
   if (!currentUrl) return null;
@@ -520,8 +543,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           domStorageEnabled
           startInLoadingState
           allowsInlineMediaPlayback
-          mixedContentMode="compatibility"
-          userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+          mixedContentMode="never"
+          userAgent={Platform.OS === 'ios'
+            ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
+            : 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36'
+          }
         />
 
         {loading && (
@@ -542,7 +568,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         onRequestClose={() => setVideoDataUri(null)}
       >
         <View style={styles.videoOverlay}>
-          <View style={styles.videoModal}>
+          <View style={[styles.videoModal, { width: W * 0.9, height: H * 0.7 }]}>
             <View style={styles.videoHeader}>
               <Text style={styles.videoTitle}>Try-On Video</Text>
               <TouchableOpacity
@@ -658,8 +684,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   videoModal: {
-    width: W * 0.9,
-    height: H * 0.7,
     backgroundColor: '#141414',
     borderRadius: 24,
     overflow: 'hidden',

@@ -7,15 +7,12 @@ import {
   Image,
   Alert,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAppStore } from '@/services/store';
 import { saveSelfie, deleteSelfie, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
 import { resetChat } from '@/services/gemini';
-
-const { width: W } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const {

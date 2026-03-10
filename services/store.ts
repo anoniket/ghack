@@ -92,7 +92,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   messages: [],
   addMessage: (message) =>
-    set((state) => ({ messages: [...state.messages, message] })),
+    set((state) => ({ messages: [...state.messages.slice(-99), message] })),
   clearMessages: () => set({ messages: [] }),
   isTyping: false,
   setIsTyping: (typing) => set({ isTyping: typing }),

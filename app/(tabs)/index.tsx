@@ -4,6 +4,7 @@ import ChatInterface from '@/components/ChatInterface';
 import WebViewBrowser from '@/components/WebViewBrowser';
 import ChatBubble from '@/components/ChatBubble';
 import OnboardingCamera from '@/components/OnboardingCamera';
+import CrashBoundary from '@/components/CrashBoundary';
 import { useAppStore } from '@/services/store';
 import { getSelfieUri, getSelfieS3Key, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
 import { getDeviceId, getHistory } from '@/services/api';
@@ -82,12 +83,16 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       {mode === 'chat' ? (
-        <ChatInterface />
+        <CrashBoundary name="Chat">
+          <ChatInterface />
+        </CrashBoundary>
       ) : (
-        <View style={styles.webviewContainer}>
-          <WebViewBrowser onTryOnRequest={handleTryOnRequest} />
-          <ChatBubble />
-        </View>
+        <CrashBoundary name="Browser">
+          <View style={styles.webviewContainer}>
+            <WebViewBrowser onTryOnRequest={handleTryOnRequest} />
+            <ChatBubble />
+          </View>
+        </CrashBoundary>
       )}
     </View>
   );

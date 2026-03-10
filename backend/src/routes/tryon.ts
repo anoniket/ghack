@@ -169,6 +169,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       sessionId,
       tryonS3Key,
       resultBase64,
+      resultCdnUrl: cdnUrl(tryonS3Key),
       model: usePro ? 'v2-pro' : 'v2',
       durationMs,
     });

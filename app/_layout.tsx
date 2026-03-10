@@ -5,6 +5,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'react-native';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 export {
   ErrorBoundary,
@@ -49,11 +50,13 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={customDarkTheme}>
-      <StatusBar barStyle="light-content" backgroundColor="#0D0D0D" />
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-    </ThemeProvider>
+    <KeyboardProvider>
+      <ThemeProvider value={customDarkTheme}>
+        <StatusBar barStyle="light-content" backgroundColor="#0D0D0D" />
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </ThemeProvider>
+    </KeyboardProvider>
   );
 }

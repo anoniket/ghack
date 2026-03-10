@@ -43,7 +43,11 @@ async function signRequest(
   return hash.toLowerCase();
 }
 
-async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
+async function apiFetch(
+  path: string,
+  options: RequestInit & { timeout?: number } = {}
+): Promise<any> {
+  const { timeout = 30000, ...fetchOptions } = options;
   const deviceId = await getDeviceId();
   const timestamp = Date.now().toString();
   const url = `${API_URL}${path}`;
@@ -61,20 +65,39 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<any> {
     authHeaders['x-signature'] = await signRequest(deviceId, timestamp, pathOnly);
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      ...authHeaders,
-      ...options.headers,
-    },
-  });
+  // Timeout via AbortController — use caller's signal if provided, else create one
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error || `API error ${response.status}`);
+  // If caller passed a signal, forward its abort
+  if (fetchOptions.signal) {
+    fetchOptions.signal.addEventListener('abort', () => controller.abort());
   }
 
-  return response.json();
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+      headers: {
+        ...authHeaders,
+        ...fetchOptions.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      throw new Error(body.error || `API error ${response.status}`);
+    }
+
+    return response.json();
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error('TIMEOUT');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // ---- Try-On ----
@@ -100,6 +123,7 @@ export interface TryOnResult {
   sessionId: string;
   tryonS3Key: string;
   resultBase64: string;
+  resultCdnUrl: string;
   model: string;
   durationMs: number;
 }
@@ -128,6 +152,7 @@ export async function tryOnV2(params: {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',
     body: JSON.stringify(params),
+    timeout: params.retry ? 65000 : 35000,
   });
 }
 

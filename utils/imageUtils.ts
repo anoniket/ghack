@@ -45,18 +45,8 @@ export async function deleteSelfie(): Promise<void> {
 // ---- Image conversion utils (still needed for local operations) ----
 
 export async function imageUriToBase64(uri: string): Promise<string> {
-  const response = await fetch(uri);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(blob);
-  });
+  const file = new File(uri);
+  return file.base64();
 }
 
 export async function downloadImageToBase64(url: string): Promise<string> {

@@ -6,16 +6,15 @@ import {
   TouchableOpacity,
   Image,
   ActivityIndicator,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { saveSelfie, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
 import { useAppStore } from '@/services/store';
 
-const { width: W } = Dimensions.get('window');
-
 export default function OnboardingCamera() {
+  const { width: W } = useWindowDimensions();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const { setSelfieUri, setSelfieS3Key, setOnboardingComplete } = useAppStore();
@@ -89,7 +88,7 @@ export default function OnboardingCamera() {
             <View style={styles.previewContainer}>
               <View style={styles.imageFrame}>
                 <View style={styles.imageBorder}>
-                  <Image source={{ uri: imageUri }} style={styles.preview} />
+                  <Image source={{ uri: imageUri }} style={[styles.preview, { width: W * 0.55, height: W * 0.55 * 1.33 }]} />
                 </View>
               </View>
               <View style={styles.previewActions}>
@@ -191,8 +190,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(232,200,160,0.3)',
   },
   preview: {
-    width: W * 0.55,
-    height: W * 0.55 * 1.33,
     borderRadius: 18,
   },
   previewActions: {

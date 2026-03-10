@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,7 +7,7 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-  Dimensions,
+  useWindowDimensions,
   RefreshControl,
   Modal,
   ActivityIndicator,
@@ -19,8 +19,6 @@ import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
 import { deleteSelfie } from '@/utils/imageUtils';
 
-const { width: W, height: H } = Dimensions.get('window');
-const CARD_WIDTH = (W - 48) / 2;
 
 interface TimelineSection {
   title: string;
@@ -70,6 +68,8 @@ function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
 }
 
 export default function SavedScreen() {
+  const { width: W, height: H } = useWindowDimensions();
+  const CARD_WIDTH = (W - 48) / 2;
   const {
     savedTryOns, setSavedTryOns, setCurrentUrl, setMode,
     setSelfieS3Key, setSelfieUri, setOnboardingComplete,
@@ -86,10 +86,14 @@ export default function SavedScreen() {
     player.play();
   });
 
-  // Refresh history every time the tab is focused
+  // Fetch from server only on first focus (after that, Zustand stays in sync via image/video gen)
+  const hasFetched = useRef(false);
   useFocusEffect(
     useCallback(() => {
-      loadSaved();
+      if (!hasFetched.current) {
+        hasFetched.current = true;
+        loadSaved();
+      }
     }, [])
   );
 
@@ -169,25 +173,39 @@ export default function SavedScreen() {
 
   const sections = groupByTimeline(savedTryOns);
 
-  const renderItem = ({ item }: { item: SavedTryOn }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => setSelectedItem(item)}
-      activeOpacity={0.85}
-    >
-      <Image source={{ uri: item.imageUri }} style={styles.cardImage} />
-      <View style={styles.cardOverlay}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {getStoreName(item.sourceUrl)}
-        </Text>
-        <View style={styles.cardMeta}>
-          {item.videoUrl && (
-            <Text style={styles.videoIndicator}>🎬</Text>
-          )}
+  const renderItem = ({ item }: { item: SavedTryOn }) => {
+    const [imgError, setImgError] = useState(false);
+    return (
+      <TouchableOpacity
+        style={[styles.card, { width: CARD_WIDTH, height: CARD_WIDTH * 1.4 }]}
+        onPress={() => setSelectedItem(item)}
+        activeOpacity={0.85}
+      >
+        {imgError ? (
+          <View style={styles.cardImagePlaceholder}>
+            <ActivityIndicator size="small" color="#E8C8A0" />
+            <Text style={styles.placeholderText}>Uploading...</Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: item.imageUri }}
+            style={styles.cardImage}
+            onError={() => setImgError(true)}
+          />
+        )}
+        <View style={styles.cardOverlay}>
+          <Text style={styles.cardName} numberOfLines={1}>
+            {getStoreName(item.sourceUrl)}
+          </Text>
+          <View style={styles.cardMeta}>
+            {item.videoUrl && (
+              <Text style={styles.videoIndicator}>🎬</Text>
+            )}
+          </View>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (selectedItem) {
     return (
@@ -213,7 +231,7 @@ export default function SavedScreen() {
             <View style={styles.detailBorder}>
               <Image
                 source={{ uri: selectedItem.imageUri }}
-                style={styles.detailImage}
+                style={[styles.detailImage, { width: W - 72, height: (W - 72) * 1.33 }]}
                 resizeMode="contain"
               />
             </View>
@@ -257,7 +275,7 @@ export default function SavedScreen() {
             onRequestClose={() => setPlayingVideoUrl(null)}
           >
             <View style={styles.videoOverlay}>
-              <View style={styles.videoModal}>
+              <View style={[styles.videoModal, { width: W * 0.9, height: H * 0.7 }]}>
                 <View style={styles.videoHeader}>
                   <Text style={styles.videoTitle}>Try-On Video</Text>
                   <TouchableOpacity
@@ -408,8 +426,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    width: CARD_WIDTH,
-    height: CARD_WIDTH * 1.4,
     borderRadius: 18,
     overflow: 'hidden',
     backgroundColor: '#1A1A1A',
@@ -417,6 +433,18 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: '100%',
+  },
+  cardImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1A1A1A',
+    gap: 8,
+  },
+  placeholderText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 11,
   },
   cardOverlay: {
     position: 'absolute',
@@ -505,8 +533,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(232,200,160,0.2)',
   },
   detailImage: {
-    width: W - 72,
-    height: (W - 72) * 1.33,
     borderRadius: 18,
   },
   detailName: {
@@ -551,8 +577,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   videoModal: {
-    width: W * 0.9,
-    height: H * 0.7,
     backgroundColor: '#141414',
     borderRadius: 24,
     overflow: 'hidden',

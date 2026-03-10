@@ -6,22 +6,23 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
-  Keyboard,
+  useWindowDimensions,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
 import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
 
-const { width: W } = Dimensions.get('window');
+let msgCounter = 0;
+const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
 
 export default function ChatInterface() {
+  const { width: W } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState('');
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const {
     messages,
@@ -34,15 +35,6 @@ export default function ChatInterface() {
   } = useAppStore();
 
   useEffect(() => {
-    const showSub = Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  useEffect(() => {
     if (messages.length === 0) {
       sendInitialGreeting();
     }
@@ -53,11 +45,11 @@ export default function ChatInterface() {
     try {
       const { text: response } = await sendChat(
         'Hello, I just opened the app. Greet me and ask what I want to shop for.',
-        messages.map(m => ({ role: m.role, text: m.text }))
+        messages.slice(-15).map(m => ({ role: m.role, text: m.text }))
       );
       const cleaned = cleanResponseText(response);
       addMessage({
-        id: `msg_${Date.now()}`,
+        id: nextId('msg'),
         role: 'model',
         text: cleaned,
         timestamp: Date.now(),
@@ -65,7 +57,7 @@ export default function ChatInterface() {
     } catch (err) {
       rlog('Chat', `greeting error: ${err}`);
       addMessage({
-        id: `msg_${Date.now()}`,
+        id: nextId('msg'),
         role: 'model',
         text: "Hey! I'm your AI shopping assistant. Tell me what you'd like to shop for \u2014 I work with any website in the world!",
         timestamp: Date.now(),
@@ -80,7 +72,7 @@ export default function ChatInterface() {
     const msg = text.trim();
 
     addMessage({
-      id: `msg_user_${Date.now()}`,
+      id: nextId('msg_user'),
       role: 'user',
       text: msg,
       timestamp: Date.now(),
@@ -89,13 +81,13 @@ export default function ChatInterface() {
     setIsTyping(true);
     try {
       const { text: response, url: serverUrl } = await sendChat(msg,
-        messages.map(m => ({ role: m.role, text: m.text }))
+        messages.slice(-15).map(m => ({ role: m.role, text: m.text }))
       );
       const url = serverUrl || extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);
 
       addMessage({
-        id: `msg_model_${Date.now()}`,
+        id: nextId('msg_model'),
         role: 'model',
         text: cleaned || response,
         timestamp: Date.now(),
@@ -112,7 +104,7 @@ export default function ChatInterface() {
     } catch (err) {
       rlog('Chat', `send error: ${err}`);
       addMessage({
-        id: `msg_error_${Date.now()}`,
+        id: nextId('msg_error'),
         role: 'model',
         text: 'Sorry, I encountered an error. Please try again.',
         timestamp: Date.now(),
@@ -141,6 +133,7 @@ export default function ChatInterface() {
         <View
           style={[
             styles.messageBubble,
+            { maxWidth: W * 0.72 },
             isUser ? styles.userBubble : styles.aiBubble,
           ]}
         >
@@ -156,7 +149,7 @@ export default function ChatInterface() {
     <View style={styles.container}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         keyboardVerticalOffset={0}
       >
         <FlatList
@@ -218,7 +211,7 @@ export default function ChatInterface() {
           }
         />
 
-        <View style={[styles.inputWrapper, keyboardVisible && styles.inputWrapperKeyboard]}>
+        <View style={[styles.inputWrapper, { paddingBottom: insets.bottom + 62 }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
@@ -298,7 +291,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   messageBubble: {
-    maxWidth: W * 0.72,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 20,
@@ -339,11 +331,7 @@ const styles = StyleSheet.create({
   dot3: { opacity: 0.8 },
   inputWrapper: {
     paddingHorizontal: 16,
-    paddingBottom: 96,
     paddingTop: 8,
-  },
-  inputWrapperKeyboard: {
-    paddingBottom: 4,
   },
   inputContainer: {
     flexDirection: 'row',

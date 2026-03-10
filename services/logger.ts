@@ -1,3 +1,4 @@
+import { AppState } from 'react-native';
 import { API_URL } from '@/utils/constants';
 import { getDeviceId } from './api';
 
@@ -31,6 +32,11 @@ async function flush() {
     }).catch(() => {}); // fire and forget
   } catch {}
 }
+
+// Flush immediately when app goes to background
+AppState.addEventListener('change', (state) => {
+  if (state === 'background') flush();
+});
 
 export function rlog(tag: string, msg: string) {
   buffer.push({ tag, msg });

@@ -6,20 +6,21 @@ import {
   TouchableOpacity,
   TextInput,
   FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useAppStore } from '@/services/store';
 import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+let msgCounter = 0;
+const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
 
 export default function ChatBubble() {
+  const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const [inputText, setInputText] = useState('');
   const {
     chatBubbleExpanded,
@@ -40,7 +41,7 @@ export default function ChatBubble() {
     setInputText('');
 
     addMessage({
-      id: `msg_user_${Date.now()}`,
+      id: nextId('msg_user'),
       role: 'user',
       text,
       timestamp: Date.now(),
@@ -49,13 +50,13 @@ export default function ChatBubble() {
     setIsTyping(true);
     try {
       const { text: response, url: serverUrl } = await sendChat(text,
-        messages.map(m => ({ role: m.role, text: m.text }))
+        messages.slice(-15).map(m => ({ role: m.role, text: m.text }))
       );
       const url = serverUrl || extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);
 
       addMessage({
-        id: `msg_model_${Date.now()}`,
+        id: nextId('msg_model'),
         role: 'model',
         text: cleaned || response,
         timestamp: Date.now(),
@@ -71,7 +72,7 @@ export default function ChatBubble() {
     } catch (err) {
       rlog('Chat', `bubble send error: ${err}`);
       addMessage({
-        id: `msg_error_${Date.now()}`,
+        id: nextId('msg_error'),
         role: 'model',
         text: 'Sorry, an error occurred.',
         timestamp: Date.now(),
@@ -102,9 +103,9 @@ export default function ChatBubble() {
   return (
     <KeyboardAvoidingView
       style={styles.expandedContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
     >
-      <View style={styles.expandedPanel}>
+      <View style={[styles.expandedPanel, { height: SCREEN_HEIGHT * 0.48 }]}>
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -226,7 +227,6 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   expandedPanel: {
-    height: SCREEN_HEIGHT * 0.48,
     backgroundColor: '#141414',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
