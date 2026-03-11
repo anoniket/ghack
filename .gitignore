@@ -43,3 +43,7 @@ yarn-error.*
 
 # architecture docs
 SYSTEM_ARCHITECTURE.md
+
+# build artifacts
+*.apk
+*.aab
