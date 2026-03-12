@@ -34,38 +34,22 @@ export default function ChatInterface() {
     setChatBubbleExpanded,
   } = useAppStore();
 
+  // PERF-17: Show hardcoded greeting immediately — no Gemini API wait on cold start
   useEffect(() => {
     if (messages.length === 0) {
-      sendInitialGreeting();
+      const greetings = [
+        "Hey! What are we shopping for today? Drop a brand, a vibe, or just tell me what you need",
+        "Yo! Ready to find something fire? Tell me what you're looking for",
+        "Hey there! What's on the shopping list today? I work with any store in the world",
+      ];
+      addMessage({
+        id: nextId('msg'),
+        role: 'model',
+        text: greetings[Math.floor(Math.random() * greetings.length)],
+        timestamp: Date.now(),
+      });
     }
   }, []);
-
-  const sendInitialGreeting = async () => {
-    setIsTyping(true);
-    try {
-      const { text: response } = await sendChat(
-        'Hello, I just opened the app. Greet me and ask what I want to shop for.',
-        messages.slice(-15).map(m => ({ role: m.role, text: m.text }))
-      );
-      const cleaned = cleanResponseText(response);
-      addMessage({
-        id: nextId('msg'),
-        role: 'model',
-        text: cleaned,
-        timestamp: Date.now(),
-      });
-    } catch (err) {
-      rlog('Chat', `greeting error: ${err}`);
-      addMessage({
-        id: nextId('msg'),
-        role: 'model',
-        text: "Hey! I'm your AI shopping assistant. Tell me what you'd like to shop for \u2014 I work with any website in the world!",
-        timestamp: Date.now(),
-      });
-    } finally {
-      setIsTyping(false);
-    }
-  };
 
   const handleSendText = async (text: string) => {
     if (!text.trim() || isTyping) return;
@@ -80,8 +64,10 @@ export default function ChatInterface() {
 
     setIsTyping(true);
     try {
+      // SS-2: Read fresh messages from store to avoid stale closure
+      const freshMessages = useAppStore.getState().messages;
       const { text: response, url: serverUrl } = await sendChat(msg,
-        messages.slice(-15).map(m => ({ role: m.role, text: m.text }))
+        freshMessages.slice(-15).map(m => ({ role: m.role, text: m.text }))
       );
       const url = serverUrl || extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);

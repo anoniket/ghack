@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  Image,
   TouchableOpacity,
   Alert,
   useWindowDimensions,
@@ -12,6 +11,7 @@ import {
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
@@ -89,6 +89,7 @@ function TryOnCard({ item, width, height, onPress }: {
         <Image
           source={{ uri: item.imageUri }}
           style={styles.cardImage}
+          cachePolicy="disk"
           onError={() => setImgError(true)}
         />
       )}
@@ -211,8 +212,18 @@ export default function SavedScreen() {
   };
 
   const sections = groupByTimeline(savedTryOns);
-
   const CARD_HEIGHT = CARD_WIDTH * 1.4;
+
+  // PERF-12: Flatten sections into a single virtualized list
+  // Each item is either a section header or a row of 2 cards
+  type FlatItem = { type: 'header'; title: string } | { type: 'row'; items: SavedTryOn[] };
+  const flatData: FlatItem[] = [];
+  for (const section of sections) {
+    flatData.push({ type: 'header', title: section.title });
+    for (let i = 0; i < section.data.length; i += 2) {
+      flatData.push({ type: 'row', items: section.data.slice(i, i + 2) });
+    }
+  }
 
   if (selectedItem) {
     return (
@@ -239,7 +250,8 @@ export default function SavedScreen() {
               <Image
                 source={{ uri: selectedItem.imageUri }}
                 style={[styles.detailImage, { width: W - 72, height: (W - 72) * 1.33 }]}
-                resizeMode="contain"
+                contentFit="contain"
+                cachePolicy="disk"
               />
             </View>
             <Text style={styles.detailName}>{getStoreName(selectedItem.sourceUrl)}</Text>
@@ -339,8 +351,8 @@ export default function SavedScreen() {
           </View>
         ) : (
           <FlatList
-            data={sections}
-            keyExtractor={(section) => section.title}
+            data={flatData}
+            keyExtractor={(item, idx) => item.type === 'header' ? `h_${item.title}` : `r_${idx}`}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -349,11 +361,13 @@ export default function SavedScreen() {
               />
             }
             contentContainerStyle={styles.sectionList}
-            renderItem={({ item: section }) => (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>{section.title}</Text>
+            renderItem={({ item: flatItem }) => {
+              if (flatItem.type === 'header') {
+                return <Text style={styles.sectionTitle}>{flatItem.title}</Text>;
+              }
+              return (
                 <View style={styles.gridRow}>
-                  {section.data.map((item) => (
+                  {flatItem.items.map((item) => (
                     <TryOnCard
                       key={item.id}
                       item={item}
@@ -363,8 +377,8 @@ export default function SavedScreen() {
                     />
                   ))}
                 </View>
-              </View>
-            )}
+              );
+            }}
           />
         )}
 

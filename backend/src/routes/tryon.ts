@@ -6,6 +6,8 @@ import { putSession } from '../services/dynamo';
 export const tryonRouter = Router();
 
 // Server-side cache: prepare caches selfie + product base64 + dynamic prompt for generate (5 min TTL)
+// PERF-8: Bounded to 20 entries to prevent OOM (each entry holds 1-3MB selfie base64)
+const MAX_PREPARE_CACHE = 20;
 const prepareCache = new Map<string, { selfieBase64: string; productBase64: string; imageGenPrompt: string; ts: number }>();
 setInterval(() => {
   const now = Date.now();
@@ -35,6 +37,11 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
     if (imageGenPrompt) console.log(`${tag} Prepare → dynamic prompt: ${imageGenPrompt.slice(0, 150)}...`);
 
     // Cache for generate step — no need to re-upload or re-download
+    // PERF-8: Evict oldest if at capacity
+    if (!prepareCache.has(req.deviceId) && prepareCache.size >= MAX_PREPARE_CACHE) {
+      const oldestKey = prepareCache.keys().next().value;
+      if (oldestKey) prepareCache.delete(oldestKey);
+    }
     prepareCache.set(req.deviceId, { selfieBase64, productBase64, imageGenPrompt, ts: Date.now() });
 
     const finalUsePhotoshoot = retry ? true : usePhotoshoot;

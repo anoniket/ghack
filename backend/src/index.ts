@@ -19,7 +19,8 @@ app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
+// PERF-14/SEC-13: Default 1MB body limit — tryon routes get 50MB below
+app.use(express.json({ limit: '1mb' }));
 
 // Rate limiting — 300 requests per 15 min per IP
 const limiter = rateLimit({
@@ -53,6 +54,9 @@ app.use('/api', limiter, deviceIdMiddleware);
 // Stricter limits on generation endpoints
 app.use('/api/tryon', generationLimiter);
 app.use('/api/video', generationLimiter);
+
+// PERF-14: 50MB body limit only for tryon routes (selfie base64 is ~2MB)
+app.use('/api/tryon', express.json({ limit: '50mb' }));
 
 app.use('/api', tryonRouter);
 app.use('/api', chatRouter);

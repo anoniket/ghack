@@ -42,31 +42,32 @@ interface Props {
 export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const { width: W, height: H } = useWindowDimensions();
   const webViewRef = useRef<WebView>(null);
+
+  // PERF-1: Individual selectors — only re-render when the specific field changes
+  const currentUrl = useAppStore((s) => s.currentUrl);
+  const selfieUri = useAppStore((s) => s.selfieUri);
+  const selfieS3Key = useAppStore((s) => s.selfieS3Key);
+  const currentProduct = useAppStore((s) => s.currentProduct);
+  const tryOnLoading = useAppStore((s) => s.tryOnLoading);
+  const tryOnResult = useAppStore((s) => s.tryOnResult);
+  const videoLoading = useAppStore((s) => s.videoLoading);
+  const videoDataUri = useAppStore((s) => s.videoDataUri);
+
+  // PERF-1: Setters via getState() — stable references, no re-renders
   const {
-    currentUrl,
     setCurrentUrl,
     setMode,
-    selfieUri,
-    selfieS3Key,
-    currentProduct,
     setCurrentProduct,
-    tryOnLoading,
     setTryOnLoading,
-    tryOnResult,
     setTryOnResult,
-    savedTryOns,
     setSavedTryOns,
-    videoLoading,
     setVideoLoading,
-    videoDataUri,
     setVideoDataUri,
-    lastSessionId,
     setLastSessionId,
-    lastTryonS3Key,
     setLastTryonS3Key,
     setSelfieS3Key,
     setSelfieUri,
-  } = useAppStore();
+  } = useAppStore.getState();
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -20,22 +20,39 @@ import { ChatMessage } from '@/services/store';
 let msgCounter = 0;
 const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
 
+// PERF-5: Memoized message bubble — only re-renders when its own item changes
+const MessageBubble = memo(({ item }: { item: ChatMessage }) => (
+  <View
+    style={[
+      styles.msg,
+      item.role === 'user' ? styles.userMsg : styles.aiMsg,
+    ]}
+  >
+    <Text
+      style={[
+        styles.msgText,
+        item.role === 'user' && styles.userMsgText,
+      ]}
+    >
+      {item.text}
+    </Text>
+  </View>
+));
+
 export default function ChatBubble() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tabBarHeight = 58 + insets.bottom; // matches _layout.tsx tab bar
   const [inputText, setInputText] = useState('');
-  const {
-    chatBubbleExpanded,
-    setChatBubbleExpanded,
-    messages,
-    addMessage,
-    isTyping,
-    setIsTyping,
-    setCurrentUrl,
-    tryOnLoading,
-    videoLoading,
-  } = useAppStore();
+
+  // PERF-6: Individual selectors — collapsed bubble doesn't re-render on message changes
+  const chatBubbleExpanded = useAppStore((s) => s.chatBubbleExpanded);
+  const messages = useAppStore((s) => s.messages);
+  const isTyping = useAppStore((s) => s.isTyping);
+  const tryOnLoading = useAppStore((s) => s.tryOnLoading);
+  const videoLoading = useAppStore((s) => s.videoLoading);
+
+  const { addMessage, setIsTyping, setCurrentUrl, setChatBubbleExpanded } = useAppStore.getState();
   const flatListRef = useRef<FlatList>(null);
 
   const handleSend = async () => {
@@ -87,6 +104,12 @@ export default function ChatBubble() {
     }
   };
 
+  // PERF-6: Stable renderItem reference
+  const renderMessage = useCallback(
+    ({ item }: { item: ChatMessage }) => <MessageBubble item={item} />,
+    []
+  );
+
   const isGenerating = tryOnLoading || videoLoading;
 
   // Hide bubble & collapse expanded panel during try-on or video generation
@@ -131,23 +154,7 @@ export default function ChatBubble() {
         <FlatList
           ref={flatListRef}
           data={messages.slice(-20)}
-          renderItem={({ item }) => (
-            <View
-              style={[
-                styles.msg,
-                item.role === 'user' ? styles.userMsg : styles.aiMsg,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.msgText,
-                  item.role === 'user' && styles.userMsgText,
-                ]}
-              >
-                {item.text}
-              </Text>
-            </View>
-          )}
+          renderItem={renderMessage}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.msgList}
           onContentSizeChange={() =>

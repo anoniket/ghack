@@ -29,45 +29,60 @@ export default function HomeScreen() {
   }, []);
 
   const loadInitialData = async () => {
-    // Initialize device ID
-    try {
-      const id = await getDeviceId();
-      setDeviceId(id);
-    } catch (err) {
-      console.error('Failed to get device ID:', err);
-    }
+    // PERF-10: Run independent ops in parallel
+    const [, selfie] = await Promise.all([
+      // Initialize device ID
+      getDeviceId().then((id) => setDeviceId(id)).catch((err) => {
+        console.error('Failed to get device ID:', err);
+      }),
+      // Load selfie URI
+      getSelfieUri(),
+    ]);
 
-    // Load selfie
-    const selfie = await getSelfieUri();
     if (selfie) {
       setSelfieUri(selfie);
       setOnboardingComplete(true);
 
-      // Load S3 key (or upload if missing)
-      let s3Key = await getSelfieS3Key();
-      if (!s3Key) {
-        try {
-          s3Key = await uploadSelfieAndSaveKey(selfie);
-        } catch (err) {
-          console.error('Failed to upload selfie to S3:', err);
-        }
+      // S3 key + history can load in parallel
+      await Promise.all([
+        // Load S3 key (or upload if missing)
+        (async () => {
+          let s3Key = await getSelfieS3Key();
+          if (!s3Key) {
+            try { s3Key = await uploadSelfieAndSaveKey(selfie); }
+            catch (err) { console.error('Failed to upload selfie to S3:', err); }
+          }
+          if (s3Key) setSelfieS3Key(s3Key);
+        })(),
+        // Load saved try-ons from cloud
+        getHistory().then(({ items }) => {
+          setSavedTryOns(items.map((item) => ({
+            id: item.sessionId,
+            imageUri: item.tryonImageUrl,
+            sourceUrl: item.sourceUrl,
+            timestamp: new Date(item.createdAt).getTime(),
+            videoUrl: item.videoUrl,
+            sessionId: item.sessionId,
+          })));
+        }).catch((err) => {
+          console.error('Failed to load history:', err);
+        }),
+      ]);
+    } else {
+      // No selfie — still try loading history (device may have data)
+      try {
+        const { items } = await getHistory();
+        setSavedTryOns(items.map((item) => ({
+          id: item.sessionId,
+          imageUri: item.tryonImageUrl,
+          sourceUrl: item.sourceUrl,
+          timestamp: new Date(item.createdAt).getTime(),
+          videoUrl: item.videoUrl,
+          sessionId: item.sessionId,
+        })));
+      } catch (err) {
+        console.error('Failed to load history:', err);
       }
-      if (s3Key) setSelfieS3Key(s3Key);
-    }
-
-    // Load saved try-ons from cloud
-    try {
-      const { items } = await getHistory();
-      setSavedTryOns(items.map((item) => ({
-        id: item.sessionId,
-        imageUri: item.tryonImageUrl,
-        sourceUrl: item.sourceUrl,
-        timestamp: new Date(item.createdAt).getTime(),
-        videoUrl: item.videoUrl,
-        sessionId: item.sessionId,
-      })));
-    } catch (err) {
-      console.error('Failed to load history:', err);
     }
   };
 
