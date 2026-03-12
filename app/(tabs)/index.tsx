@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import ChatInterface from '@/components/ChatInterface';
 import WebViewBrowser from '@/components/WebViewBrowser';
 import ChatBubble from '@/components/ChatBubble';
@@ -17,12 +17,15 @@ export default function HomeScreen() {
     setSelfieS3Key,
     setDeviceId,
     setSavedTryOns,
+    setHistoryLoaded,
     mode,
     setCurrentProduct,
   } = useAppStore();
 
   // SS-8: Track loading state to prevent onboarding flash
   const [initialLoading, setInitialLoading] = useState(true);
+  // ERR-11: Offline detection on cold start
+  const [offline, setOffline] = useState(false);
 
   useEffect(() => {
     loadInitialData().finally(() => setInitialLoading(false));
@@ -64,8 +67,11 @@ export default function HomeScreen() {
             videoUrl: item.videoUrl,
             sessionId: item.sessionId,
           })));
-        }).catch((err) => {
+          setHistoryLoaded(true);
+        }).catch((err: any) => {
           console.error('Failed to load history:', err);
+          // ERR-11: Detect offline on cold start
+          if (err?.message === 'NETWORK_ERROR') setOffline(true);
         }),
       ]);
     } else {
@@ -80,8 +86,10 @@ export default function HomeScreen() {
           videoUrl: item.videoUrl,
           sessionId: item.sessionId,
         })));
-      } catch (err) {
+        setHistoryLoaded(true);
+      } catch (err: any) {
         console.error('Failed to load history:', err);
+        if (err?.message === 'NETWORK_ERROR') setOffline(true);
       }
     }
   };
@@ -99,6 +107,28 @@ export default function HomeScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#E8C8A0" />
+      </View>
+    );
+  }
+
+  // ERR-11: Offline banner on cold start — let user retry
+  if (offline) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.offlineTitle}>No internet connection</Text>
+        <Text style={styles.offlineText}>Check your connection and try again</Text>
+        <TouchableOpacity
+          style={styles.offlineBtn}
+          onPress={() => {
+            setOffline(false);
+            setInitialLoading(true);
+            loadInitialData()
+              .catch(() => setOffline(true))
+              .finally(() => setInitialLoading(false));
+          }}
+        >
+          <Text style={styles.offlineBtnText}>Retry</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -138,5 +168,27 @@ const styles = StyleSheet.create({
   },
   webviewContainer: {
     flex: 1,
+  },
+  offlineTitle: {
+    color: '#F5F5F5',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  offlineText: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  offlineBtn: {
+    backgroundColor: '#E8C8A0',
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+    borderRadius: 12,
+  },
+  offlineBtnText: {
+    color: '#0D0D0D',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

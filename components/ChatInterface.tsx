@@ -15,15 +15,15 @@ import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
-
-let msgCounter = 0;
-const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
+import { nextMsgId as nextId } from '@/utils/ids';
 
 export default function ChatInterface() {
   const { width: W } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
+  // PLAT-17: Track scroll position — only auto-scroll when near bottom
+  const isNearBottom = useRef(true);
   const {
     messages,
     addMessage,
@@ -144,9 +144,14 @@ export default function ChatInterface() {
           renderItem={renderMessage}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.messagesList}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
+          onScroll={({ nativeEvent }) => {
+            const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
+            isNearBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - 80;
+          }}
+          scrollEventThrottle={100}
+          onContentSizeChange={() => {
+            if (isNearBottom.current) flatListRef.current?.scrollToEnd({ animated: true });
+          }}
           ListHeaderComponent={
             <View style={styles.headerContainer}>
               <View style={styles.headerIconBg}>
@@ -172,6 +177,8 @@ export default function ChatInterface() {
                       setMode('webview');
                       setChatBubbleExpanded(false);
                     }}
+                    accessibilityLabel={`Browse ${b.label}`}
+                    accessibilityRole="button"
                   >
                     <Text style={styles.chipText}>{b.label}</Text>
                   </TouchableOpacity>
@@ -208,11 +215,15 @@ export default function ChatInterface() {
               onSubmitEditing={handleSend}
               returnKeyType="send"
               multiline={false}
+              accessibilityLabel="Chat message input"
+              accessibilityHint="Type a message to the shopping assistant"
             />
             <TouchableOpacity
               onPress={handleSend}
               disabled={!inputText.trim() || isTyping}
               activeOpacity={0.7}
+              accessibilityLabel="Send message"
+              accessibilityRole="button"
             >
               <View
                 style={[

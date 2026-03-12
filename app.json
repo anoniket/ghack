@@ -15,6 +15,7 @@
     },
     "ios": {
       "supportsTablet": true,
+      "bundleIdentifier": "com.mrigai.app",
       "infoPlist": {
         "NSCameraUsageDescription": "mrigAI needs camera access to take your selfie for virtual try-on.",
         "NSPhotoLibraryUsageDescription": "mrigAI needs photo library access to select your photo for virtual try-on."

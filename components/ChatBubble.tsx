@@ -16,9 +16,7 @@ import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
-
-let msgCounter = 0;
-const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
+import { nextMsgId as nextId } from '@/utils/ids';
 
 // PERF-5: Memoized message bubble — only re-renders when its own item changes
 const MessageBubble = memo(({ item }: { item: ChatMessage }) => (

@@ -61,6 +61,8 @@ interface AppState {
   // Saved try-ons
   savedTryOns: SavedTryOn[];
   setSavedTryOns: (tryOns: SavedTryOn[]) => void;
+  historyLoaded: boolean;
+  setHistoryLoaded: (loaded: boolean) => void;
 
   // Video generation
   videoLoading: boolean;
@@ -112,6 +114,8 @@ export const useAppStore = create<AppState>((set) => ({
 
   savedTryOns: [],
   setSavedTryOns: (tryOns) => set({ savedTryOns: tryOns }),
+  historyLoaded: false,
+  setHistoryLoaded: (loaded) => set({ historyLoaded: loaded }),
 
   videoLoading: false,
   setVideoLoading: (loading) => set({ videoLoading: loading }),

@@ -23,7 +23,23 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
 
   try {
-    const tryonBuffer = await downloadToBuffer(tryonS3Key);
+    // ERR-17: S3 upload from try-on is fire-and-forget — object may not exist yet.
+    // Retry up to 3 times with 1s backoff before giving up.
+    let tryonBuffer: Buffer | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        tryonBuffer = await downloadToBuffer(tryonS3Key);
+        break;
+      } catch (dlErr: any) {
+        if (attempt < 2 && (dlErr.name === 'NoSuchKey' || dlErr.Code === 'NoSuchKey')) {
+          console.log(`${tag} Video → S3 not ready, retry ${attempt + 1}/3`);
+          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        } else {
+          throw dlErr;
+        }
+      }
+    }
+    if (!tryonBuffer) throw new Error('Try-on image not found in S3');
     const tryonBase64 = tryonBuffer.toString('base64');
 
     const jobId = uuid();

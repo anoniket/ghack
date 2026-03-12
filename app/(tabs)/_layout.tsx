@@ -2,8 +2,14 @@ import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import { StyleSheet, Platform } from 'react-native';
+import { StyleSheet, Platform, Text, TextInput } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
+if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
+(Text as any).defaultProps.maxFontSizeMultiplier = 1.4;
+if ((TextInput as any).defaultProps == null) (TextInput as any).defaultProps = {};
+(TextInput as any).defaultProps.maxFontSizeMultiplier = 1.4;
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];

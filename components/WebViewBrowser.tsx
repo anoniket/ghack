@@ -510,6 +510,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           onPress={() => !isLocked && setMode('chat')}
           style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
           disabled={isLocked}
+          accessibilityLabel="Close browser"
+          accessibilityRole="button"
         >
           <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u2715'}</Text>
         </TouchableOpacity>
@@ -519,6 +521,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             onPress={() => !isLocked && webViewRef.current?.goBack()}
             style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
             disabled={isLocked}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
           >
             <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u2039'}</Text>
           </TouchableOpacity>
@@ -535,6 +539,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           onPress={() => !isLocked && webViewRef.current?.reload()}
           style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
           disabled={isLocked}
+          accessibilityLabel="Reload page"
+          accessibilityRole="button"
         >
           <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u21BB'}</Text>
         </TouchableOpacity>
@@ -579,13 +585,18 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             var origReplaceState = history.replaceState;
             history.pushState = function() {
               window.__historyDepth++;
-              return origPushState.apply(this, arguments);
+              var r = origPushState.apply(this, arguments);
+              window.dispatchEvent(new Event('__tryon_nav'));
+              return r;
             };
             history.replaceState = function() {
-              return origReplaceState.apply(this, arguments);
+              var r = origReplaceState.apply(this, arguments);
+              window.dispatchEvent(new Event('__tryon_nav'));
+              return r;
             };
             window.addEventListener('popstate', function() {
               window.__historyDepth = Math.max(0, window.__historyDepth - 1);
+              window.dispatchEvent(new Event('__tryon_nav'));
             });
             var origBack = history.back;
             history.back = function() {
@@ -611,7 +622,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           domStorageEnabled
           startInLoadingState
           allowsInlineMediaPlayback
-          mixedContentMode="never"
+          mixedContentMode="compatibility"
           userAgent={Platform.OS === 'ios'
             ? 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1'
             : 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.230 Mobile Safari/537.36'

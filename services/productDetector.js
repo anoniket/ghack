@@ -894,24 +894,13 @@ export const PRODUCT_DETECTOR_JS = `
     }
   }
 
-  // Monkey-patch pushState and replaceState for SPA navigation detection
-  var origPushState = history.pushState;
-  history.pushState = function() {
-    origPushState.apply(this, arguments);
-    setTimeout(checkUrlChange, 50);
-  };
-
-  var origReplaceState = history.replaceState;
-  history.replaceState = function() {
-    origReplaceState.apply(this, arguments);
-    setTimeout(checkUrlChange, 50);
-  };
-
-  window.addEventListener('popstate', function() {
+  // PLAT-5: Listen for __tryon_nav events (fired by WebView's pushState/replaceState patches)
+  // instead of double-patching history.pushState/replaceState
+  window.addEventListener('__tryon_nav', function() {
     setTimeout(checkUrlChange, 50);
   });
 
-  log('🔀', 'SPA NAV — History API hooks installed for SPA navigation detection');
+  log('🔀', 'SPA NAV — Listening for __tryon_nav events from WebView patches');
 
   function scanForProduct(trigger) {
     // Only inject once per page — find the first full-width product image

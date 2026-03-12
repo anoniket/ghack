@@ -126,15 +126,16 @@ export default function SavedScreen() {
     player.play();
   });
 
-  // Fetch from server only on first focus (after that, Zustand stays in sync via image/video gen)
+  // SS-10/PLAT-13: Skip fetch if index.tsx already loaded history
+  const historyLoaded = useAppStore((s) => s.historyLoaded);
   const hasFetched = useRef(false);
   useFocusEffect(
     useCallback(() => {
       if (!hasFetched.current) {
         hasFetched.current = true;
-        loadSaved();
+        if (!historyLoaded) loadSaved();
       }
-    }, [])
+    }, [historyLoaded])
   );
 
   const loadSaved = async () => {
@@ -332,7 +333,7 @@ export default function SavedScreen() {
               <Text style={styles.headerCount}>{savedTryOns.length} try-ons</Text>
             </View>
             {savedTryOns.length > 0 && (
-              <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllBtn} disabled={deleting}>
+              <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllBtn} disabled={deleting} accessibilityLabel="Delete all try-ons" accessibilityRole="button">
                 <Text style={styles.deleteAllText}>Delete All</Text>
               </TouchableOpacity>
             )}

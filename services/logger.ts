@@ -24,10 +24,13 @@ async function flush() {
   } catch {}
 }
 
-// Flush immediately when app goes to background
-AppState.addEventListener('change', (state) => {
-  if (state === 'background') flush();
-});
+// PLAT-4: Guard against duplicate listeners on HMR — store subscription for cleanup
+let appStateSubscription: ReturnType<typeof AppState.addEventListener> | null = null;
+if (!appStateSubscription) {
+  appStateSubscription = AppState.addEventListener('change', (state) => {
+    if (state === 'background') flush();
+  });
+}
 
 export function rlog(tag: string, msg: string) {
   buffer.push({ tag, msg });
