@@ -67,6 +67,45 @@ function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
     .map(([title, data]) => ({ title, data }));
 }
 
+function TryOnCard({ item, width, height, onPress }: {
+  item: SavedTryOn;
+  width: number;
+  height: number;
+  onPress: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  return (
+    <TouchableOpacity
+      style={[styles.card, { width, height }]}
+      onPress={onPress}
+      activeOpacity={0.85}
+    >
+      {imgError ? (
+        <View style={styles.cardImagePlaceholder}>
+          <ActivityIndicator size="small" color="#E8C8A0" />
+          <Text style={styles.placeholderText}>Uploading...</Text>
+        </View>
+      ) : (
+        <Image
+          source={{ uri: item.imageUri }}
+          style={styles.cardImage}
+          onError={() => setImgError(true)}
+        />
+      )}
+      <View style={styles.cardOverlay}>
+        <Text style={styles.cardName} numberOfLines={1}>
+          {getStoreName(item.sourceUrl)}
+        </Text>
+        <View style={styles.cardMeta}>
+          {item.videoUrl && (
+            <Text style={styles.videoIndicator}>🎬</Text>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
 export default function SavedScreen() {
   const { width: W, height: H } = useWindowDimensions();
   const CARD_WIDTH = (W - 48) / 2;
@@ -173,39 +212,7 @@ export default function SavedScreen() {
 
   const sections = groupByTimeline(savedTryOns);
 
-  const renderItem = ({ item }: { item: SavedTryOn }) => {
-    const [imgError, setImgError] = useState(false);
-    return (
-      <TouchableOpacity
-        style={[styles.card, { width: CARD_WIDTH, height: CARD_WIDTH * 1.4 }]}
-        onPress={() => setSelectedItem(item)}
-        activeOpacity={0.85}
-      >
-        {imgError ? (
-          <View style={styles.cardImagePlaceholder}>
-            <ActivityIndicator size="small" color="#E8C8A0" />
-            <Text style={styles.placeholderText}>Uploading...</Text>
-          </View>
-        ) : (
-          <Image
-            source={{ uri: item.imageUri }}
-            style={styles.cardImage}
-            onError={() => setImgError(true)}
-          />
-        )}
-        <View style={styles.cardOverlay}>
-          <Text style={styles.cardName} numberOfLines={1}>
-            {getStoreName(item.sourceUrl)}
-          </Text>
-          <View style={styles.cardMeta}>
-            {item.videoUrl && (
-              <Text style={styles.videoIndicator}>🎬</Text>
-            )}
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
+  const CARD_HEIGHT = CARD_WIDTH * 1.4;
 
   if (selectedItem) {
     return (
@@ -272,6 +279,7 @@ export default function SavedScreen() {
             visible={playingVideoUrl !== null}
             transparent
             animationType="fade"
+            statusBarTranslucent
             onRequestClose={() => setPlayingVideoUrl(null)}
           >
             <View style={styles.videoOverlay}>
@@ -346,9 +354,13 @@ export default function SavedScreen() {
                 <Text style={styles.sectionTitle}>{section.title}</Text>
                 <View style={styles.gridRow}>
                   {section.data.map((item) => (
-                    <View key={item.id}>
-                      {renderItem({ item })}
-                    </View>
+                    <TryOnCard
+                      key={item.id}
+                      item={item}
+                      width={CARD_WIDTH}
+                      height={CARD_HEIGHT}
+                      onPress={() => setSelectedItem(item)}
+                    />
                   ))}
                 </View>
               </View>

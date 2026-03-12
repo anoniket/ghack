@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
 import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
@@ -21,6 +22,8 @@ const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
 
 export default function ChatBubble() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = 58 + insets.bottom; // matches _layout.tsx tab bar
   const [inputText, setInputText] = useState('');
   const {
     chatBubbleExpanded,
@@ -93,7 +96,7 @@ export default function ChatBubble() {
         activeOpacity={0.85}
         onPress={() => setChatBubbleExpanded(true)}
       >
-        <View style={styles.bubble}>
+        <View style={[styles.bubble, { bottom: tabBarHeight + 16 }]}>
           <Text style={styles.bubbleIcon}>AI</Text>
         </View>
       </TouchableOpacity>
@@ -102,7 +105,7 @@ export default function ChatBubble() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.expandedContainer}
+      style={[styles.expandedContainer, { bottom: tabBarHeight }]}
       behavior="padding"
     >
       <View style={[styles.expandedPanel, { height: SCREEN_HEIGHT * 0.48 }]}>
@@ -199,7 +202,6 @@ export default function ChatBubble() {
 const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
-    bottom: 100,
     right: 16,
     width: 52,
     height: 52,
@@ -221,7 +223,6 @@ const styles = StyleSheet.create({
   },
   expandedContainer: {
     position: 'absolute',
-    bottom: 88,
     left: 0,
     right: 0,
     zIndex: 100,

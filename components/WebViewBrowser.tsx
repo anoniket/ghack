@@ -565,6 +565,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         visible={videoDataUri !== null}
         transparent
         animationType="fade"
+        statusBarTranslucent
         onRequestClose={() => setVideoDataUri(null)}
       >
         <View style={styles.videoOverlay}>

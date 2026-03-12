@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAppStore } from '@/services/store';
 import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
@@ -21,7 +21,7 @@ const nextId = (prefix: string) => `${prefix}_${Date.now()}_${++msgCounter}`;
 
 export default function ChatInterface() {
   const { width: W } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
   const {
@@ -211,7 +211,7 @@ export default function ChatInterface() {
           }
         />
 
-        <View style={[styles.inputWrapper, { paddingBottom: insets.bottom + 62 }]}>
+        <View style={[styles.inputWrapper, { paddingBottom: tabBarHeight }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
