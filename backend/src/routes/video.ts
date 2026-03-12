@@ -55,7 +55,8 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
           throw uploadErr;
         }
       },
-      tag
+      tag,
+      req.deviceId
     ).catch((err) => {
       // This catches any unhandled rejection from the async fire-and-forget
       console.error(`${tag} Video → job=${jobId} unhandled error: ${err.message}`);
@@ -64,7 +65,8 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     res.json({ jobId });
   } catch (err: any) {
     console.error(`${tag} Video ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Failed to start video generation' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Failed to start video generation' });
   }
 });
 
@@ -74,6 +76,13 @@ videoRouter.get('/video/:jobId', async (req: Request, res: Response) => {
   if (!job) {
     console.log(`[${req.deviceId}] Video → poll job=${jobId} not found`);
     res.status(404).json({ error: 'Job not found' });
+    return;
+  }
+
+  // SEC-9: Verify device owns this job
+  if (job.deviceId && job.deviceId !== req.deviceId) {
+    console.log(`[${req.deviceId}] Video → poll job=${jobId} access denied (owner=${job.deviceId})`);
+    res.status(403).json({ error: 'Access denied' });
     return;
   }
 

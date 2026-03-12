@@ -56,16 +56,24 @@ export async function getSession(
   return (result.Item as TryOnSession) || null;
 }
 
+// AC-16: Paginate DynamoDB query — single query can silently drop items beyond 1MB
 export async function queryByDevice(deviceId: string): Promise<TryOnSession[]> {
-  const result = await ddb.send(
-    new QueryCommand({
-      TableName: TABLE,
-      KeyConditionExpression: 'deviceId = :did',
-      ExpressionAttributeValues: { ':did': deviceId },
-      ScanIndexForward: false, // newest first
-    })
-  );
-  return (result.Items as TryOnSession[]) || [];
+  const allItems: TryOnSession[] = [];
+  let lastKey: Record<string, any> | undefined;
+  do {
+    const result = await ddb.send(
+      new QueryCommand({
+        TableName: TABLE,
+        KeyConditionExpression: 'deviceId = :did',
+        ExpressionAttributeValues: { ':did': deviceId },
+        ScanIndexForward: false, // newest first
+        ExclusiveStartKey: lastKey,
+      })
+    );
+    if (result.Items) allItems.push(...(result.Items as TryOnSession[]));
+    lastKey = result.LastEvaluatedKey;
+  } while (lastKey);
+  return allItems;
 }
 
 export async function queryBySourceUrl(

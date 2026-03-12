@@ -40,7 +40,8 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     res.json({ text: cleanText || rawText.trim(), url });
   } catch (err: any) {
     console.error(`${tag} Chat ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Chat failed' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Chat failed' });
   }
 });
 

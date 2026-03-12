@@ -54,7 +54,8 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error(`${tag} Prepare ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Prepare failed' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Prepare failed' });
   }
 });
 
@@ -135,7 +136,8 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     })();
   } catch (err: any) {
     console.error(`${tag} Generate ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Try-on generation failed' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Try-on generation failed' });
   }
 });
 
@@ -213,8 +215,9 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       return;
     }
     console.error(`${tag} V2 ${isTimeout ? 'TIMEOUT' : 'ERROR'}:`, err.message);
+    // SEC-7: Generic error to client, details logged server-side only
     res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout ? 'TIMEOUT' : (err.message || 'V2 try-on failed'),
+      error: isTimeout ? 'TIMEOUT' : 'Try-on generation failed',
     });
   }
 });

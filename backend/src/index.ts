@@ -18,7 +18,8 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(cors());
+// SEC-8: Disable CORS headers — mobile app uses x-device-id auth, not browser cookies
+app.use(cors({ origin: false }));
 // PERF-14/SEC-13: Default 1MB body limit — tryon routes get 50MB below
 app.use(express.json({ limit: '1mb' }));
 
@@ -51,9 +52,19 @@ app.use('/api/auth', limiter, authRouter);
 // All other API routes require device ID + JWT/HMAC auth + rate limiting
 app.use('/api', limiter, deviceIdMiddleware);
 
+// SEC-6: Stricter limit for chat (Gemini API abuse prevention)
+const chatLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many chat requests, slow down' },
+});
+
 // Stricter limits on generation endpoints
 app.use('/api/tryon', generationLimiter);
 app.use('/api/video', generationLimiter);
+app.use('/api/chat', chatLimiter);
 
 // PERF-14: 50MB body limit only for tryon routes (selfie base64 is ~2MB)
 app.use('/api/tryon', express.json({ limit: '50mb' }));

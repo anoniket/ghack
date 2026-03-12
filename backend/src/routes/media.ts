@@ -24,7 +24,13 @@ mediaRouter.post('/upload-url', async (req: Request, res: Response) => {
     return;
   }
 
+  // SEC-10: Allowlist content types to prevent stored XSS via S3
+  const ALLOWED_CONTENT_TYPES = ['image/jpeg', 'image/png'];
   const ct = contentType || 'image/jpeg';
+  if (!ALLOWED_CONTENT_TYPES.includes(ct)) {
+    res.status(400).json({ error: 'contentType must be image/jpeg or image/png' });
+    return;
+  }
   const ext = ct === 'image/png' ? 'png' : 'jpg';
   const s3Key = `${req.deviceId}/selfies/${uuid()}.${ext}`;
 
@@ -34,6 +40,7 @@ mediaRouter.post('/upload-url', async (req: Request, res: Response) => {
     res.json({ uploadUrl, s3Key, expiresIn: 300 });
   } catch (err: any) {
     console.error(`[${req.deviceId}] UploadURL ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Failed to generate upload URL' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Failed to generate upload URL' });
   }
 });

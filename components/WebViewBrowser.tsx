@@ -361,6 +361,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           if (pollErr.message?.includes('generation failed')) {
             throw pollErr;
           }
+          // AC-4: 404 "Job not found" is terminal — break poll immediately
+          if (pollErr.message?.includes('Job not found') || pollErr.message?.includes('404')) {
+            throw new Error('Video job not found');
+          }
           consecutiveErrors++;
           rlog('Video', `poll #${pollCount} error (${consecutiveErrors}/5): ${pollErr.message}`);
           if (consecutiveErrors >= 5) {

@@ -416,12 +416,46 @@ export async function sendChatMessage(
   }
 }
 
+// SEC-12: Block SSRF — only allow http(s) and reject private/internal IPs
+function isUrlSafe(urlStr: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(urlStr);
+  } catch {
+    return false;
+  }
+  // Only allow http and https
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+  const host = parsed.hostname.toLowerCase();
+  // Block localhost, loopback, link-local, metadata endpoints
+  if (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '[::1]' ||
+    host === '0.0.0.0' ||
+    host.startsWith('10.') ||
+    host.startsWith('172.') ||
+    host.startsWith('192.168.') ||
+    host.startsWith('169.254.') ||
+    host === 'metadata.google.internal' ||
+    host.endsWith('.internal') ||
+    host.endsWith('.local')
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export async function downloadImageToBase64(url: string): Promise<string> {
+  // SEC-12: SSRF protection — reject internal/private URLs
+  if (!isUrlSafe(url)) {
+    throw new Error('Invalid image URL');
+  }
   // ERR-8: 15s timeout — don't hang forever on unresponsive product image servers
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
   try {
-    const response = await fetch(url, { signal: controller.signal });
+    const response = await fetch(url, { signal: controller.signal, redirect: 'follow' });
     const buffer = Buffer.from(await response.arrayBuffer());
     return buffer.toString('base64');
   } catch (err: any) {
@@ -681,14 +715,27 @@ export async function generateTryOnV2(
 }
 
 // In-memory video job storage
+// SEC-9: deviceId stored per job for ownership verification on poll
 interface VideoJob {
   status: 'pending' | 'complete' | 'failed';
+  deviceId: string;
   videoUrl?: string;
   videoS3Key?: string;
   error?: string;
+  createdAt: number;
 }
 
 const videoJobs = new Map<string, VideoJob>();
+
+// SEC-11: Bound videoJobs — TTL 30min for completed/failed, 15min max for pending
+const VIDEO_JOB_TTL_MS = 30 * 60 * 1000;
+const MAX_VIDEO_JOBS = 200;
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, job] of videoJobs) {
+    if (now - job.createdAt > VIDEO_JOB_TTL_MS) videoJobs.delete(key);
+  }
+}, 5 * 60 * 1000);
 
 export function getVideoJob(jobId: string): VideoJob | undefined {
   return videoJobs.get(jobId);
@@ -699,9 +746,19 @@ export async function startVideoGeneration(
   imageBase64: string,
   _label: string,
   onComplete: (videoBuffer: Buffer) => Promise<{ s3Key: string; cdnUrl: string }>,
-  tag: string = ''
+  tag: string = '',
+  deviceId: string = ''
 ): Promise<void> {
-  videoJobs.set(jobId, { status: 'pending' });
+  // SEC-11: Evict oldest if at capacity
+  if (videoJobs.size >= MAX_VIDEO_JOBS) {
+    let oldestKey: string | null = null;
+    let oldestTime = Infinity;
+    for (const [key, job] of videoJobs) {
+      if (job.createdAt < oldestTime) { oldestTime = job.createdAt; oldestKey = key; }
+    }
+    if (oldestKey) videoJobs.delete(oldestKey);
+  }
+  videoJobs.set(jobId, { status: 'pending', deviceId, createdAt: Date.now() });
 
   try {
     console.log(`${tag} Video → job=${jobId} submitting to Gemini`);
@@ -761,15 +818,21 @@ export async function startVideoGeneration(
     const { s3Key, cdnUrl } = await onComplete(videoBuffer);
     console.log(`${tag} Video → job=${jobId} complete, s3Key=${s3Key}`);
 
+    const existing = videoJobs.get(jobId);
     videoJobs.set(jobId, {
       status: 'complete',
+      deviceId: existing?.deviceId || deviceId,
+      createdAt: existing?.createdAt || Date.now(),
       videoUrl: cdnUrl,
       videoS3Key: s3Key,
     });
   } catch (err: any) {
     console.error(`${tag} Video → job=${jobId} FAILED: ${err.message}`);
+    const existing = videoJobs.get(jobId);
     videoJobs.set(jobId, {
       status: 'failed',
+      deviceId: existing?.deviceId || deviceId,
+      createdAt: existing?.createdAt || Date.now(),
       error: err.message || 'Video generation failed',
     });
   }

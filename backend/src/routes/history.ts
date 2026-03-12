@@ -26,7 +26,8 @@ historyRouter.get('/history', async (req: Request, res: Response) => {
     res.json({ items });
   } catch (err: any) {
     console.error(`[${req.deviceId}] History ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Failed to fetch history' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Failed to fetch history' });
   }
 });
 
@@ -62,7 +63,8 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
     res.json({ ok: true, deleted: sessions.length });
   } catch (err: any) {
     console.error(`[${req.deviceId}] DeleteAll ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Failed to delete all sessions' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Failed to delete all sessions' });
   }
 });
 
@@ -91,7 +93,8 @@ historyRouter.delete('/history/:id', async (req: Request, res: Response) => {
     res.json({ ok: true });
   } catch (err: any) {
     console.error(`[${req.deviceId}] Delete ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Failed to delete session' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Failed to delete session' });
   }
 });
 
@@ -120,6 +123,7 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
     }
   } catch (err: any) {
     console.error(`[${req.deviceId}] ProductTryOn ERROR:`, err.message);
-    res.status(500).json({ error: err.message || 'Failed to check product try-on' });
+    // SEC-7: Generic error to client, details logged server-side only
+    res.status(500).json({ error: 'Failed to check product try-on' });
   }
 });
