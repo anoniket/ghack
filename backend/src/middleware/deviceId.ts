@@ -11,6 +11,9 @@ declare global {
   }
 }
 
+// SEC-2: Strict deviceId format — alphanumeric + underscore + hyphen, 5-128 chars
+const DEVICE_ID_REGEX = /^[a-zA-Z0-9_\-]{5,128}$/;
+
 /**
  * Dual-mode authentication middleware.
  *
@@ -31,7 +34,7 @@ export function deviceIdMiddleware(req: Request, res: Response, next: NextFuncti
     // Dev mode: skip JWT verification, but still require x-device-id
     if (!config.jwtSecret) {
       const deviceId = req.headers['x-device-id'] as string;
-      if (!deviceId || deviceId.length < 5) {
+      if (!deviceId || !DEVICE_ID_REGEX.test(deviceId)) {
         res.status(400).json({ error: 'Missing or invalid x-device-id header' });
         return;
       }
@@ -58,7 +61,7 @@ export function deviceIdMiddleware(req: Request, res: Response, next: NextFuncti
 
   // ── Path 2: HMAC authentication (legacy / migration) ─────────────────
   const deviceId = req.headers['x-device-id'] as string;
-  if (!deviceId || deviceId.length < 5) {
+  if (!deviceId || !DEVICE_ID_REGEX.test(deviceId)) {
     res.status(400).json({ error: 'Missing or invalid x-device-id header' });
     return;
   }

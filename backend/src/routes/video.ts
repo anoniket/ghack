@@ -14,6 +14,12 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     return;
   }
 
+  // SEC-1: Validate S3 key belongs to this device (prevent IDOR)
+  if (!tryonS3Key.startsWith(`${req.deviceId}/`)) {
+    res.status(403).json({ error: 'Access denied' });
+    return;
+  }
+
   const tag = `[${req.deviceId}]`;
 
   try {

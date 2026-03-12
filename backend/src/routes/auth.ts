@@ -32,9 +32,12 @@ const REFRESH_GRACE_SEC = 86400; // 24-hour grace window for expired tokens
  * Verify HMAC signature (same logic as deviceId middleware).
  * Returns the deviceId if valid, or null + sends error response.
  */
+// SEC-2: Strict deviceId format — alphanumeric + underscore + hyphen, 5-128 chars
+const DEVICE_ID_REGEX = /^[a-zA-Z0-9_\-]{5,128}$/;
+
 function verifyHmac(req: Request, res: Response): string | null {
   const deviceId = req.headers['x-device-id'] as string;
-  if (!deviceId || deviceId.length < 5) {
+  if (!deviceId || !DEVICE_ID_REGEX.test(deviceId)) {
     res.status(400).json({ error: 'Missing or invalid x-device-id header' });
     return null;
   }

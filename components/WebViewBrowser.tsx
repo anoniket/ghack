@@ -18,6 +18,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
 import * as api from '@/services/api';
 import { imageUriToBase64 } from '@/utils/imageUtils';
+import { File } from 'expo-file-system';
 import { rlog } from '@/services/logger';
 
 
@@ -71,6 +72,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
   const videoLoadingRef = useRef(false);
+  const tryOnLoadingRef = useRef(false); // SS-16: double-tap guard
 
   const videoPlayer = useVideoPlayer(videoDataUri, (player) => {
     player.loop = true;
@@ -108,6 +110,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   const startTryOn = async () => {
     if (!selfieUri || !currentProduct) return;
+    // SS-16: Ref-based double-tap guard (same pattern as videoLoadingRef)
+    if (tryOnLoadingRef.current) return;
+    tryOnLoadingRef.current = true;
     setTryOnLoading(true);
     rlog('TryOn', 'GENERATION STARTED');
 
@@ -124,6 +129,19 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
+      // ERR-1: Check selfie file exists before trying to read it
+      const selfieFile = new File(selfieUri);
+      if (!selfieFile.exists) {
+        rlog('TryOn', 'selfie file missing from disk — forcing re-onboarding');
+        setSelfieS3Key(null);
+        setSelfieUri(null);
+        useAppStore.getState().setOnboardingComplete(false);
+        AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
+        AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
+        Alert.alert('Selfie not found', 'Your photo was cleared by the system. Please take a new selfie.');
+        return;
+      }
+
       // Read selfie from local file — no S3 round trip
       const selfieBase64 = await imageUriToBase64(selfieUri);
 
@@ -156,6 +174,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Save with CDN URL (not base64) — avoids memory bloat
       // CDN URL may 404 for 1-2s while S3 upload finishes in background,
       // but user is viewing WebView result, not the Saved tab
+      // SS-1: Read fresh savedTryOns from store to avoid stale closure
+      const currentSaved = useAppStore.getState().savedTryOns;
       setSavedTryOns([
         {
           id: result.sessionId,
@@ -164,16 +184,18 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           timestamp: Date.now(),
           sessionId: result.sessionId,
         },
-        ...savedTryOns,
+        ...currentSaved,
       ]);
     } catch (err: any) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
 
       if (err.message === 'SELFIE_NOT_FOUND') {
-        // Selfie was deleted from S3 — clear both zustand AND AsyncStorage
+        // Selfie was deleted from S3 — clear zustand + AsyncStorage + force re-onboarding
         setSelfieS3Key(null);
         setSelfieUri(null);
+        useAppStore.getState().setOnboardingComplete(false);
         AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
+        AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
             window.postMessage(JSON.stringify({ type: 'tryon_no_retry', errorText: 'Selfie expired, please retake' }), '*');
@@ -205,6 +227,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         }
       }
     } finally {
+      tryOnLoadingRef.current = false;
       setTryOnLoading(false);
       setCurrentProduct(null);
       rlog('TryOn', 'GENERATION ENDED');

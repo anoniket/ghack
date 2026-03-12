@@ -19,6 +19,7 @@ export default function ProfileScreen() {
     selfieUri,
     setSelfieUri,
     setSelfieS3Key,
+    setOnboardingComplete,
     clearMessages,
     setMode,
     setCurrentUrl,
@@ -38,6 +39,7 @@ export default function ProfileScreen() {
         await deleteSelfie();
         const newUri = await saveSelfie(result.assets[0].uri);
         setSelfieUri(newUri);
+        setOnboardingComplete(true);
         try {
           const s3Key = await uploadSelfieAndSaveKey(newUri);
           setSelfieS3Key(s3Key);
@@ -70,6 +72,7 @@ export default function ProfileScreen() {
         await deleteSelfie();
         const newUri = await saveSelfie(result.assets[0].uri);
         setSelfieUri(newUri);
+        setOnboardingComplete(true);
         try {
           const s3Key = await uploadSelfieAndSaveKey(newUri);
           setSelfieS3Key(s3Key);

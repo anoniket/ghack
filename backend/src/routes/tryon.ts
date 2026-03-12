@@ -198,6 +198,13 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     })();
   } catch (err: any) {
     const isTimeout = err.message === 'TIMEOUT';
+    // AC-2: Detect S3 NoSuchKey (selfie deleted) and return specific error
+    const isSelfieNotFound = err.name === 'NoSuchKey' || err.Code === 'NoSuchKey';
+    if (isSelfieNotFound) {
+      console.error(`${tag} V2 → selfie not found in S3`);
+      res.status(400).json({ error: 'SELFIE_NOT_FOUND' });
+      return;
+    }
     console.error(`${tag} V2 ${isTimeout ? 'TIMEOUT' : 'ERROR'}:`, err.message);
     res.status(isTimeout ? 504 : 500).json({
       error: isTimeout ? 'TIMEOUT' : (err.message || 'V2 try-on failed'),
