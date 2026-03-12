@@ -327,7 +327,25 @@ CRITICAL RULES:
 - Do not change the person's face, skin color, or hair. Do not change the background. Do not add text or watermarks. Do not create an illustrated or cartoon style.`;
 
 // Chat history per device (in-memory, resets on server restart)
-const chatHistories = new Map<string, Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>>();
+// ERR-10/PERF-7: Bounded with TTL (30min) + max 100 devices to prevent OOM
+const CHAT_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_CHAT_DEVICES = 100;
+const MAX_PAIRS_PER_DEVICE = 30; // 30 user+model pairs = 60 messages max
+
+interface ChatEntry {
+  history: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }>;
+  lastAccess: number;
+}
+
+const chatHistories = new Map<string, ChatEntry>();
+
+// Evict expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of chatHistories) {
+    if (now - entry.lastAccess > CHAT_TTL_MS) chatHistories.delete(key);
+  }
+}, 5 * 60 * 1000);
 
 export function resetChat(deviceId: string) {
   chatHistories.delete(deviceId);
@@ -338,7 +356,8 @@ export async function sendChatMessage(
   userMessage: string,
   history?: Array<{ role: string; text: string }>
 ): Promise<string> {
-  let chatHistory = chatHistories.get(deviceId) || [];
+  const entry = chatHistories.get(deviceId);
+  let chatHistory = entry ? entry.history : [];
 
   // If client sends history, rebuild from that
   if (history && history.length > 0 && chatHistory.length === 0) {
@@ -372,20 +391,45 @@ export async function sendChatMessage(
       parts: [{ text }],
     });
 
-    chatHistories.set(deviceId, chatHistory);
+    // Trim to max pairs (keep most recent)
+    if (chatHistory.length > MAX_PAIRS_PER_DEVICE * 2) {
+      chatHistory = chatHistory.slice(-MAX_PAIRS_PER_DEVICE * 2);
+    }
+
+    // Evict oldest device if at capacity
+    if (!chatHistories.has(deviceId) && chatHistories.size >= MAX_CHAT_DEVICES) {
+      let oldestKey: string | null = null;
+      let oldestTime = Infinity;
+      for (const [key, e] of chatHistories) {
+        if (e.lastAccess < oldestTime) { oldestTime = e.lastAccess; oldestKey = key; }
+      }
+      if (oldestKey) chatHistories.delete(oldestKey);
+    }
+
+    chatHistories.set(deviceId, { history: chatHistory, lastAccess: Date.now() });
     return text;
   } catch (err) {
     // Rollback the user message so history stays consistent
     chatHistory.pop();
-    chatHistories.set(deviceId, chatHistory);
+    chatHistories.set(deviceId, { history: chatHistory, lastAccess: Date.now() });
     throw err;
   }
 }
 
 export async function downloadImageToBase64(url: string): Promise<string> {
-  const response = await fetch(url);
-  const buffer = Buffer.from(await response.arrayBuffer());
-  return buffer.toString('base64');
+  // ERR-8: 15s timeout — don't hang forever on unresponsive product image servers
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    const buffer = Buffer.from(await response.arrayBuffer());
+    return buffer.toString('base64');
+  } catch (err: any) {
+    if (err.name === 'AbortError') throw new Error('Product image download timed out');
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function prepareTryOn(

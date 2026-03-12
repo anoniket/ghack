@@ -60,6 +60,12 @@ app.use('/api', videoRouter);
 app.use('/api', mediaRouter);
 app.use('/api', historyRouter);
 
+// SEC-3: Refuse to start in production without JWT_SECRET
+if (process.env.NODE_ENV === 'production' && !config.jwtSecret) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start in production.');
+  process.exit(1);
+}
+
 app.listen(config.port, () => {
   console.log(`mrigAI backend listening on port ${config.port}`);
   if (!config.appSecret) {

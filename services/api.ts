@@ -29,8 +29,9 @@ export async function getDeviceId(): Promise<string> {
 }
 
 // ---- HMAC Signing (used only for registration) ----
-
-/** Sign request with shared secret: SHA256(secret + "." + deviceId + "." + timestamp + "." + path) */
+// SEC-5 NOTE: Uses SHA256(secret + payload) instead of proper HMAC(secret, payload).
+// expo-crypto only supports hash digests, not HMAC. Since the secret is in the APK
+// anyway (SEC-4), this is defense-in-depth only. Acceptable risk.
 async function signRequest(
   deviceId: string,
   timestamp: string,
@@ -121,10 +122,23 @@ async function register(): Promise<string> {
     authHeaders['x-signature'] = await signRequest(deviceId, timestamp, registerPath);
   }
 
-  const response = await fetch(`${API_URL}${registerPath}`, {
-    method: 'POST',
-    headers: authHeaders,
-  });
+  // ERR-14: 10s timeout — don't hang if backend unreachable
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${registerPath}`, {
+      method: 'POST',
+      headers: authHeaders,
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error('Registration timed out');
+    throw err;
+  }
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -140,13 +154,26 @@ async function register(): Promise<string> {
 async function refreshToken(): Promise<string> {
   if (!cachedToken) throw new Error('No token to refresh');
 
-  const response = await fetch(`${API_URL}/api/auth/refresh`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${cachedToken}`,
-    },
-  });
+  // ERR-14: 10s timeout — don't hang if backend unreachable
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${cachedToken}`,
+      },
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') throw new Error('Token refresh timed out');
+    throw err;
+  }
+  clearTimeout(timeoutId);
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -256,6 +283,12 @@ async function apiFetch(
           });
           if (!retryResponse.ok) {
             const retryBody = await retryResponse.json().catch(() => ({}));
+            // AC-14: If retry also 401, clear dead token to break the loop
+            if (retryResponse.status === 401) {
+              cachedToken = null;
+              cachedTokenExp = null;
+              await AsyncStorage.multiRemove([JWT_KEY, JWT_EXP_KEY]).catch(() => {});
+            }
             throw new Error(retryBody.error || `API error ${retryResponse.status}`);
           }
           return retryResponse.json();
@@ -269,6 +302,11 @@ async function apiFetch(
       throw new Error(body.error || `API error 401`);
     }
 
+    // AC-3: Detect rate limiting — show user-friendly cooldown message
+    if (response.status === 429) {
+      throw new Error('RATE_LIMITED');
+    }
+
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || `API error ${response.status}`);
@@ -278,6 +316,10 @@ async function apiFetch(
   } catch (err: any) {
     if (err.name === 'AbortError') {
       throw new Error('TIMEOUT');
+    }
+    // ERR-22: Distinguish network errors from server errors
+    if (err instanceof TypeError && err.message?.includes('Network request failed')) {
+      throw new Error('NETWORK_ERROR');
     }
     throw err;
   } finally {
@@ -337,7 +379,7 @@ export async function tryOnV2(params: {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',
     body: JSON.stringify(params),
-    timeout: params.retry ? 65000 : 35000,
+    timeout: params.retry ? 75000 : 45000,
   });
 }
 

@@ -52,8 +52,10 @@ export default function ChatBubble() {
 
     setIsTyping(true);
     try {
+      // SS-2: Read fresh messages from store — closure `messages` is stale after addMessage
+      const freshMessages = useAppStore.getState().messages;
       const { text: response, url: serverUrl } = await sendChat(text,
-        messages.slice(-15).map(m => ({ role: m.role, text: m.text }))
+        freshMessages.slice(-15).map(m => ({ role: m.role, text: m.text }))
       );
       const url = serverUrl || extractUrlFromResponse(response);
       const cleaned = cleanResponseText(response);

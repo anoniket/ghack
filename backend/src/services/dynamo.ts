@@ -136,19 +136,25 @@ export async function deleteAllSessions(
     chunks.push(sessions.slice(i, i + CHUNK));
   }
 
-  await Promise.all(
-    chunks.map((chunk) =>
-      ddb.send(
+  // ERR-12: Retry unprocessed items with exponential backoff
+  for (const chunk of chunks) {
+    let items = chunk.map((s) => ({
+      DeleteRequest: { Key: { deviceId, sessionId: s.sessionId } },
+    }));
+    let retries = 0;
+    while (items.length > 0 && retries < 5) {
+      const result = await ddb.send(
         new BatchWriteCommand({
-          RequestItems: {
-            [TABLE]: chunk.map((s) => ({
-              DeleteRequest: { Key: { deviceId, sessionId: s.sessionId } },
-            })),
-          },
+          RequestItems: { [TABLE]: items },
         })
-      )
-    )
-  );
+      );
+      const unprocessed = result.UnprocessedItems?.[TABLE];
+      if (!unprocessed || unprocessed.length === 0) break;
+      items = unprocessed as typeof items;
+      retries++;
+      await new Promise((r) => setTimeout(r, Math.pow(2, retries) * 100));
+    }
+  }
 
   return sessions;
 }

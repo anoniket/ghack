@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import ChatInterface from '@/components/ChatInterface';
 import WebViewBrowser from '@/components/WebViewBrowser';
 import ChatBubble from '@/components/ChatBubble';
@@ -21,8 +21,11 @@ export default function HomeScreen() {
     setCurrentProduct,
   } = useAppStore();
 
+  // SS-8: Track loading state to prevent onboarding flash
+  const [initialLoading, setInitialLoading] = useState(true);
+
   useEffect(() => {
-    loadInitialData();
+    loadInitialData().finally(() => setInitialLoading(false));
   }, []);
 
   const loadInitialData = async () => {
@@ -76,6 +79,15 @@ export default function HomeScreen() {
     setCurrentProduct(data);
   };
 
+  // SS-8: Show loading state until initial data is loaded to prevent onboarding flash
+  if (initialLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#E8C8A0" />
+      </View>
+    );
+  }
+
   if (!onboardingComplete) {
     return <OnboardingCamera />;
   }
@@ -102,6 +114,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0D0D0D',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#0D0D0D',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   webviewContainer: {
     flex: 1,

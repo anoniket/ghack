@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   Platform,
   Alert,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
@@ -82,13 +83,34 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   const isLocked = tryOnLoading || videoLoading;
 
-  // Cleanup timers on unmount
+  // SS-9/ERR-6: Reset transient state + timers on unmount
   useEffect(() => {
     return () => {
       if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
       if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+      // Reset loading flags so ChatBubble isn't permanently hidden
+      setTryOnLoading(false);
+      setVideoLoading(false);
+      tryOnLoadingRef.current = false;
+      videoLoadingRef.current = false;
     };
   }, []);
+
+  // PLAT-3: Android hardware back button — go back in WebView history instead of exiting
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+    const onBack = () => {
+      if (isLocked) return true; // block during generation
+      if (canGoBack && webViewRef.current) {
+        webViewRef.current.goBack();
+        return true; // handled
+      }
+      // No history — let default behavior (exit to chat) happen
+      return false;
+    };
+    const sub = BackHandler.addEventListener('hardwareBackPress', onBack);
+    return () => sub.remove();
+  }, [canGoBack, isLocked]);
 
   // Trigger try-on generation when currentProduct is set
   useEffect(() => {
@@ -114,6 +136,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     if (tryOnLoadingRef.current) return;
     tryOnLoadingRef.current = true;
     setTryOnLoading(true);
+    // SS-12: Clear old video so it doesn't play for wrong product
+    setVideoDataUri(null);
     rlog('TryOn', 'GENERATION STARTED');
 
     // Show loading overlay immediately via direct call (postMessage can be unreliable on some sites)
@@ -203,6 +227,22 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           `);
         }
         Alert.alert('Selfie not found', 'Your selfie has expired. Please go to the Profile tab and take a new selfie.');
+      } else if (err.message === 'RATE_LIMITED') {
+        // AC-3: Show cooldown message instead of generic error
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: 'chill, too many requests — try again in a min' }), '*');
+            true;
+          `);
+        }
+      } else if (err.message === 'NETWORK_ERROR') {
+        // ERR-22: Specific message for network failures
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: 'no internet — check your connection' }), '*');
+            true;
+          `);
+        }
       } else {
         const isTimeout = err.message === 'TIMEOUT';
         const timeoutQuips = [
