@@ -121,21 +121,8 @@ export const PRODUCT_DETECTOR_JS = `
     '  transform: scale(0.9) !important;' +
     '}' +
     /* Wave loading overlay styles */
-    '#' + TRYON_OVERLAY_ID + ' {' +
-    '  position: absolute !important;' +
-    '  top: 0 !important;' +
-    '  left: 0 !important;' +
-    '  width: 100% !important;' +
-    '  height: 100% !important;' +
-    '  z-index: 2147483646 !important;' +
-    '  display: flex !important;' +
-    '  flex-direction: column !important;' +
-    '  align-items: center !important;' +
-    '  justify-content: center !important;' +
-    '  background: rgba(13, 13, 13, 0.75) !important;' +
-    '  overflow: hidden !important;' +
-    '  border-radius: inherit !important;' +
-    '}' +
+    /* Overlay base styles removed — all styling is now inline via showLoadingOverlay() */
+    '' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-wave {' +
     '  position: absolute !important;' +
     '  top: 0 !important;' +
