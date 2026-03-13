@@ -620,6 +620,16 @@ function extractBlockReason(response: any, label: string): string {
 
   const reason = details.length > 0 ? details.join(', ') : 'unknown';
   console.error(`[${label}] Generation returned no image: ${reason}`);
+  // Log raw response structure when reason is unknown so we can debug
+  if (reason === 'unknown') {
+    try {
+      const debugKeys = Object.keys(response || {});
+      const candidateKeys = response?.candidates?.[0] ? Object.keys(response.candidates[0]) : [];
+      console.error(`[${label}] Raw response keys: ${debugKeys.join(', ')}`);
+      console.error(`[${label}] Candidate[0] keys: ${candidateKeys.join(', ')}`);
+      console.error(`[${label}] Full response: ${JSON.stringify(response, null, 2).slice(0, 2000)}`);
+    } catch {}
+  }
   return reason;
 }
 
