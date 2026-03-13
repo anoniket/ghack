@@ -52,13 +52,17 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
     const { usePhotoshoot, productBase64, productZone, reasoning, imageGenPrompt } = await withGeminiLimit(() => prepareTryOn(selfieBase64, productImageUrl));
     console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
     console.log(`${tag} Prepare → product_zone=${productZone}, zone_visible=${!usePhotoshoot}`);
-    if (reasoning) console.log(`${tag} Prepare → reasoning: ${reasoning}`);
+    if (reasoning) console.log(`${tag} Prepare → reasoning: ${reasoning.slice(0, 200)}`);
     if (imageGenPrompt) console.log(`${tag} Prepare → dynamic prompt: ${imageGenPrompt.slice(0, 150)}...`);
 
     // Cache for generate step — no need to re-upload or re-download
-    // PERF-8: Evict oldest if at capacity
+    // PERF-8/M11: Evict oldest by timestamp if at capacity
     if (!prepareCache.has(req.deviceId) && prepareCache.size >= MAX_PREPARE_CACHE) {
-      const oldestKey = prepareCache.keys().next().value;
+      let oldestKey: string | null = null;
+      let oldestTs = Infinity;
+      for (const [key, val] of prepareCache) {
+        if (val.ts < oldestTs) { oldestTs = val.ts; oldestKey = key; }
+      }
       if (oldestKey) prepareCache.delete(oldestKey);
     }
     prepareCache.set(req.deviceId, { selfieBase64, productBase64, imageGenPrompt, ts: Date.now() });

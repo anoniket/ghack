@@ -476,7 +476,7 @@ function isUrlSafe(urlStr: string): boolean {
     host === '[::1]' ||
     host === '0.0.0.0' ||
     host.startsWith('10.') ||
-    host.startsWith('172.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
     host.startsWith('192.168.') ||
     host.startsWith('169.254.') ||
     host === 'metadata.google.internal' ||
@@ -838,12 +838,20 @@ export async function startVideoGeneration(
   tag: string = '',
   deviceId: string = ''
 ): Promise<void> {
-  // SEC-11: Evict oldest if at capacity
+  // SEC-11/M12: Evict oldest non-pending job if at capacity
   if (videoJobs.size >= MAX_VIDEO_JOBS) {
     let oldestKey: string | null = null;
     let oldestTime = Infinity;
     for (const [key, job] of videoJobs) {
-      if (job.createdAt < oldestTime) { oldestTime = job.createdAt; oldestKey = key; }
+      if (job.status !== 'pending' && job.createdAt < oldestTime) {
+        oldestTime = job.createdAt; oldestKey = key;
+      }
+    }
+    // If all are pending, evict the oldest pending as last resort
+    if (!oldestKey) {
+      for (const [key, job] of videoJobs) {
+        if (job.createdAt < oldestTime) { oldestTime = job.createdAt; oldestKey = key; }
+      }
     }
     if (oldestKey) videoJobs.delete(oldestKey);
   }
@@ -916,13 +924,15 @@ export async function startVideoGeneration(
       videoS3Key: s3Key,
     });
   } catch (err: any) {
-    console.error(`${tag} Video → job=${jobId} FAILED: ${err.message}`);
+    // M18: Strip API key from error messages before logging
+    const safeMsg = (err.message || '').replace(config.geminiApiKey, '[REDACTED]');
+    console.error(`${tag} Video → job=${jobId} FAILED: ${safeMsg}`);
     const existing = videoJobs.get(jobId);
     videoJobs.set(jobId, {
       status: 'failed',
       deviceId: existing?.deviceId || deviceId,
       createdAt: existing?.createdAt || Date.now(),
-      error: err.message || 'Video generation failed',
+      error: 'Video generation failed', // M13: Sanitized — raw error logged above
     });
   }
 }
