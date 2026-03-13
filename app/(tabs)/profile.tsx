@@ -189,7 +189,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#F5F5F5',
     marginBottom: 28,
-    letterSpacing: -0.5,
   },
   section: {
     marginBottom: 32,
@@ -221,8 +220,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   placeholderText: {
     color: 'rgba(255,255,255,0.25)',

@@ -426,7 +426,6 @@ const styles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '800',
     color: '#F5F5F5',
-    letterSpacing: -0.5,
   },
   headerCount: {
     fontSize: 14,

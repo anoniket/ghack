@@ -44,12 +44,6 @@
     "plugins": [
       "expo-router",
       [
-        "expo-camera",
-        {
-          "cameraPermission": "mrigAI needs camera access to take your selfie for virtual try-on."
-        }
-      ],
-      [
         "expo-image-picker",
         {
           "photosPermission": "mrigAI needs photo library access to select your photo for virtual try-on.",
