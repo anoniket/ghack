@@ -3,6 +3,31 @@ import { config } from '../config';
 
 const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
+// C4: Concurrency semaphore — limits simultaneous Gemini API calls to prevent OOM
+const MAX_CONCURRENT_GEMINI = 10;
+let _activeGemini = 0;
+const _waitQueue: Array<() => void> = [];
+
+export function geminiConcurrency() {
+  return { active: _activeGemini, queued: _waitQueue.length, max: MAX_CONCURRENT_GEMINI };
+}
+
+export async function withGeminiLimit<T>(fn: () => Promise<T>): Promise<T> {
+  if (_activeGemini >= MAX_CONCURRENT_GEMINI) {
+    await new Promise<void>(resolve => _waitQueue.push(resolve));
+  }
+  _activeGemini++;
+  try {
+    return await fn();
+  } finally {
+    _activeGemini--;
+    if (_waitQueue.length > 0) {
+      const next = _waitQueue.shift();
+      if (next) next();
+    }
+  }
+}
+
 // Typed error classes — use instanceof, never string matching
 export class ImageBlockedError extends Error {
   public reason: string;
@@ -822,7 +847,7 @@ export async function startVideoGeneration(
 
   try {
     console.log(`${tag} Video → job=${jobId} submitting to Gemini`);
-    let operation = await (ai.models as any).generateVideos({
+    let operation = await withGeminiLimit(() => (ai.models as any).generateVideos({
       model: MODELS.VIDEO_GEN,
       prompt: `This is a fashion try-on image of a person wearing an outfit they chose in a virtual fitting room. The person uploaded their own photo and consented to this generation. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
       image: {
@@ -834,7 +859,7 @@ export async function startVideoGeneration(
         durationSeconds: 8,
         personGeneration: 'ALLOW_ADULT',
       },
-    });
+    }));
     console.log(`${tag} Video → job=${jobId} submitted, polling started`);
 
     // Poll until done — max 10 minutes

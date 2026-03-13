@@ -11,6 +11,7 @@ import { videoRouter } from './routes/video';
 import { mediaRouter } from './routes/media';
 import { historyRouter } from './routes/history';
 import { authRouter } from './routes/auth';
+import { geminiConcurrency } from './services/gemini';
 
 const app = express();
 
@@ -43,7 +44,7 @@ const generationLimiter = rateLimit({
 
 // Health check (no auth)
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
 
 // Auth routes — rate limited but NO deviceIdMiddleware (they handle their own validation)

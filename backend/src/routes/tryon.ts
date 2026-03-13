@@ -1,7 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError } from '../services/gemini';
+import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
+
+// C4: Reject early if too many requests are queued (prevent unbounded memory growth)
+const MAX_QUEUED = 20;
 
 export const tryonRouter = Router();
 
@@ -18,6 +21,12 @@ setInterval(() => {
 
 // Step 1: Zone detection — caches selfie + product base64 for step 2
 tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
+  const { queued } = geminiConcurrency();
+  if (queued >= MAX_QUEUED) {
+    res.status(503).json({ error: 'Server busy, try again in a moment' });
+    return;
+  }
+
   const { selfieBase64, productImageUrl, retry } = req.body;
 
   if (!selfieBase64 || !productImageUrl) {
@@ -30,7 +39,7 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   try {
     const t = Date.now();
     console.log(`${tag} Prepare → zone detection started`);
-    const { usePhotoshoot, productBase64, productZone, reasoning, imageGenPrompt } = await prepareTryOn(selfieBase64, productImageUrl);
+    const { usePhotoshoot, productBase64, productZone, reasoning, imageGenPrompt } = await withGeminiLimit(() => prepareTryOn(selfieBase64, productImageUrl));
     console.log(`${tag} Prepare → zone detection: ${Date.now() - t}ms`);
     console.log(`${tag} Prepare → product_zone=${productZone}, zone_visible=${!usePhotoshoot}`);
     if (reasoning) console.log(`${tag} Prepare → reasoning: ${reasoning}`);
@@ -92,7 +101,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     const dynamicPrompt = cached?.imageGenPrompt;
     const geminiStart = Date.now();
     console.log(`${tag} Generate → ${usePhotoshoot ? 'PRO' : 'FLASH'} started (dynamic prompt: ${dynamicPrompt ? 'yes' : 'no, using fallback'})`);
-    const resultBase64 = await generateTryOn(selfieBase64, productBase64, !!usePhotoshoot, dynamicPrompt);
+    const resultBase64 = await withGeminiLimit(() => generateTryOn(selfieBase64, productBase64, !!usePhotoshoot, dynamicPrompt));
     const geminiMs = Date.now() - geminiStart;
     console.log(`${tag} Generate → Gemini API: ${geminiMs}ms, base64 length=${resultBase64.length}`);
 
@@ -153,6 +162,13 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
 // One call: selfie + product image → result.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
+  // C4: Reject if server is overloaded
+  const { queued } = geminiConcurrency();
+  if (queued >= MAX_QUEUED) {
+    res.status(503).json({ error: 'Server busy, try again in a moment' });
+    return;
+  }
+
   const startTime = Date.now();
   const { selfieBase64, productImageUrl, selfieS3Key, sourceUrl, retry } = req.body;
   const tag = `[${req.deviceId}]`;
@@ -173,7 +189,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const genStart = Date.now();
     const modelLabel = usePro ? 'pro' : 'nano-banana-2';
     console.log(`${tag} V2 → generating with ${modelLabel}${retry ? ' (retry)' : ''}`);
-    const resultBase64 = await generateTryOnV2(selfieBase64, productBase64, usePro);
+    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64, productBase64, usePro));
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
