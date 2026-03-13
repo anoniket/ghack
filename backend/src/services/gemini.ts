@@ -761,7 +761,7 @@ export async function generateTryOnV2(
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN_V2;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const timeoutMs = usePro ? 60000 : 30000;
+  const timeoutMs = usePro ? 85000 : 50000;
   const genPromise = ai.models.generateContent({
     model,
     contents: [
