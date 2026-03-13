@@ -208,7 +208,7 @@ export default function ChatInterface() {
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="What do you want to shop today?"
+              placeholder="Ask AI to open any website..."
               placeholderTextColor="rgba(255,255,255,0.25)"
               value={inputText}
               onChangeText={setInputText}
