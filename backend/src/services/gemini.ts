@@ -727,8 +727,8 @@ function getImageDimensions(base64: string): { width: number; height: number } |
 // Map actual aspect ratio to nearest supported Gemini ratio
 function matchAspectRatio(width: number, height: number): string {
   const ratio = width / height;
+  // Only ratios reliably supported by both flash and pro models
   const supported = [
-    { r: 1/4, label: '1:4' },
     { r: 9/16, label: '9:16' },
     { r: 2/3, label: '2:3' },
     { r: 3/4, label: '3:4' },
@@ -738,9 +738,8 @@ function matchAspectRatio(width: number, height: number): string {
     { r: 4/3, label: '4:3' },
     { r: 3/2, label: '3:2' },
     { r: 16/9, label: '16:9' },
-    { r: 4/1, label: '4:1' },
   ];
-  let best = supported[5]; // default 1:1
+  let best = supported[4]; // default 1:1
   let bestDiff = Infinity;
   for (const s of supported) {
     const diff = Math.abs(ratio - s.r);
@@ -755,8 +754,10 @@ export async function generateTryOnV2(
   usePro: boolean = false,
 ): Promise<string> {
   // Detect product image aspect ratio
+  // Sanity check: if image is absurdly tall/wide (stitched page screenshot), default to 3:4
   const dims = getImageDimensions(productBase64);
-  const aspectRatio = dims ? matchAspectRatio(dims.width, dims.height) : '3:4';
+  const isSane = dims && dims.width <= 10000 && dims.height <= 10000;
+  const aspectRatio = isSane ? matchAspectRatio(dims.width, dims.height) : '3:4';
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN_V2;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
