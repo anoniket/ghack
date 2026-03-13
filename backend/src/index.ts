@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { deviceIdMiddleware } from './middleware/deviceId';
@@ -19,6 +20,7 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
+app.use(compression()); // M8: Compress all responses
 // SEC-8: Disable CORS headers — mobile app uses x-device-id auth, not browser cookies
 app.use(cors({ origin: false }));
 // PERF-14/SEC-13: Default 1MB body limit — tryon routes get 50MB below
@@ -42,6 +44,16 @@ const generationLimiter = rateLimit({
   message: { error: 'Generation rate limit reached, try again later' },
 });
 
+// M10: Per-device rate limit — prevents one device from hogging shared carrier NAT IP
+const deviceGenerationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  keyGenerator: (req: express.Request) => (req as any).deviceId || req.ip || 'unknown',
+  standardHeaders: false,
+  legacyHeaders: false,
+  message: { error: 'Too many requests from this device, slow down' },
+});
+
 // Health check (no auth)
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
@@ -62,9 +74,9 @@ const chatLimiter = rateLimit({
   message: { error: 'Too many chat requests, slow down' },
 });
 
-// Stricter limits on generation endpoints
-app.use('/api/tryon', generationLimiter);
-app.use('/api/video', generationLimiter);
+// Stricter limits on generation endpoints (IP + device)
+app.use('/api/tryon', generationLimiter, deviceGenerationLimiter);
+app.use('/api/video', generationLimiter, deviceGenerationLimiter);
 app.use('/api/chat', chatLimiter);
 
 // PERF-14: 50MB body limit only for tryon routes (selfie base64 is ~2MB)

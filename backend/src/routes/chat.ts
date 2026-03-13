@@ -6,16 +6,23 @@ export const chatRouter = Router();
 chatRouter.post('/chat', async (req: Request, res: Response) => {
   const { message, history } = req.body;
 
-  if (!message) {
-    res.status(400).json({ error: 'message is required' });
+  if (!message || typeof message !== 'string') {
+    res.status(400).json({ error: 'message is required and must be a string' });
     return;
   }
+
+  // M30: Validate and sanitize chat history
+  const validHistory = Array.isArray(history)
+    ? history.slice(0, 20).filter((h: any) =>
+        h && typeof h.role === 'string' && typeof h.text === 'string' && h.text.length < 5000
+      )
+    : [];
 
   const tag = `[${req.deviceId}]`;
 
   try {
     console.log(`${tag} Chat → message received`);
-    const rawText = await sendChatMessage(req.deviceId, message, history);
+    const rawText = await sendChatMessage(req.deviceId, message, validHistory);
     console.log(`${tag} Chat → response generated, length=${rawText.length}`);
 
     // Extract URL from OPEN: line and strip it from text

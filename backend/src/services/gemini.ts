@@ -666,11 +666,13 @@ export async function generateTryOn(
     } as any,
   });
 
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new TimeoutError('V1 generation', timeoutMs)), timeoutMs)
-  );
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new TimeoutError('V1 generation', timeoutMs)), timeoutMs);
+  });
 
   const response = await Promise.race([genPromise, timeoutPromise]);
+  clearTimeout(timeoutId!); // M14: Clear timer after race resolves
   const genMs = Date.now() - genStart;
 
   const parts = response.candidates?.[0]?.content?.parts;
@@ -779,11 +781,13 @@ export async function generateTryOnV2(
     } as any,
   });
 
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new TimeoutError('V2 generation', timeoutMs)), timeoutMs)
-  );
+  let timeoutId2: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId2 = setTimeout(() => reject(new TimeoutError('V2 generation', timeoutMs)), timeoutMs);
+  });
 
   const response = await Promise.race([genPromise, timeoutPromise]);
+  clearTimeout(timeoutId2!); // M14: Clear timer after race resolves
 
   const parts = response.candidates?.[0]?.content?.parts;
   if (parts) {

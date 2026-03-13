@@ -3,6 +3,7 @@ import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64, Im
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
 import sharp from 'sharp';
+import crypto from 'crypto';
 
 // C4: Reject early if too many requests are queued (prevent unbounded memory growth)
 const MAX_QUEUED = 20;
@@ -115,7 +116,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     console.log(`${tag} Generate → Gemini API: ${geminiMs}ms, base64 length=${resultBase64.length}`);
 
     // Respond immediately with base64 — app can inject into WebView right away
-    const sessionId = `ses_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `ses_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.jpg`;
     const durationMs = Date.now() - startTime;
     console.log(`${tag} Generate → responding with base64 in ${durationMs}ms, session=${sessionId}`);
@@ -214,7 +215,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
-    const sessionId = `ses_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const sessionId = `ses_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.jpg`;
     const durationMs = Date.now() - startTime;
 

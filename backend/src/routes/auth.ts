@@ -24,8 +24,8 @@ const refreshLimiter = rateLimit({
   message: { error: 'Too many refresh attempts, try again later' },
 });
 
-const TOKEN_EXPIRY = '7d';       // 7-day token lifetime
-const TOKEN_EXPIRY_SEC = 604800; // 7 days in seconds
+const TOKEN_EXPIRY = '1d';       // M6: 1-day token lifetime (was 7d)
+const TOKEN_EXPIRY_SEC = 86400;  // 1 day in seconds
 const REFRESH_GRACE_SEC = 86400; // 24-hour grace window for expired tokens
 
 /**
