@@ -244,27 +244,29 @@ export const PRODUCT_DETECTOR_JS = `
     // Remove existing overlay
     removeLoadingOverlay();
 
-    var parent = null;
     var validImg = getValidProductImg();
-    if (validImg) {
-      // Make the image container position:relative for overlay positioning
-      parent = validImg.parentElement;
-      if (parent) {
-        var parentPos = window.getComputedStyle(parent).position;
-        if (parentPos === 'static') {
-          parent.style.position = 'relative';
-        }
-      }
-    }
 
-    // If no product image or parent, use fixed full-screen overlay as fallback
-    var useFixed = !parent;
-
-    // Create overlay
+    // Always use position:fixed overlay — appended to body, guaranteed top z-index.
+    // If we have a product image, position the overlay exactly over it.
+    // This avoids stacking context issues where the parent's z-index traps our overlay.
     var overlay = document.createElement('div');
     overlay.id = TRYON_OVERLAY_ID;
-    if (useFixed) {
-      overlay.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:2147483646!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(13,13,13,0.75)!important;overflow:hidden!important;';
+
+    if (validImg) {
+      var rect = validImg.getBoundingClientRect();
+      overlay.style.cssText = 'position:fixed!important;top:' + rect.top + 'px!important;left:' + rect.left + 'px!important;width:' + rect.width + 'px!important;height:' + rect.height + 'px!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(13,13,13,0.75)!important;overflow:hidden!important;border-radius:inherit!important;';
+      // Update position on scroll so overlay stays over the image
+      var scrollHandler = function() {
+        var r = validImg.getBoundingClientRect();
+        overlay.style.top = r.top + 'px';
+        overlay.style.left = r.left + 'px';
+        overlay.style.width = r.width + 'px';
+        overlay.style.height = r.height + 'px';
+      };
+      window.addEventListener('scroll', scrollHandler, { passive: true });
+      overlay.__scrollHandler = scrollHandler;
+    } else {
+      overlay.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(13,13,13,0.75)!important;overflow:hidden!important;';
     }
 
     // Wave sweep element
@@ -305,14 +307,10 @@ export const PRODUCT_DETECTOR_JS = `
 
     overlay.appendChild(progressWrap);
 
-    // Insert overlay into the image's parent, or body as fallback
-    if (parent) {
-      parent.appendChild(overlay);
-    } else {
-      document.body.appendChild(overlay);
-    }
+    // Always append to body — fixed positioning ensures it's in the root stacking context
+    document.body.appendChild(overlay);
 
-    log('🌊', 'OVERLAY — Wave loading overlay shown' + (useFixed ? ' (fixed fallback)' : ' on product image'));
+    log('🌊', 'OVERLAY — Wave loading overlay shown' + (validImg ? ' on product image' : ' (fullscreen fallback)'));
 
     // Remove all buttons during loading
     var btn = document.getElementById(TRYON_BTN_ID);
@@ -493,6 +491,9 @@ export const PRODUCT_DETECTOR_JS = `
     }
     var existing = document.getElementById(TRYON_OVERLAY_ID);
     if (existing) {
+      if (existing.__scrollHandler) {
+        window.removeEventListener('scroll', existing.__scrollHandler);
+      }
       existing.remove();
       log('🧹', 'OVERLAY — Loading overlay removed');
     }
