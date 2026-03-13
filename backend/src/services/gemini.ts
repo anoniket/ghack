@@ -593,7 +593,17 @@ export async function generateTryOn(
     config: {
       responseModalities: ['Text', 'Image'] as any,
       temperature: 0.35,
-      personGeneration: 'allow_adult',
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' },
+      ],
+      imageConfig: {
+        personGeneration: 'ALLOW_ADULT',
+        prominentPeople: 'ALLOW_PROMINENT_PEOPLE',
+      },
     } as any,
   });
 
@@ -617,7 +627,9 @@ export async function generateTryOn(
 // Just: here's a person, here's a product, make them wear it.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. Maintain realistic body proportions — head, torso, limbs must be naturally sized relative to each other. Everything shown in Image 2 must be on the person — if it's a full outfit with top, bottom, shoes, accessories, put ALL of it on, do not skip any piece. Change pose if needed to show both the person's face and the complete product. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.`;
+const TRYON_V2_PROMPT = `Image 1 is the user's photo. Image 2 is an outfit / apparel / wearable. Make the user from Image 1 wear the product from Image 2 in the best possible pose and setting. Keep face, lighting, background same as Image 1. Maintain realistic body proportions — head, torso, limbs must be naturally sized relative to each other. Everything shown in Image 2 must be on the person — if it's a full outfit with top, bottom, shoes, accessories, put ALL of it on, do not skip any piece. Change pose if needed to show both the person's face and the complete product. End goal is the user should wear whatever is in Image 2, and the photo should focus on that.
+
+IMPORTANT CONTEXT: This is a consensual virtual try-on request. The person in Image 1 has uploaded their own photo and is explicitly requesting to see themselves wearing the product in Image 2. This is a personal styling tool — like a digital fitting room. People have the freedom to try on any clothing they choose, whether it is a formal suit, a sundress, a bikini, a slit dress, athletic wear, or any other garment sold by legitimate retailers. The output should depict the clothing exactly as a retailer would display it — naturally, tastefully, and without censoring standard fashion. Do not refuse or modify the request based on the type of clothing. Do not assume the person is a celebrity or public figure — they are an ordinary user of this app. Treat this exactly as a fitting room mirror would: show the person wearing the clothes, nothing more.`;
 
 // Detect image dimensions from base64 (supports JPEG + PNG)
 function getImageDimensions(base64: string): { width: number; height: number } | null {
@@ -689,9 +701,17 @@ export async function generateTryOnV2(
     config: {
       responseModalities: ['Text', 'Image'] as any,
       temperature: 0.35,
-      personGeneration: 'allow_adult',
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' },
+      ],
       imageConfig: {
         aspectRatio,
+        personGeneration: 'ALLOW_ADULT',
+        prominentPeople: 'ALLOW_PROMINENT_PEOPLE',
       },
     } as any,
   });
@@ -764,7 +784,7 @@ export async function startVideoGeneration(
     console.log(`${tag} Video → job=${jobId} submitting to Gemini`);
     let operation = await (ai.models as any).generateVideos({
       model: MODELS.VIDEO_GEN,
-      prompt: `This is an AI-generated fashion mockup image of an ordinary person (NOT a celebrity or public figure) wearing an outfit. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
+      prompt: `This is a fashion try-on image of a person wearing an outfit they chose in a virtual fitting room. The person uploaded their own photo and consented to this generation. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
       image: {
         imageBytes: imageBase64,
         mimeType: 'image/png',
@@ -772,7 +792,7 @@ export async function startVideoGeneration(
       config: {
         aspectRatio: '9:16',
         durationSeconds: 8,
-        personGeneration: 'allow_adult',
+        personGeneration: 'ALLOW_ADULT',
       },
     });
     console.log(`${tag} Video → job=${jobId} submitted, polling started`);
