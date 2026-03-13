@@ -82,7 +82,7 @@ if (process.env.NODE_ENV === 'production' && !config.jwtSecret) {
   process.exit(1);
 }
 
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`mrigAI backend listening on port ${config.port}`);
   if (!config.appSecret) {
     console.warn('⚠️  APP_SECRET not set — HMAC verification disabled (dev mode)');
@@ -91,3 +91,19 @@ app.listen(config.port, () => {
     console.warn('⚠️  JWT_SECRET not set — JWT verification disabled (dev mode)');
   }
 });
+
+// H1: Graceful shutdown — finish in-flight requests before exiting
+function gracefulShutdown(signal: string) {
+  console.log(`${signal} received — shutting down gracefully`);
+  server.close(() => {
+    console.log('All connections closed, exiting');
+    process.exit(0);
+  });
+  // Force exit after 15s if connections don't close
+  setTimeout(() => {
+    console.error('Forced exit after 15s timeout');
+    process.exit(1);
+  }, 15000).unref();
+}
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
