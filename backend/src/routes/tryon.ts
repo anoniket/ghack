@@ -216,32 +216,42 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   }
 
   try {
-    // C5/PERF-2: Download selfie from S3 (server-to-S3 is same datacenter, instant)
-    // Falls back to client-sent base64 if S3 key not available
-    let selfieBase64: string;
-    if (selfieS3Key) {
-      const s3Start = Date.now();
-      try {
-        const selfieBuffer = await downloadToBuffer(selfieS3Key);
-        selfieBase64 = selfieBuffer.toString('base64');
-        console.log(`${tag} V2 → selfie from S3: ${Date.now() - s3Start}ms, ${selfieBuffer.length} bytes`);
-      } catch (s3Err: any) {
-        if (isSelfieNotFound(s3Err)) {
-          console.error(`${tag} V2 → selfie not found in S3: ${selfieS3Key}`);
-          res.status(400).json({ error: 'SELFIE_NOT_FOUND' });
-          return;
-        }
-        throw s3Err;
-      }
-    } else {
-      console.log(`${tag} V2 → using client-sent selfie base64 (no S3 key)`);
-      selfieBase64 = clientSelfieBase64;
-    }
-
-    // Download product image
+    // C5/PERF-2: Download selfie from S3 + product image in parallel
     const dlStart = Date.now();
-    const productBase64 = await downloadImageToBase64(productImageUrl);
-    console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
+
+    const selfiePromise: Promise<string> = selfieS3Key
+      ? downloadToBuffer(selfieS3Key)
+          .then((buf) => {
+            console.log(`${tag} V2 → selfie from S3: ${Date.now() - dlStart}ms, ${buf.length} bytes`);
+            return buf.toString('base64');
+          })
+          .catch((s3Err: any) => {
+            if (isSelfieNotFound(s3Err)) {
+              throw Object.assign(new Error('SELFIE_NOT_FOUND'), { _selfieNotFound: true });
+            }
+            throw s3Err;
+          })
+      : Promise.resolve(clientSelfieBase64);
+
+    const productPromise = downloadImageToBase64(productImageUrl)
+      .then((b64) => {
+        console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
+        return b64;
+      });
+
+    let selfieBase64: string;
+    let productBase64: string;
+    try {
+      [selfieBase64, productBase64] = await Promise.all([selfiePromise, productPromise]);
+    } catch (dlErr: any) {
+      if (dlErr._selfieNotFound) {
+        console.error(`${tag} V2 → selfie not found in S3: ${selfieS3Key}`);
+        res.status(400).json({ error: 'SELFIE_NOT_FOUND' });
+        return;
+      }
+      throw dlErr;
+    }
+    console.log(`${tag} V2 → both downloads done: ${Date.now() - dlStart}ms total`);
 
     // Generate — same prompt, pro model on retry
     const genStart = Date.now();

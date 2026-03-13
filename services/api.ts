@@ -348,7 +348,7 @@ export async function tryOnV2(params: {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',
     body: JSON.stringify(params),
-    timeout: params.retry ? 75000 : 45000,
+    timeout: params.retry ? 90000 : 55000,
   });
 }
 
