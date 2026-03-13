@@ -172,7 +172,7 @@ export const PRODUCT_DETECTOR_JS = `
     '  overflow: hidden !important;' +
     '}' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-progress-fill {' +
-    '  width: 0% !important;' +
+    '  width: 0%;' +
     '  height: 100% !important;' +
     '  border-radius: 2px !important;' +
     '  background: #E8C8A0 !important;' +
@@ -182,6 +182,12 @@ export const PRODUCT_DETECTOR_JS = `
     '  color: rgba(255,255,255,0.5) !important;' +
     '  font-size: 12px !important;' +
     '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
+    '}' +
+    '#' + TRYON_OVERLAY_ID + ' .__tryon-countdown {' +
+    '  color: rgba(255,255,255,0.35) !important;' +
+    '  font-size: 11px !important;' +
+    '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
+    '  margin-top: -4px !important;' +
     '}' +
     /* Fullscreen zoom overlay */
     '#' + ZOOM_OVERLAY_ID + ' {' +
@@ -230,7 +236,7 @@ export const PRODUCT_DETECTOR_JS = `
   var progressInterval = null;
   var quipTimerGlobal = null;
 
-  var __tryonDuration = 25000; // default for V2 (Nano Banana 2), ~16-25s typical
+  var __tryonDuration = 20000; // default for V2 (Nano Banana 2)
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
@@ -290,6 +296,12 @@ export const PRODUCT_DETECTOR_JS = `
     percentText.className = '__tryon-percent';
     percentText.textContent = '0%';
     progressWrap.appendChild(percentText);
+
+    var countdownText = document.createElement('div');
+    countdownText.className = '__tryon-countdown';
+    var countdownTotal = mode === 'video' ? 60 : Math.round(__tryonDuration / 1000);
+    countdownText.textContent = '~' + countdownTotal + 's';
+    progressWrap.appendChild(countdownText);
 
     overlay.appendChild(progressWrap);
 
@@ -456,6 +468,10 @@ export const PRODUCT_DETECTOR_JS = `
 
       progressFill.style.width = pct + '%';
       percentText.textContent = pct + '%';
+
+      var countdownDuration = isVideo ? 60000 : activeDuration;
+      var remaining = Math.max(0, Math.round((countdownDuration - elapsed) / 1000));
+      countdownText.textContent = remaining > 0 ? '~' + remaining + 's' : 'almost done...';
 
       if (pct >= 95) {
         clearInterval(progressInterval);

@@ -204,7 +204,7 @@ export default function ChatInterface() {
           }
         />
 
-        <View style={[styles.inputWrapper, { paddingBottom: tabBarHeight }]}>
+        <View style={[styles.inputWrapper, { paddingBottom: tabBarHeight + 8 }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}

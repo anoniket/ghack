@@ -2,8 +2,9 @@ import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import { StyleSheet, Platform, Text, TextInput } from 'react-native';
+import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppStore } from '@/services/store';
 
 // PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
 if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
@@ -20,10 +21,15 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const isGenerating = useAppStore((s) => s.tryOnLoading || s.videoLoading);
 
   return (
     <Tabs
       screenOptions={{
+        // Block tab switches during image/video generation — WebView must stay mounted
+        tabBarButton: isGenerating
+          ? (props) => <TouchableOpacity {...props} activeOpacity={1} onPress={undefined} />
+          : undefined,
         tabBarActiveTintColor: '#E8C8A0',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.3)',
         tabBarStyle: {

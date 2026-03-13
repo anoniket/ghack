@@ -241,9 +241,11 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     overflow: 'hidden',
-    borderWidth: 0.5,
+    borderTopWidth: 0.5,
+    borderLeftWidth: 0.5,
+    borderRightWidth: 0.5,
     borderColor: 'rgba(255,255,255,0.06)',
-    borderBottomWidth: 0.5,
+    borderBottomWidth: 0,
   },
   header: {
     flexDirection: 'row',

@@ -170,10 +170,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Read selfie from local file — no S3 round trip
       const selfieBase64 = await imageUriToBase64(selfieUri);
 
-      // On retry, use pro model — update duration to 45s
+      // On retry, use pro model — update duration to 35s
       if (currentProduct.retry && webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          if (window.__tryonSetDuration) { window.__tryonSetDuration(45000); }
+          if (window.__tryonSetDuration) { window.__tryonSetDuration(35000); }
           true;
         `);
       }
