@@ -586,6 +586,33 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             }
             rlog('WebView', 'injecting product detector');
             webViewRef.current?.injectJavaScript(PRODUCT_DETECTOR_JS);
+            // H6: Re-inject history patches on Android (injectedJavaScriptBeforeContentLoaded is unreliable)
+            if (Platform.OS === 'android') {
+              webViewRef.current?.injectJavaScript(`
+                if (!window.__historyPatched) {
+                  window.__historyPatched = true;
+                  window.__historyDepth = window.__historyDepth || 0;
+                  var origPushState = history.pushState;
+                  var origReplaceState = history.replaceState;
+                  history.pushState = function() {
+                    window.__historyDepth++;
+                    var r = origPushState.apply(this, arguments);
+                    window.dispatchEvent(new Event('__tryon_nav'));
+                    return r;
+                  };
+                  history.replaceState = function() {
+                    var r = origReplaceState.apply(this, arguments);
+                    window.dispatchEvent(new Event('__tryon_nav'));
+                    return r;
+                  };
+                  window.addEventListener('popstate', function() {
+                    window.__historyDepth = Math.max(0, window.__historyDepth - 1);
+                    window.dispatchEvent(new Event('__tryon_nav'));
+                  });
+                }
+                true;
+              `);
+            }
           }}
           injectedJavaScriptBeforeContentLoaded={`
             window.__tryonInjected = false;
