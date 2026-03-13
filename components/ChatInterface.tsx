@@ -9,7 +9,7 @@ import {
   useWindowDimensions,
   ActivityIndicator,
 } from 'react-native';
-import { KeyboardAvoidingView, useKeyboardState } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAppStore } from '@/services/store';
 import { ChatMessage } from '@/services/store';
@@ -44,7 +44,6 @@ const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: n
 export default function ChatInterface() {
   const { width: W } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
-  const keyboardVisible = useKeyboardState((s) => s.isVisible);
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
   // PLAT-17: Track scroll position — only auto-scroll when near bottom
@@ -90,7 +89,7 @@ export default function ChatInterface() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior="padding"
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={tabBarHeight}
       >
         <FlatList
           ref={flatListRef}
@@ -154,7 +153,7 @@ export default function ChatInterface() {
           }
         />
 
-        <View style={[styles.inputWrapper, { paddingBottom: keyboardVisible ? 8 : tabBarHeight + 8 }]}>
+        <View style={[styles.inputWrapper, { paddingBottom: tabBarHeight + 8 }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
