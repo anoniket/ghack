@@ -51,6 +51,7 @@ export default function ChatInterface() {
   const messages = useAppStore((s) => s.messages);
   const isTyping = useAppStore((s) => s.isTyping);
   const addMessage = useAppStore.getState().addMessage;
+  const { setCurrentUrl, setMode, setChatBubbleExpanded } = useAppStore.getState();
   const sendChat = useSendChat();
 
   // PERF-17: Show hardcoded greeting immediately — no Gemini API wait on cold start

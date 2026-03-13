@@ -29,7 +29,7 @@ export default function TabLayout() {
       screenOptions={{
         // Block tab switches during image/video generation — WebView must stay mounted
         tabBarButton: isGenerating
-          ? (props) => <TouchableOpacity {...props} activeOpacity={1} onPress={undefined} />
+          ? (props) => <TouchableOpacity {...(props as any)} activeOpacity={1} onPress={undefined} />
           : undefined,
         tabBarActiveTintColor: '#E8C8A0',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.3)',

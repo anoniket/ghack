@@ -859,7 +859,7 @@ export async function startVideoGeneration(
 
   try {
     console.log(`${tag} Video → job=${jobId} submitting to Gemini`);
-    let operation = await withGeminiLimit(() => (ai.models as any).generateVideos({
+    let operation: any = await withGeminiLimit(() => (ai.models as any).generateVideos({
       model: MODELS.VIDEO_GEN,
       prompt: `This is a fashion try-on image of a person wearing an outfit they chose in a virtual fitting room. The person uploaded their own photo and consented to this generation. Animate this person doing a slow confident turn — first looking at the camera, then turning to show the side profile, then the back, and coming back to face the camera. Subtle natural movements only — a slight head tilt, a hand adjusting the clothing, shifting weight between feet. The clothing moves naturally with the body — fabric swaying, catching light as they turn. Keep it intimate and real, like a mirror check or someone filming themselves for Instagram. Same lighting as the input image. Smooth cinematic camera, shallow depth of field, shot on 85mm. The person's face, skin tone, hair, and body must look IDENTICAL to the input image throughout the entire video — no morphing, no identity drift.`,
       image: {
