@@ -1,9 +1,14 @@
 import { Router, Request, Response } from 'express';
 import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
-import { uploadBuffer, cdnUrl } from '../services/s3';
+import { uploadBuffer, cdnUrl, downloadToBuffer } from '../services/s3';
 import { putSession } from '../services/dynamo';
 import sharp from 'sharp';
 import crypto from 'crypto';
+
+// NoSuchKey detection helper
+function isSelfieNotFound(err: any): boolean {
+  return err?.name === 'NoSuchKey' || err?.Code === 'NoSuchKey' || err?.$metadata?.httpStatusCode === 404;
+}
 
 // C4: Reject early if too many requests are queued (prevent unbounded memory growth)
 const MAX_QUEUED = 20;
@@ -185,7 +190,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   }
 
   const startTime = Date.now();
-  const { selfieBase64, productImageUrl, selfieS3Key, sourceUrl, retry } = req.body;
+  const { selfieBase64: clientSelfieBase64, productImageUrl, selfieS3Key, sourceUrl, retry } = req.body;
   const tag = `[${req.deviceId}]`;
   const usePro = !!retry;
 
@@ -195,17 +200,44 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     return;
   }
 
-  if (!selfieBase64 || !productImageUrl) {
-    res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
+  if (!selfieS3Key && !clientSelfieBase64) {
+    res.status(400).json({ error: 'selfieS3Key or selfieBase64 is required' });
     return;
   }
 
-  if (typeof selfieBase64 === 'string' && selfieBase64.length > MAX_SELFIE_BASE64_LEN) {
+  if (!productImageUrl) {
+    res.status(400).json({ error: 'productImageUrl is required' });
+    return;
+  }
+
+  if (typeof clientSelfieBase64 === 'string' && clientSelfieBase64.length > MAX_SELFIE_BASE64_LEN) {
     res.status(400).json({ error: 'Selfie too large' });
     return;
   }
 
   try {
+    // C5/PERF-2: Download selfie from S3 (server-to-S3 is same datacenter, instant)
+    // Falls back to client-sent base64 if S3 key not available
+    let selfieBase64: string;
+    if (selfieS3Key) {
+      const s3Start = Date.now();
+      try {
+        const selfieBuffer = await downloadToBuffer(selfieS3Key);
+        selfieBase64 = selfieBuffer.toString('base64');
+        console.log(`${tag} V2 → selfie from S3: ${Date.now() - s3Start}ms, ${selfieBuffer.length} bytes`);
+      } catch (s3Err: any) {
+        if (isSelfieNotFound(s3Err)) {
+          console.error(`${tag} V2 → selfie not found in S3: ${selfieS3Key}`);
+          res.status(400).json({ error: 'SELFIE_NOT_FOUND' });
+          return;
+        }
+        throw s3Err;
+      }
+    } else {
+      console.log(`${tag} V2 → using client-sent selfie base64 (no S3 key)`);
+      selfieBase64 = clientSelfieBase64;
+    }
+
     // Download product image
     const dlStart = Date.now();
     const productBase64 = await downloadImageToBase64(productImageUrl);
@@ -256,11 +288,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       }
     })();
   } catch (err: any) {
-    // AC-2: Detect S3 NoSuchKey (selfie deleted) and return specific error
-    if (err.name === 'NoSuchKey' || err.Code === 'NoSuchKey') {
-      console.error(`${tag} V2 → selfie not found in S3`);
-      res.status(400).json({ error: 'SELFIE_NOT_FOUND' });
-    } else if (err instanceof TimeoutError) {
+    if (err instanceof TimeoutError) {
       console.error(`${tag} V2 TIMEOUT:`, err.message);
       res.status(504).json({ error: 'TIMEOUT' });
     } else if (err instanceof ImageBlockedError) {

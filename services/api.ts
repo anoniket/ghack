@@ -339,7 +339,7 @@ export interface TryOnResult {
 }
 
 export async function tryOnV2(params: {
-  selfieBase64: string;
+  selfieBase64?: string;
   productImageUrl: string;
   selfieS3Key?: string;
   sourceUrl?: string;

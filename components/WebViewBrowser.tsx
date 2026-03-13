@@ -150,28 +150,31 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
-      // ERR-1: Check selfie file exists before trying to read it
-      const selfieFile = new File(selfieUri);
-      if (!selfieFile.exists) {
-        rlog('TryOn', 'selfie file missing from disk — forcing re-onboarding');
-        setSelfieS3Key(null);
-        setSelfieUri(null);
-        useAppStore.getState().setOnboardingComplete(false);
-        AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
-        AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
-        Alert.alert('Selfie not found', 'Your photo was cleared by the system. Please take a new selfie.');
-        return;
-      }
-
-      // Read selfie from local file — no S3 round trip
-      const selfieBase64 = await imageUriToBase64(selfieUri);
-
       // On retry, use pro model — update duration to 35s
       if (currentProduct.retry && webViewRef.current) {
         webViewRef.current.injectJavaScript(`
           if (window.__tryonSetDuration) { window.__tryonSetDuration(35000); }
           true;
         `);
+      }
+
+      // C5/PERF-2: Send S3 key instead of 3MB base64 — server downloads from S3 directly
+      // Fallback to base64 only if S3 key unavailable (e.g. upload failed during onboarding)
+      let selfieBase64: string | undefined;
+      if (!selfieS3Key) {
+        rlog('TryOn', 'no S3 key — falling back to local selfie base64');
+        const selfieFile = new File(selfieUri);
+        if (!selfieFile.exists) {
+          rlog('TryOn', 'selfie file missing from disk — forcing re-onboarding');
+          setSelfieS3Key(null);
+          setSelfieUri(null);
+          useAppStore.getState().setOnboardingComplete(false);
+          AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
+          AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
+          Alert.alert('Selfie not found', 'Your photo was cleared by the system. Please take a new selfie.');
+          return;
+        }
+        selfieBase64 = await imageUriToBase64(selfieUri);
       }
 
       // Single-step V2 — no zone detection, no prepare
