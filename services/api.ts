@@ -329,23 +329,6 @@ async function apiFetch(
 
 // ---- Try-On ----
 
-export interface PrepareResult {
-  usePhotoshoot: boolean;
-  model: string;
-  estimatedDuration: number;
-}
-
-export async function prepareTryOn(params: {
-  selfieBase64: string;
-  productImageUrl: string;
-  retry?: boolean;
-}): Promise<PrepareResult> {
-  return apiFetch('/api/tryon/prepare', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
-}
-
 export interface TryOnResult {
   sessionId: string;
   tryonS3Key: string;
@@ -354,20 +337,6 @@ export interface TryOnResult {
   model: string;
   durationMs: number;
 }
-
-export async function generateTryOn(params: {
-  selfieS3Key?: string;
-  productImageUrl: string;
-  sourceUrl?: string;
-  usePhotoshoot: boolean;
-}): Promise<TryOnResult> {
-  return apiFetch('/api/tryon/generate', {
-    method: 'POST',
-    body: JSON.stringify(params),
-  });
-}
-
-// ---- Try-On V2 (single-step, Nano Banana 2) ----
 
 export async function tryOnV2(params: {
   selfieBase64: string;

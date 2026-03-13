@@ -64,21 +64,5 @@ export async function downloadImageToBase64(url: string): Promise<string> {
   });
 }
 
-// ---- Try-On management (cloud-based) ----
-
 // Re-export SavedTryOn from store for backward compatibility
 export type { SavedTryOn } from '@/services/store';
-
-export async function getSavedTryOns(): Promise<api.HistoryItem[]> {
-  try {
-    const { items } = await api.getHistory();
-    return items;
-  } catch (err) {
-    console.error('Failed to load history from cloud:', err);
-    return [];
-  }
-}
-
-export async function deleteTryOn(sessionId: string): Promise<void> {
-  await api.deleteSession(sessionId);
-}

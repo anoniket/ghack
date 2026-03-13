@@ -97,7 +97,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     console.log(`${tag} Generate → Gemini API: ${geminiMs}ms, base64 length=${resultBase64.length}`);
 
     // Respond immediately with base64 — app can inject into WebView right away
-    const sessionId = `ses_${Date.now()}`;
+    const sessionId = `ses_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
     const durationMs = Date.now() - startTime;
     console.log(`${tag} Generate → responding with base64 in ${durationMs}ms, session=${sessionId}`);
@@ -170,7 +170,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
-    const sessionId = `ses_${Date.now()}`;
+    const sessionId = `ses_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
     const durationMs = Date.now() - startTime;
 

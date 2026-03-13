@@ -69,8 +69,6 @@ interface AppState {
   setVideoLoading: (loading: boolean) => void;
   videoDataUri: string | null;
   setVideoDataUri: (uri: string | null) => void;
-  videoJobId: string | null;
-  setVideoJobId: (id: string | null) => void;
   lastSessionId: string | null;
   setLastSessionId: (id: string | null) => void;
   lastTryonS3Key: string | null;
@@ -121,8 +119,6 @@ export const useAppStore = create<AppState>((set) => ({
   setVideoLoading: (loading) => set({ videoLoading: loading }),
   videoDataUri: null,
   setVideoDataUri: (uri) => set({ videoDataUri: uri }),
-  videoJobId: null,
-  setVideoJobId: (id) => set({ videoJobId: id }),
   lastSessionId: null,
   setLastSessionId: (id) => set({ lastSessionId: id }),
   lastTryonS3Key: null,
