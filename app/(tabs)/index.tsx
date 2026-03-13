@@ -10,17 +10,10 @@ import { getSelfieUri, getSelfieS3Key, uploadSelfieAndSaveKey } from '@/utils/im
 import { getDeviceId, getHistory } from '@/services/api';
 
 export default function HomeScreen() {
-  const {
-    onboardingComplete,
-    setOnboardingComplete,
-    setSelfieUri,
-    setSelfieS3Key,
-    setDeviceId,
-    setSavedTryOns,
-    setHistoryLoaded,
-    mode,
-    setCurrentProduct,
-  } = useAppStore();
+  // H16: Individual selectors for read-state, getState() for setters
+  const onboardingComplete = useAppStore((s) => s.onboardingComplete);
+  const mode = useAppStore((s) => s.mode);
+  const { setOnboardingComplete, setSelfieUri, setSelfieS3Key, setDeviceId, setSavedTryOns, setHistoryLoaded, setCurrentProduct } = useAppStore.getState();
 
   // SS-8: Track loading state to prevent onboarding flash
   const [initialLoading, setInitialLoading] = useState(true);

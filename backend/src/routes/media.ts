@@ -6,13 +6,19 @@ export const mediaRouter = Router();
 
 // Remote logging endpoint — receives logs from the mobile app
 mediaRouter.post('/log', (req: Request, res: Response) => {
-  const { logs } = req.body;
-  if (Array.isArray(logs)) {
-    for (const entry of logs) {
-      console.log(`[${req.deviceId}] 📱 ${entry.tag || ''} ${entry.msg}`);
+  try {
+    const { logs } = req.body;
+    if (!Array.isArray(logs)) { res.json({ ok: true }); return; }
+    const entries = logs.slice(0, 50); // H13: Cap at 50 entries
+    for (const entry of entries) {
+      const tag = typeof entry.tag === 'string' ? entry.tag.slice(0, 50) : '';
+      const msg = typeof entry.msg === 'string' ? entry.msg.slice(0, 500) : '';
+      console.log(`[${req.deviceId}] [CLIENT] ${tag} ${msg}`);
     }
+    res.json({ ok: true });
+  } catch {
+    res.json({ ok: true });
   }
-  res.json({ ok: true });
 });
 
 mediaRouter.post('/upload-url', async (req: Request, res: Response) => {
