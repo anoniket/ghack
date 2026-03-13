@@ -89,24 +89,24 @@ export const PRODUCT_DETECTOR_JS = `
     '  left: auto !important;' +
     '  transform: none !important;' +
     '  animation: none !important;' +
-    '  width: 52px !important;' +
+    '  width: auto !important;' +
     '  height: 52px !important;' +
     '  border-radius: 26px !important;' +
-    '  padding: 0 !important;' +
-    '  font-size: 22px !important;' +
+    '  padding: 0 16px !important;' +
+    '  font-size: 15px !important;' +
     '}' +
     '.__tryon-btn-row #' + TRYON_BTN_ID + ':active {' +
     '  transform: scale(0.9) !important;' +
     '}' +
     '#' + VIDEO_BTN_ID + ' {' +
-    '  width: 52px !important;' +
+    '  width: auto !important;' +
     '  height: 52px !important;' +
     '  background: #1A1A1A !important;' +
     '  color: #E8C8A0 !important;' +
     '  border: 1.5px solid rgba(232,200,160,0.35) !important;' +
     '  border-radius: 26px !important;' +
-    '  padding: 0 !important;' +
-    '  font-size: 22px !important;' +
+    '  padding: 0 16px !important;' +
+    '  font-size: 15px !important;' +
     '  font-weight: 700 !important;' +
     '  cursor: pointer !important;' +
     '  display: flex !important;' +
@@ -708,7 +708,7 @@ export const PRODUCT_DETECTOR_JS = `
     if (showVideo) {
       var vidBtn = document.createElement('button');
       vidBtn.id = VIDEO_BTN_ID;
-      vidBtn.innerHTML = '\\u{1F3AC}';
+      vidBtn.innerHTML = '\\u{1F3AC} Video';
       vidBtn.addEventListener('click', function(e) {
         e.preventDefault();
         e.stopPropagation();
@@ -763,7 +763,7 @@ export const PRODUCT_DETECTOR_JS = `
         log('✅', 'REPLACE — Product image replaced with CDN URL (preloaded)');
         removeLoadingOverlay();
         makeImageTappable();
-        showButtonRow(true, '\\u{21BB}');
+        showButtonRow(true, '\\u{21BB} Retry');
       };
       preload.onerror = function() {
         validImg.src = imageSource;
@@ -771,7 +771,7 @@ export const PRODUCT_DETECTOR_JS = `
         log('⚠️', 'REPLACE — CDN preload failed, set src directly');
         removeLoadingOverlay();
         makeImageTappable();
-        showButtonRow(true, '\\u{21BB}');
+        showButtonRow(true, '\\u{21BB} Retry');
       };
       preload.src = imageSource;
     } else {
@@ -780,7 +780,7 @@ export const PRODUCT_DETECTOR_JS = `
       log('✅', 'REPLACE — Product image replaced with base64 (length: ' + imageSource.length + ')');
       removeLoadingOverlay();
       makeImageTappable();
-      showButtonRow(true, '\\u{21BB}');
+      showButtonRow(true, '\\u{21BB} Retry');
     }
   }
 
@@ -854,7 +854,7 @@ export const PRODUCT_DETECTOR_JS = `
         // Remove overlay after brief flash, then show retry
         setTimeout(function() {
           removeLoadingOverlay();
-          showButtonRow(false, '\\u{21BB}');
+          showButtonRow(false, '\\u{21BB} Retry');
         }, 1500);
       } else if (data.type === 'video_loading') {
         __tryonBusy = true;
@@ -866,7 +866,7 @@ export const PRODUCT_DETECTOR_JS = `
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation complete');
         removeLoadingOverlay();
-        showButtonRow(true, '\\u{21BB}');
+        showButtonRow(true, '\\u{21BB} Retry');
       } else if (data.type === 'video_error') {
         __tryonBusy = false;
         log('📨', 'RN MESSAGE — Video generation failed');
@@ -881,7 +881,7 @@ export const PRODUCT_DETECTOR_JS = `
         if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
         setTimeout(function() {
           removeLoadingOverlay();
-          showButtonRow(true, '\\u{21BB}');
+          showButtonRow(true, '\\u{21BB} Retry');
         }, 1500);
       }
     } catch(e) {
