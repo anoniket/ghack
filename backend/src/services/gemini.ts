@@ -600,10 +600,6 @@ export async function generateTryOn(
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'OFF' },
         { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'OFF' },
       ],
-      imageConfig: {
-        personGeneration: 'ALLOW_ADULT',
-        prominentPeople: 'ALLOW_PROMINENT_PEOPLE',
-      },
     } as any,
   });
 
@@ -710,8 +706,6 @@ export async function generateTryOnV2(
       ],
       imageConfig: {
         aspectRatio,
-        personGeneration: 'ALLOW_ADULT',
-        prominentPeople: 'ALLOW_PROMINENT_PEOPLE',
       },
     } as any,
   });
