@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Modal,
   useWindowDimensions,
   Platform,
   Alert,
@@ -13,7 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
+import VideoModal from '@/components/VideoModal';
 import { useAppStore } from '@/services/store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
@@ -676,37 +676,11 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       </View>
 
       {/* Video Player Popup */}
-      <Modal
+      <VideoModal
         visible={videoDataUri !== null}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setVideoDataUri(null)}
-      >
-        <View style={styles.videoOverlay}>
-          <View style={[styles.videoModal, { width: W * 0.9, height: H * 0.7 }]}>
-            <View style={styles.videoHeader}>
-              <Text style={styles.videoTitle}>Try-On Video</Text>
-              <TouchableOpacity
-                onPress={() => setVideoDataUri(null)}
-                style={styles.videoCloseBtn}
-              >
-                <Text style={styles.videoCloseBtnText}>{'\u2715'}</Text>
-              </TouchableOpacity>
-            </View>
-            {videoDataUri && (
-              <VideoView
-                player={videoPlayer}
-                style={styles.videoPlayer}
-                contentFit="contain"
-                nativeControls
-                allowsFullscreen
-                {...(Platform.OS === 'android' ? { surfaceType: 'textureView' } : {})}
-              />
-            )}
-          </View>
-        </View>
-      </Modal>
+        player={videoPlayer}
+        onClose={() => setVideoDataUri(null)}
+      />
     </SafeAreaView>
   );
 }
@@ -793,48 +767,5 @@ const styles = StyleSheet.create({
   loadingText: {
     color: 'rgba(255,255,255,0.4)',
     fontSize: 13,
-  },
-  videoOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoModal: {
-    backgroundColor: '#141414',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  videoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  videoTitle: {
-    color: '#F5F5F5',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  videoCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1A1A1A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoCloseBtnText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
-  },
-  videoPlayer: {
-    flex: 1,
-    backgroundColor: '#0D0D0D',
   },
 });

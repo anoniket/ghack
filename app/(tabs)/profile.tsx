@@ -26,6 +26,29 @@ export default function ProfileScreen() {
   } = useAppStore();
   const [updating, setUpdating] = useState(false);
 
+  // M32: Shared save/upload/alert logic for both camera and gallery
+  const handleSelfieResult = async (result: ImagePicker.ImagePickerResult) => {
+    if (result.canceled || !result.assets[0]) return;
+    setUpdating(true);
+    try {
+      await deleteSelfie();
+      const newUri = await saveSelfie(result.assets[0].uri);
+      setSelfieUri(newUri);
+      setOnboardingComplete(true);
+      try {
+        const s3Key = await uploadSelfieAndSaveKey(newUri);
+        setSelfieS3Key(s3Key);
+      } catch (uploadErr) {
+        console.error('☁️ [Profile] S3 selfie upload failed:', uploadErr);
+      }
+      Alert.alert('Updated!', 'Your selfie has been updated.');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to update selfie.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const retakeSelfie = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
@@ -33,26 +56,7 @@ export default function ProfileScreen() {
       aspect: [3, 4],
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) {
-      setUpdating(true);
-      try {
-        await deleteSelfie();
-        const newUri = await saveSelfie(result.assets[0].uri);
-        setSelfieUri(newUri);
-        setOnboardingComplete(true);
-        try {
-          const s3Key = await uploadSelfieAndSaveKey(newUri);
-          setSelfieS3Key(s3Key);
-        } catch (uploadErr) {
-          console.error('☁️ [Profile] S3 selfie upload failed:', uploadErr);
-        }
-        Alert.alert('Updated!', 'Your selfie has been updated.');
-      } catch (err) {
-        Alert.alert('Error', 'Failed to update selfie.');
-      } finally {
-        setUpdating(false);
-      }
-    }
+    handleSelfieResult(result);
   };
 
   const takeNewSelfie = async () => {
@@ -66,26 +70,7 @@ export default function ProfileScreen() {
       aspect: [3, 4],
       quality: 0.8,
     });
-    if (!result.canceled && result.assets[0]) {
-      setUpdating(true);
-      try {
-        await deleteSelfie();
-        const newUri = await saveSelfie(result.assets[0].uri);
-        setSelfieUri(newUri);
-        setOnboardingComplete(true);
-        try {
-          const s3Key = await uploadSelfieAndSaveKey(newUri);
-          setSelfieS3Key(s3Key);
-        } catch (uploadErr) {
-          console.error('☁️ [Profile] S3 selfie upload failed:', uploadErr);
-        }
-        Alert.alert('Updated!', 'Your selfie has been updated.');
-      } catch (err) {
-        Alert.alert('Error', 'Failed to update selfie.');
-      } finally {
-        setUpdating(false);
-      }
-    }
+    handleSelfieResult(result);
   };
 
   const handleClearChat = () => {

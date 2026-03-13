@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, memo } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,16 @@ import {
   Alert,
   useWindowDimensions,
   RefreshControl,
-  Modal,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { VideoView, useVideoPlayer } from 'expo-video';
+import { useVideoPlayer } from 'expo-video';
+import VideoModal from '@/components/VideoModal';
 import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
-import { deleteSelfie, mapHistoryItem } from '@/utils/imageUtils';
+import { mapHistoryItem } from '@/utils/imageUtils';
 
 
 interface TimelineSection {
@@ -68,7 +67,8 @@ function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
     .map(([title, data]) => ({ title, data }));
 }
 
-function TryOnCard({ item, width, height, onPress }: {
+// M27: Memoized card — only re-renders when its own props change
+const TryOnCard = memo(function TryOnCard({ item, width, height, onPress }: {
   item: SavedTryOn;
   width: number;
   height: number;
@@ -106,15 +106,14 @@ function TryOnCard({ item, width, height, onPress }: {
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 export default function SavedScreen() {
   const { width: W, height: H } = useWindowDimensions();
   const CARD_WIDTH = (W - 48) / 2;
-  const {
-    savedTryOns, setSavedTryOns, setCurrentUrl, setMode,
-    setSelfieS3Key, setSelfieUri, setOnboardingComplete,
-  } = useAppStore();
+  // M27: Individual selectors for read state, getState() for setters
+  const savedTryOns = useAppStore((s) => s.savedTryOns);
+  const { setSavedTryOns, setCurrentUrl, setMode } = useAppStore.getState();
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<SavedTryOn | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -282,37 +281,11 @@ export default function SavedScreen() {
               )}
             </View>
           </View>
-          <Modal
+          <VideoModal
             visible={playingVideoUrl !== null}
-            transparent
-            animationType="fade"
-            statusBarTranslucent
-            onRequestClose={() => setPlayingVideoUrl(null)}
-          >
-            <View style={styles.videoOverlay}>
-              <View style={[styles.videoModal, { width: W * 0.9, height: H * 0.7 }]}>
-                <View style={styles.videoHeader}>
-                  <Text style={styles.videoTitle}>Try-On Video</Text>
-                  <TouchableOpacity
-                    onPress={() => setPlayingVideoUrl(null)}
-                    style={styles.videoCloseBtn}
-                  >
-                    <Text style={styles.videoCloseBtnText}>{'\u2715'}</Text>
-                  </TouchableOpacity>
-                </View>
-                {playingVideoUrl && (
-                  <VideoView
-                    player={videoPlayer}
-                    style={styles.videoPlayer}
-                    contentFit="contain"
-                    nativeControls
-                    allowsFullscreen
-                    {...(Platform.OS === 'android' ? { surfaceType: 'textureView' } : {})}
-                  />
-                )}
-              </View>
-            </View>
-          </Modal>
+            player={videoPlayer}
+            onClose={() => setPlayingVideoUrl(null)}
+          />
         </SafeAreaView>
       </View>
     );
@@ -590,49 +563,6 @@ const styles = StyleSheet.create({
   },
   actionBtnSecondaryText: {
     color: '#E8C8A0',
-  },
-  videoOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  videoModal: {
-    backgroundColor: '#141414',
-    borderRadius: 24,
-    overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  videoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
-  },
-  videoTitle: {
-    color: '#F5F5F5',
-    fontSize: 17,
-    fontWeight: '700',
-  },
-  videoCloseBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#1A1A1A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  videoCloseBtnText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 15,
-  },
-  videoPlayer: {
-    flex: 1,
-    backgroundColor: '#0D0D0D',
   },
   deletingOverlay: {
     ...StyleSheet.absoluteFillObject,
