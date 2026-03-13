@@ -120,7 +120,7 @@ export default function ChatBubble() {
         onPress={() => setChatBubbleExpanded(true)}
       >
         <View style={[styles.bubble, { bottom: tabBarHeight + 16 }]}>
-          <Text style={styles.bubbleIcon}>AI</Text>
+          <Text style={styles.bubbleIcon}>{'\u{1F4AC}'}</Text>
         </View>
       </TouchableOpacity>
     );
@@ -168,10 +168,11 @@ export default function ChatBubble() {
         />
 
         {/* Input */}
+        <Text style={styles.hintText}>ask AI to open any website you love</Text>
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Ask about products..."
+            placeholder="Ask AI to open any website..."
             placeholderTextColor="rgba(255,255,255,0.25)"
             value={inputText}
             onChangeText={setInputText}
@@ -224,9 +225,7 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   bubbleIcon: {
-    color: '#0D0D0D',
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 22,
   },
   expandedContainer: {
     position: 'absolute',
@@ -320,6 +319,13 @@ const styles = StyleSheet.create({
   },
   userMsgText: {
     color: '#0D0D0D',
+  },
+  hintText: {
+    color: 'rgba(232,200,160,0.45)',
+    fontSize: 11,
+    textAlign: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
   },
   inputRow: {
     flexDirection: 'row',
