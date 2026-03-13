@@ -10,6 +10,7 @@ import {
   RefreshControl,
   Modal,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -313,6 +314,7 @@ export default function SavedScreen() {
                     contentFit="contain"
                     nativeControls
                     allowsFullscreen
+                    {...(Platform.OS === 'android' ? { surfaceType: 'textureView' } : {})}
                   />
                 )}
               </View>

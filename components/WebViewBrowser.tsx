@@ -674,6 +674,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
                 contentFit="contain"
                 nativeControls
                 allowsFullscreen
+                {...(Platform.OS === 'android' ? { surfaceType: 'textureView' } : {})}
               />
             )}
           </View>
