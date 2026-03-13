@@ -244,6 +244,17 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             true;
           `);
         }
+        Alert.alert('No connection', 'Check your internet and try again.');
+      } else if (err.message === 'IMAGE_BLOCKED') {
+        // Safety filter — retrying won't help
+        const blockedText = 'AI couldn\'t generate this — try a different product or photo';
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(blockedText)} }), '*');
+            true;
+          `);
+        }
+        Alert.alert('Blocked by AI', blockedText);
       } else {
         const isTimeout = err.message === 'TIMEOUT';
         const timeoutQuips = [
@@ -266,6 +277,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             true;
           `);
         }
+        Alert.alert('Try-on failed', errorText);
       }
     } finally {
       tryOnLoadingRef.current = false;
@@ -345,36 +357,41 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         await new Promise((resolve) => setTimeout(resolve, pollInterval));
         pollInterval = Math.min(pollInterval * 1.5, 10000);
         pollCount++;
+        // Fetch the poll — network errors are transient, status errors are terminal
+        let poll: { status: string; videoUrl?: string; error?: string };
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-          const poll = await api.pollVideo(jobId, controller.signal);
+          poll = await api.pollVideo(jobId, controller.signal);
           clearTimeout(timeoutId);
           consecutiveErrors = 0;
-          status = poll.status;
-          videoUrl = poll.videoUrl;
-          rlog('Video', `poll #${pollCount} status=${poll.status}`);
-          if (poll.status === 'failed') {
-            throw new Error(poll.error || 'Video generation failed');
-          }
-        } catch (pollErr: any) {
-          if (pollErr.message?.includes('generation failed')) {
-            throw pollErr;
-          }
-          // AC-4: 404 "Job not found" is terminal — break poll immediately
-          if (pollErr.message?.includes('Job not found') || pollErr.message?.includes('404')) {
-            throw new Error('Video job not found');
-          }
+        } catch (networkErr: any) {
           consecutiveErrors++;
-          rlog('Video', `poll #${pollCount} error (${consecutiveErrors}/5): ${pollErr.message}`);
+          rlog('Video', `poll #${pollCount} network error (${consecutiveErrors}/5): ${networkErr.message}`);
           if (consecutiveErrors >= 5) {
-            throw new Error('Video generation timed out');
+            throw new Error('Video polling failed — check your connection');
           }
+          continue;
+        }
+
+        // Poll succeeded — check job status
+        status = poll.status;
+        videoUrl = poll.videoUrl;
+        rlog('Video', `poll #${pollCount} status=${poll.status}`);
+
+        if (poll.status === 'failed') {
+          // Terminal — server said the job is dead, no point retrying
+          throw new Error(poll.error || 'Video generation failed');
         }
       }
 
+      // Guard: if loop exited with non-pending status but no video, it's a failure
+      if (status === 'failed' || !videoUrl) {
+        throw new Error('Video generation failed');
+      }
+
       rlog('Video', 'SUCCESS');
-      setVideoDataUri(videoUrl || null);
+      setVideoDataUri(videoUrl);
 
       // Update savedTryOns with video URL so Saved tab has it without refetching
       if (videoUrl) {

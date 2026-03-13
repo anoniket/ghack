@@ -239,9 +239,10 @@ export const PRODUCT_DETECTOR_JS = `
     removeLoadingOverlay();
 
     var parent = null;
-    if (productImg) {
+    var validImg = getValidProductImg();
+    if (validImg) {
       // Make the image container position:relative for overlay positioning
-      parent = productImg.parentElement;
+      parent = validImg.parentElement;
       if (parent) {
         var parentPos = window.getComputedStyle(parent).position;
         if (parentPos === 'static') {
@@ -531,6 +532,47 @@ export const PRODUCT_DETECTOR_JS = `
     }
   }
 
+  // Re-validate productImg before critical operations (overlay placement, image replacement).
+  // If the site swapped the DOM node (carousel, lazy-load, SPA re-render), re-detect it.
+  function getValidProductImg() {
+    // Still attached and visible? Keep it.
+    if (productImg && productImg.isConnected && productImg.getBoundingClientRect().height > 0) {
+      return productImg;
+    }
+
+    log('⚠️', 'REDETECT — productImg stale/detached, attempting re-detection');
+
+    // Clear marker so re-scan can find the same image again
+    if (productImg) productImg.removeAttribute(DETECTED_ATTR);
+    productImg = null;
+
+    // Try to find by original URL first (most reliable re-match)
+    if (originalProductSrc) {
+      var imgs = document.querySelectorAll('img');
+      for (var i = 0; i < imgs.length; i++) {
+        var src = imgs[i].currentSrc || imgs[i].src;
+        if (src === originalProductSrc && imgs[i].getBoundingClientRect().height > 0) {
+          log('✅', 'REDETECT — Found by URL match');
+          productImg = imgs[i];
+          productImg.setAttribute(DETECTED_ATTR, 'true');
+          return productImg;
+        }
+      }
+    }
+
+    // URL match failed — fall back to size-based detection
+    var img = findProductImage();
+    if (img) {
+      log('✅', 'REDETECT — Found by size-based scan');
+      img.setAttribute(DETECTED_ATTR, 'true');
+      productImg = img;
+      originalProductSrc = originalProductSrc || img.currentSrc || img.src;
+    } else {
+      log('❌', 'REDETECT — Failed, no valid product image found');
+    }
+    return productImg;
+  }
+
   function findProductImage() {
     var screenW = window.innerWidth;
     var threshold = screenW * 0.75;
@@ -686,8 +728,10 @@ export const PRODUCT_DETECTOR_JS = `
   }
 
   function replaceProductImage(imageSource) {
-    if (!productImg) {
-      log('❌', 'REPLACE — No product image reference found!');
+    // Re-validate productImg — site may have swapped the DOM node during generation
+    var validImg = getValidProductImg();
+    if (!validImg) {
+      log('❌', 'REPLACE — No product image found even after re-detection!');
       removeLoadingOverlay();
       return;
     }
@@ -695,12 +739,12 @@ export const PRODUCT_DETECTOR_JS = `
     log('🔄', 'REPLACE — Replacing product image with try-on result');
 
     // Nuke srcset and sizes so browser cant override our src
-    productImg.removeAttribute('srcset');
-    productImg.removeAttribute('sizes');
+    validImg.removeAttribute('srcset');
+    validImg.removeAttribute('sizes');
     log('🧹', 'REPLACE — Removed srcset and sizes attributes');
 
     // If inside a <picture>, remove all <source> tags
-    var picture = productImg.closest('picture');
+    var picture = validImg.closest('picture');
     if (picture) {
       var sources = picture.querySelectorAll('source');
       sources.forEach(function(s) { s.remove(); });
@@ -714,7 +758,7 @@ export const PRODUCT_DETECTOR_JS = `
     if (imageSource.startsWith('http')) {
       var preload = new Image();
       preload.onload = function() {
-        productImg.src = imageSource;
+        validImg.src = imageSource;
         __tryonImageSrc = imageSource;
         log('✅', 'REPLACE — Product image replaced with CDN URL (preloaded)');
         removeLoadingOverlay();
@@ -722,7 +766,7 @@ export const PRODUCT_DETECTOR_JS = `
         showButtonRow(true, '\\u{21BB}');
       };
       preload.onerror = function() {
-        productImg.src = imageSource;
+        validImg.src = imageSource;
         __tryonImageSrc = imageSource;
         log('⚠️', 'REPLACE — CDN preload failed, set src directly');
         removeLoadingOverlay();
@@ -731,8 +775,8 @@ export const PRODUCT_DETECTOR_JS = `
       };
       preload.src = imageSource;
     } else {
-      productImg.src = 'data:image/png;base64,' + imageSource;
-      __tryonImageSrc = productImg.src;
+      validImg.src = 'data:image/png;base64,' + imageSource;
+      __tryonImageSrc = validImg.src;
       log('✅', 'REPLACE — Product image replaced with base64 (length: ' + imageSource.length + ')');
       removeLoadingOverlay();
       makeImageTappable();

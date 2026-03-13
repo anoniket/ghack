@@ -3,6 +3,23 @@ import { config } from '../config';
 
 const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
 
+// Typed error classes — use instanceof, never string matching
+export class ImageBlockedError extends Error {
+  public reason: string;
+  constructor(reason: string) {
+    super(`Image generation blocked: ${reason}`);
+    this.name = 'ImageBlockedError';
+    this.reason = reason;
+  }
+}
+
+export class TimeoutError extends Error {
+  constructor(operation: string, ms: number) {
+    super(`${operation} timed out after ${ms}ms`);
+    this.name = 'TimeoutError';
+  }
+}
+
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
   DETECT: 'gemini-2.5-pro',
@@ -561,6 +578,26 @@ export async function prepareTryOn(
   return { selfieBase64, productBase64, usePhotoshoot, productZone, reasoning, imageGenPrompt };
 }
 
+// Extract block reason from a Gemini response that returned no image
+function extractBlockReason(response: any, label: string): string {
+  const finishReason = response.candidates?.[0]?.finishReason;
+  const safetyRatings = response.candidates?.[0]?.safetyRatings;
+  const promptFeedback = response.promptFeedback;
+  const blockReason = promptFeedback?.blockReason;
+
+  const details: string[] = [];
+  if (finishReason && finishReason !== 'STOP') details.push(`finishReason=${finishReason}`);
+  if (blockReason) details.push(`blockReason=${blockReason}`);
+  if (safetyRatings) {
+    const blocked = safetyRatings.filter((r: any) => r.blocked || r.probability === 'HIGH');
+    if (blocked.length > 0) details.push(`safety=${blocked.map((r: any) => r.category).join(',')}`);
+  }
+
+  const reason = details.length > 0 ? details.join(', ') : 'unknown';
+  console.error(`[${label}] Generation returned no image: ${reason}`);
+  return reason;
+}
+
 export async function generateTryOn(
   selfieBase64: string,
   productBase64: string,
@@ -574,8 +611,9 @@ export async function generateTryOn(
     : fallbackPrompt;
   const model = usePhotoshoot ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
 
+  const timeoutMs = usePhotoshoot ? 60000 : 30000;
   const genStart = Date.now();
-  const response = await ai.models.generateContent({
+  const genPromise = ai.models.generateContent({
     model,
     contents: [
       {
@@ -603,6 +641,11 @@ export async function generateTryOn(
     } as any,
   });
 
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new TimeoutError('V1 generation', timeoutMs)), timeoutMs)
+  );
+
+  const response = await Promise.race([genPromise, timeoutPromise]);
   const genMs = Date.now() - genStart;
 
   const parts = response.candidates?.[0]?.content?.parts;
@@ -614,7 +657,8 @@ export async function generateTryOn(
     }
   }
 
-  throw new Error('No image generated. The model did not return an image.');
+  const reason = extractBlockReason(response, 'V1');
+  throw new ImageBlockedError(reason);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -711,7 +755,7 @@ export async function generateTryOnV2(
   });
 
   const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error('TIMEOUT')), timeoutMs)
+    setTimeout(() => reject(new TimeoutError('V2 generation', timeoutMs)), timeoutMs)
   );
 
   const response = await Promise.race([genPromise, timeoutPromise]);
@@ -725,7 +769,9 @@ export async function generateTryOnV2(
     }
   }
 
-  throw new Error('No image generated. The model did not return an image.');
+  // Extract why Gemini refused — finishReason, safety ratings, prompt feedback
+  const reason = extractBlockReason(response, 'V2');
+  throw new ImageBlockedError(reason);
 }
 
 // In-memory video job storage

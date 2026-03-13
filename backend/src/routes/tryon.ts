@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64 } from '../services/gemini';
+import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError } from '../services/gemini';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
 
@@ -135,9 +135,16 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
       }
     })();
   } catch (err: any) {
-    console.error(`${tag} Generate ERROR:`, err.message);
-    // SEC-7: Generic error to client, details logged server-side only
-    res.status(500).json({ error: 'Try-on generation failed' });
+    if (err instanceof TimeoutError) {
+      console.error(`${tag} Generate TIMEOUT:`, err.message);
+      res.status(504).json({ error: 'TIMEOUT' });
+    } else if (err instanceof ImageBlockedError) {
+      console.error(`${tag} Generate BLOCKED:`, err.reason);
+      res.status(422).json({ error: 'IMAGE_BLOCKED' });
+    } else {
+      console.error(`${tag} Generate ERROR:`, err.message);
+      res.status(500).json({ error: 'Try-on generation failed' });
+    }
   }
 });
 
@@ -206,18 +213,19 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       }
     })();
   } catch (err: any) {
-    const isTimeout = err.message === 'TIMEOUT';
     // AC-2: Detect S3 NoSuchKey (selfie deleted) and return specific error
-    const isSelfieNotFound = err.name === 'NoSuchKey' || err.Code === 'NoSuchKey';
-    if (isSelfieNotFound) {
+    if (err.name === 'NoSuchKey' || err.Code === 'NoSuchKey') {
       console.error(`${tag} V2 → selfie not found in S3`);
       res.status(400).json({ error: 'SELFIE_NOT_FOUND' });
-      return;
+    } else if (err instanceof TimeoutError) {
+      console.error(`${tag} V2 TIMEOUT:`, err.message);
+      res.status(504).json({ error: 'TIMEOUT' });
+    } else if (err instanceof ImageBlockedError) {
+      console.error(`${tag} V2 BLOCKED:`, err.reason);
+      res.status(422).json({ error: 'IMAGE_BLOCKED' });
+    } else {
+      console.error(`${tag} V2 ERROR:`, err.message);
+      res.status(500).json({ error: 'Try-on generation failed' });
     }
-    console.error(`${tag} V2 ${isTimeout ? 'TIMEOUT' : 'ERROR'}:`, err.message);
-    // SEC-7: Generic error to client, details logged server-side only
-    res.status(isTimeout ? 504 : 500).json({
-      error: isTimeout ? 'TIMEOUT' : 'Try-on generation failed',
-    });
   }
 });

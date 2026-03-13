@@ -292,6 +292,7 @@ const styles = StyleSheet.create({
   msgList: {
     padding: 14,
     flexGrow: 1,
+    justifyContent: 'flex-end',
   },
   msg: {
     maxWidth: '80%',
