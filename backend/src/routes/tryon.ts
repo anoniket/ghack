@@ -19,6 +19,9 @@ setInterval(() => {
   }
 }, 60 * 1000);
 
+// H3: Max selfie base64 size — ~7MB base64 = ~5MB image
+const MAX_SELFIE_BASE64_LEN = 7 * 1024 * 1024;
+
 // Step 1: Zone detection — caches selfie + product base64 for step 2
 tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
   const { queued } = geminiConcurrency();
@@ -31,6 +34,11 @@ tryonRouter.post('/tryon/prepare', async (req: Request, res: Response) => {
 
   if (!selfieBase64 || !productImageUrl) {
     res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
+    return;
+  }
+
+  if (typeof selfieBase64 === 'string' && selfieBase64.length > MAX_SELFIE_BASE64_LEN) {
+    res.status(400).json({ error: 'Selfie too large' });
     return;
   }
 
@@ -174,8 +182,19 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   const tag = `[${req.deviceId}]`;
   const usePro = !!retry;
 
+  // H5: IDOR check — selfieS3Key must belong to this device
+  if (selfieS3Key && !selfieS3Key.startsWith(`${req.deviceId}/`)) {
+    res.status(403).json({ error: 'Access denied' });
+    return;
+  }
+
   if (!selfieBase64 || !productImageUrl) {
     res.status(400).json({ error: 'selfieBase64 and productImageUrl are required' });
+    return;
+  }
+
+  if (typeof selfieBase64 === 'string' && selfieBase64.length > MAX_SELFIE_BASE64_LEN) {
+    res.status(400).json({ error: 'Selfie too large' });
     return;
   }
 
