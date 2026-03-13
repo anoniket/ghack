@@ -123,7 +123,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       rlog('TryOn', 'product received but no selfie — aborting');
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'tryon_no_retry', errorText: 'Take a selfie first' }), '*');
+          if (window.__tryonShowNoRetryError) { window.__tryonShowNoRetryError('Take a selfie first'); }
           true;
         `);
       }
@@ -144,11 +144,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     // Show loading overlay immediately via direct call (postMessage can be unreliable on some sites)
     if (webViewRef.current) {
       webViewRef.current.injectJavaScript(`
-        if (window.__tryonShowLoading) {
-          window.__tryonShowLoading();
-        } else {
-          window.postMessage(JSON.stringify({ type: 'tryon_loading' }), '*');
-        }
+        if (window.__tryonShowLoading) { window.__tryonShowLoading(); }
         true;
       `);
     }
@@ -223,7 +219,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
-            window.postMessage(JSON.stringify({ type: 'tryon_no_retry', errorText: 'Selfie expired, please retake' }), '*');
+            if (window.__tryonShowNoRetryError) { window.__tryonShowNoRetryError('Selfie expired, please retake'); }
             true;
           `);
         }
@@ -232,7 +228,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         // AC-3: Show cooldown message instead of generic error
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
-            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: 'chill, too many requests — try again in a min' }), '*');
+            if (window.__tryonShowError) { window.__tryonShowError('chill, too many requests — try again in a min'); }
             true;
           `);
         }
@@ -240,7 +236,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         // ERR-22: Specific message for network failures
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
-            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: 'no internet — check your connection' }), '*');
+            if (window.__tryonShowError) { window.__tryonShowError('no internet — check your connection'); }
             true;
           `);
         }
@@ -250,7 +246,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         const blockedText = 'AI couldn\'t generate this — try a different product or photo';
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
-            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(blockedText)} }), '*');
+            if (window.__tryonShowError) { window.__tryonShowError(${JSON.stringify(blockedText)}); }
             true;
           `);
         }
@@ -273,7 +269,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         const errorText = quips[Math.floor(Math.random() * quips.length)];
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
-            window.postMessage(JSON.stringify({ type: 'tryon_error', errorText: ${JSON.stringify(errorText)} }), '*');
+            if (window.__tryonShowError) { window.__tryonShowError(${JSON.stringify(errorText)}); }
             true;
           `);
         }
@@ -328,7 +324,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     // Tell WebView to show loading overlay
     if (webViewRef.current) {
       webViewRef.current.injectJavaScript(`
-        window.postMessage(JSON.stringify({ type: 'video_loading' }), '*');
+        if (window.__tryonShowVideoLoading) { window.__tryonShowVideoLoading(); }
         true;
       `);
     }
@@ -404,7 +400,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Tell WebView generation is done
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'video_done' }), '*');
+          if (window.__tryonVideoDone) { window.__tryonVideoDone(); }
           true;
         `);
       }
@@ -420,7 +416,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       const errorText = videoErrorQuips[Math.floor(Math.random() * videoErrorQuips.length)];
       if (webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({ type: 'video_error', errorText: ${JSON.stringify(errorText)} }), '*');
+          if (window.__tryonVideoError) { window.__tryonVideoError(${JSON.stringify(errorText)}); }
           true;
         `);
       }
@@ -469,11 +465,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         if (result.tryonS3Key) setLastTryonS3Key(result.tryonS3Key);
 
         webViewRef.current.injectJavaScript(`
-          window.postMessage(JSON.stringify({
-            type: 'previous_tryon',
-            imageUrl: ${JSON.stringify(result.tryonImageUrl)},
-            hasVideo: ${!!result.videoUrl}
-          }), '*');
+          if (window.__tryonPreviousTryon) { window.__tryonPreviousTryon(${JSON.stringify(result.tryonImageUrl)}); }
           true;
         `);
       }

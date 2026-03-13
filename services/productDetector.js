@@ -810,8 +810,77 @@ export const PRODUCT_DETECTOR_JS = `
   window.__tryonShowLoading = function() { __tryonBusy = true; showLoadingOverlay(); };
   window.__tryonSetDuration = function(d) { __tryonDuration = d; };
 
+  // C1-FIX: Direct function calls for all RN→WebView messages (avoids postMessage Android bug)
+  window.__tryonShowError = function(errorText) {
+    __tryonBusy = false;
+    log('📨', 'DIRECT CALL — __tryonShowError: ' + (errorText || ''));
+    var overlay = document.getElementById(TRYON_OVERLAY_ID);
+    if (overlay) {
+      var statusEl = overlay.querySelector('.__tryon-status-text');
+      if (statusEl) statusEl.textContent = errorText || 'oof, that failed';
+      var progressEl = overlay.querySelector('.__tryon-progress-fill');
+      if (progressEl) progressEl.style.background = '#ef4444';
+    }
+    if (quipTimerGlobal) { clearInterval(quipTimerGlobal); quipTimerGlobal = null; }
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    setTimeout(function() {
+      removeLoadingOverlay();
+      showButtonRow(false, '\\u{21BB} Retry');
+    }, 1500);
+  };
+  window.__tryonShowNoRetryError = function(errorText) {
+    __tryonBusy = false;
+    log('📨', 'DIRECT CALL — __tryonShowNoRetryError: ' + (errorText || ''));
+    if (quipTimerGlobal) { clearInterval(quipTimerGlobal); quipTimerGlobal = null; }
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    var nrOverlay = document.getElementById(TRYON_OVERLAY_ID);
+    if (nrOverlay) {
+      var nrStatus = nrOverlay.querySelector('.__tryon-status-text');
+      if (nrStatus) nrStatus.textContent = errorText || 'something went wrong';
+      var nrProgress = nrOverlay.querySelector('.__tryon-progress-fill');
+      if (nrProgress) nrProgress.style.background = '#ef4444';
+    }
+    setTimeout(function() {
+      removeLoadingOverlay();
+    }, 2000);
+  };
+  window.__tryonShowVideoLoading = function() {
+    __tryonBusy = true;
+    log('📨', 'DIRECT CALL — __tryonShowVideoLoading');
+    removeBtnRow();
+    showLoadingOverlay('video');
+  };
+  window.__tryonVideoDone = function() {
+    __tryonBusy = false;
+    log('📨', 'DIRECT CALL — __tryonVideoDone');
+    removeLoadingOverlay();
+    showButtonRow(true, '\\u{21BB} Retry');
+  };
+  window.__tryonVideoError = function(errorText) {
+    __tryonBusy = false;
+    log('📨', 'DIRECT CALL — __tryonVideoError: ' + (errorText || ''));
+    var overlay = document.getElementById(TRYON_OVERLAY_ID);
+    if (overlay) {
+      var statusEl = overlay.querySelector('.__tryon-status-text');
+      if (statusEl) statusEl.textContent = errorText || 'video flopped, retry?';
+      var progressEl = overlay.querySelector('.__tryon-progress-fill');
+      if (progressEl) progressEl.style.background = '#ef4444';
+    }
+    if (quipTimerGlobal) { clearInterval(quipTimerGlobal); quipTimerGlobal = null; }
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    setTimeout(function() {
+      removeLoadingOverlay();
+      showButtonRow(true, '\\u{21BB} Retry');
+    }, 1500);
+  };
+  window.__tryonPreviousTryon = function(imageUrl) {
+    log('📨', 'DIRECT CALL — __tryonPreviousTryon');
+    replaceProductImage(imageUrl);
+  };
+
   // Listen for messages from React Native (loading, result, error)
-  window.addEventListener('message', function(event) {
+  // C1-FIX: Also listen on document for Android (react-native-webview dispatches to document on Android)
+  function handleRNMessage(event) {
     try {
       var data = JSON.parse(event.data);
       if (data.type === 'tryon_loading') {
@@ -903,7 +972,9 @@ export const PRODUCT_DETECTOR_JS = `
     } catch(e) {
       // Ignore non-JSON messages
     }
-  });
+  }
+  window.addEventListener('message', handleRNMessage);
+  document.addEventListener('message', handleRNMessage);
 
   var lastKnownUrl = window.location.href;
   var resetTimer = null;
