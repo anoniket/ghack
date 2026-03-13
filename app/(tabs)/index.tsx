@@ -6,7 +6,7 @@ import ChatBubble from '@/components/ChatBubble';
 import OnboardingCamera from '@/components/OnboardingCamera';
 import CrashBoundary from '@/components/CrashBoundary';
 import { useAppStore } from '@/services/store';
-import { getSelfieUri, getSelfieS3Key, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
+import { getSelfieUri, getSelfieS3Key, uploadSelfieAndSaveKey, mapHistoryItem } from '@/utils/imageUtils';
 import { getDeviceId, getHistory } from '@/services/api';
 
 export default function HomeScreen() {
@@ -52,14 +52,7 @@ export default function HomeScreen() {
         })(),
         // Load saved try-ons from cloud
         getHistory().then(({ items }) => {
-          setSavedTryOns(items.map((item) => ({
-            id: item.sessionId,
-            imageUri: item.tryonImageUrl,
-            sourceUrl: item.sourceUrl,
-            timestamp: new Date(item.createdAt).getTime(),
-            videoUrl: item.videoUrl,
-            sessionId: item.sessionId,
-          })));
+          setSavedTryOns(items.map(mapHistoryItem));
           setHistoryLoaded(true);
         }).catch((err: any) => {
           console.error('Failed to load history:', err);

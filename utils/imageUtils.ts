@@ -66,3 +66,15 @@ export async function downloadImageToBase64(url: string): Promise<string> {
 
 // Re-export SavedTryOn from store for backward compatibility
 export type { SavedTryOn } from '@/services/store';
+
+// M33: Shared history item mapper — used in index.tsx and saved.tsx
+export function mapHistoryItem(item: { sessionId: string; tryonImageUrl: string; sourceUrl?: string; createdAt: string; videoUrl?: string }) {
+  return {
+    id: item.sessionId,
+    imageUri: item.tryonImageUrl,
+    sourceUrl: item.sourceUrl,
+    timestamp: new Date(item.createdAt).getTime(),
+    videoUrl: item.videoUrl,
+    sessionId: item.sessionId,
+  };
+}

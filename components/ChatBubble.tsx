@@ -12,11 +12,8 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
-import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
-import { sendChat } from '@/services/api';
-import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
-import { nextMsgId as nextId } from '@/utils/ids';
+import { useSendChat } from '@/hooks/useSendChat';
 import { TAB_BAR_BASE_HEIGHT } from '@/utils/constants';
 
 // PERF-5: Memoized message bubble — only re-renders when its own item changes
@@ -51,56 +48,15 @@ export default function ChatBubble() {
   const tryOnLoading = useAppStore((s) => s.tryOnLoading);
   const videoLoading = useAppStore((s) => s.videoLoading);
 
-  const { addMessage, setIsTyping, setCurrentUrl, setChatBubbleExpanded } = useAppStore.getState();
+  const { setChatBubbleExpanded } = useAppStore.getState();
   const flatListRef = useRef<FlatList>(null);
+  const sendChatMsg = useSendChat();
 
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || isTyping) return;
     setInputText('');
-
-    addMessage({
-      id: nextId('msg_user'),
-      role: 'user',
-      text,
-      timestamp: Date.now(),
-    });
-
-    setIsTyping(true);
-    try {
-      // SS-2: Read fresh messages from store — closure `messages` is stale after addMessage
-      const freshMessages = useAppStore.getState().messages;
-      const { text: response, url: serverUrl } = await sendChat(text,
-        freshMessages.slice(-15).map(m => ({ role: m.role, text: m.text }))
-      );
-      const url = serverUrl || extractUrlFromResponse(response);
-      const cleaned = cleanResponseText(response);
-
-      addMessage({
-        id: nextId('msg_model'),
-        role: 'model',
-        text: cleaned || response,
-        timestamp: Date.now(),
-      });
-
-      if (url) {
-        rlog('Chat', `bubble navigating to ${url}`);
-        setTimeout(() => {
-          setCurrentUrl(url);
-          setChatBubbleExpanded(false);
-        }, 1000);
-      }
-    } catch (err) {
-      rlog('Chat', `bubble send error: ${err}`);
-      addMessage({
-        id: nextId('msg_error'),
-        role: 'model',
-        text: 'Sorry, an error occurred.',
-        timestamp: Date.now(),
-      });
-    } finally {
-      setIsTyping(false);
-    }
+    sendChatMsg(text);
   };
 
   // PERF-6: Stable renderItem reference

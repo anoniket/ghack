@@ -12,11 +12,9 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useAppStore } from '@/services/store';
-import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
-import { sendChat } from '@/services/api';
-import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
 import { nextMsgId as nextId } from '@/utils/ids';
+import { useSendChat } from '@/hooks/useSendChat';
 
 // M28: Memoized message bubble — only re-renders when its own item changes
 const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: number }) => {
@@ -50,15 +48,10 @@ export default function ChatInterface() {
   const flatListRef = useRef<FlatList>(null);
   // PLAT-17: Track scroll position — only auto-scroll when near bottom
   const isNearBottom = useRef(true);
-  const {
-    messages,
-    addMessage,
-    isTyping,
-    setIsTyping,
-    setMode,
-    setCurrentUrl,
-    setChatBubbleExpanded,
-  } = useAppStore();
+  const messages = useAppStore((s) => s.messages);
+  const isTyping = useAppStore((s) => s.isTyping);
+  const addMessage = useAppStore.getState().addMessage;
+  const sendChat = useSendChat();
 
   // PERF-17: Show hardcoded greeting immediately — no Gemini API wait on cold start
   useEffect(() => {
@@ -77,60 +70,11 @@ export default function ChatInterface() {
     }
   }, []);
 
-  const handleSendText = async (text: string) => {
-    if (!text.trim() || isTyping) return;
-    const msg = text.trim();
-
-    addMessage({
-      id: nextId('msg_user'),
-      role: 'user',
-      text: msg,
-      timestamp: Date.now(),
-    });
-
-    setIsTyping(true);
-    try {
-      // SS-2: Read fresh messages from store to avoid stale closure
-      const freshMessages = useAppStore.getState().messages;
-      const { text: response, url: serverUrl } = await sendChat(msg,
-        freshMessages.slice(-15).map(m => ({ role: m.role, text: m.text }))
-      );
-      const url = serverUrl || extractUrlFromResponse(response);
-      const cleaned = cleanResponseText(response);
-
-      addMessage({
-        id: nextId('msg_model'),
-        role: 'model',
-        text: cleaned || response,
-        timestamp: Date.now(),
-      });
-
-      if (url) {
-        rlog('Chat', `navigating to ${url}`);
-        setTimeout(() => {
-          setCurrentUrl(url);
-          setMode('webview');
-          setChatBubbleExpanded(false);
-        }, 1500);
-      }
-    } catch (err) {
-      rlog('Chat', `send error: ${err}`);
-      addMessage({
-        id: nextId('msg_error'),
-        role: 'model',
-        text: 'Sorry, I encountered an error. Please try again.',
-        timestamp: Date.now(),
-      });
-    } finally {
-      setIsTyping(false);
-    }
-  };
-
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || isTyping) return;
     setInputText('');
-    handleSendText(text);
+    sendChat(text);
   };
 
   const maxBubbleWidth = W * 0.72;

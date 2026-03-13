@@ -18,7 +18,7 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
-import { deleteSelfie } from '@/utils/imageUtils';
+import { deleteSelfie, mapHistoryItem } from '@/utils/imageUtils';
 
 
 interface TimelineSection {
@@ -142,14 +142,7 @@ export default function SavedScreen() {
   const loadSaved = async () => {
     try {
       const { items } = await api.getHistory();
-      setSavedTryOns(items.map((item) => ({
-        id: item.sessionId,
-        imageUri: item.tryonImageUrl,
-        sourceUrl: item.sourceUrl,
-        timestamp: new Date(item.createdAt).getTime(),
-        videoUrl: item.videoUrl,
-        sessionId: item.sessionId,
-      })));
+      setSavedTryOns(items.map(mapHistoryItem));
     } catch (err) {
       // silent — non-critical
     }
