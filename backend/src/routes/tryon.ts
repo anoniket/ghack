@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prepareTryOn, generateTryOn, generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
+import sharp from 'sharp';
 
 // C4: Reject early if too many requests are queued (prevent unbounded memory growth)
 const MAX_QUEUED = 20;
@@ -115,7 +116,7 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
 
     // Respond immediately with base64 — app can inject into WebView right away
     const sessionId = `ses_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
+    const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.jpg`;
     const durationMs = Date.now() - startTime;
     console.log(`${tag} Generate → responding with base64 in ${durationMs}ms, session=${sessionId}`);
 
@@ -131,9 +132,10 @@ tryonRouter.post('/tryon/generate', async (req: Request, res: Response) => {
     (async () => {
       try {
         let bt = Date.now();
-        const resultBuffer = Buffer.from(resultBase64, 'base64');
-        await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
-        console.log(`${tag} Generate → S3 upload (bg): ${Date.now() - bt}ms`);
+        const pngBuffer = Buffer.from(resultBase64, 'base64');
+        const resultBuffer = await sharp(pngBuffer).jpeg({ quality: 85 }).toBuffer();
+        await uploadBuffer(tryonS3Key, resultBuffer, 'image/jpeg');
+        console.log(`${tag} Generate → S3 upload (bg): ${Date.now() - bt}ms, jpg=${resultBuffer.length}`);
 
         console.log(`${tag} Generate → sourceUrl=${sourceUrl || '(none)'}`);
         await putSession({
@@ -213,7 +215,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
     const sessionId = `ses_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-    const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.png`;
+    const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.jpg`;
     const durationMs = Date.now() - startTime;
 
     res.json({
@@ -228,9 +230,10 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     // Background: S3 + DynamoDB
     (async () => {
       try {
-        const resultBuffer = Buffer.from(resultBase64, 'base64');
-        await uploadBuffer(tryonS3Key, resultBuffer, 'image/png');
-        console.log(`${tag} V2 → S3 upload (bg): done → ${cdnUrl(tryonS3Key)}`);
+        const pngBuffer = Buffer.from(resultBase64, 'base64');
+        const resultBuffer = await sharp(pngBuffer).jpeg({ quality: 85 }).toBuffer();
+        await uploadBuffer(tryonS3Key, resultBuffer, 'image/jpeg');
+        console.log(`${tag} V2 → S3 upload (bg): done, jpg=${resultBuffer.length} → ${cdnUrl(tryonS3Key)}`);
 
         await putSession({
           deviceId: req.deviceId,
