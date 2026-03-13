@@ -355,7 +355,7 @@ export default function SavedScreen() {
         ) : (
           <FlatList
             data={flatData}
-            keyExtractor={(item, idx) => item.type === 'header' ? `h_${item.title}` : `r_${idx}`}
+            keyExtractor={(item) => item.type === 'header' ? `h_${item.title}` : `r_${item.items.map(i => i.id).join('_')}`}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}

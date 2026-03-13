@@ -17,6 +17,7 @@ import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
 import { nextMsgId as nextId } from '@/utils/ids';
+import { TAB_BAR_BASE_HEIGHT } from '@/utils/constants';
 
 // PERF-5: Memoized message bubble — only re-renders when its own item changes
 const MessageBubble = memo(({ item }: { item: ChatMessage }) => (
@@ -40,7 +41,7 @@ const MessageBubble = memo(({ item }: { item: ChatMessage }) => (
 export default function ChatBubble() {
   const { height: SCREEN_HEIGHT } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const tabBarHeight = 58 + insets.bottom; // matches _layout.tsx tab bar
+  const tabBarHeight = TAB_BAR_BASE_HEIGHT + insets.bottom;
   const [inputText, setInputText] = useState('');
 
   // PERF-6: Individual selectors — collapsed bubble doesn't re-render on message changes

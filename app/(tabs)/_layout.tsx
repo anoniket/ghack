@@ -5,6 +5,7 @@ import { BlurView } from 'expo-blur';
 import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
+import { TAB_BAR_BASE_HEIGHT } from '@/utils/constants';
 
 // PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
 if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
@@ -37,7 +38,7 @@ export default function TabLayout() {
           backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(13,13,13,0.95)',
           borderTopColor: 'rgba(255,255,255,0.06)',
           borderTopWidth: 0.5,
-          height: 58 + insets.bottom,
+          height: TAB_BAR_BASE_HEIGHT + insets.bottom,
           paddingBottom: insets.bottom,
           paddingTop: 10,
           elevation: 0,

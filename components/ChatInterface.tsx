@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
@@ -16,6 +17,31 @@ import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { ChatMessage } from '@/services/store';
 import { nextMsgId as nextId } from '@/utils/ids';
+
+// M28: Memoized message bubble — only re-renders when its own item changes
+const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: number }) => {
+  const isUser = item.role === 'user';
+  return (
+    <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
+      {!isUser && (
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>AI</Text>
+        </View>
+      )}
+      <View
+        style={[
+          styles.messageBubble,
+          { maxWidth },
+          isUser ? styles.userBubble : styles.aiBubble,
+        ]}
+      >
+        <Text style={[styles.messageText, isUser && styles.userText]}>
+          {item.text}
+        </Text>
+      </View>
+    </View>
+  );
+});
 
 export default function ChatInterface() {
   const { width: W } = useWindowDimensions();
@@ -107,29 +133,11 @@ export default function ChatInterface() {
     handleSendText(text);
   };
 
-  const renderMessage = ({ item }: { item: ChatMessage }) => {
-    const isUser = item.role === 'user';
-    return (
-      <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
-        {!isUser && (
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>AI</Text>
-          </View>
-        )}
-        <View
-          style={[
-            styles.messageBubble,
-            { maxWidth: W * 0.72 },
-            isUser ? styles.userBubble : styles.aiBubble,
-          ]}
-        >
-          <Text style={[styles.messageText, isUser && styles.userText]}>
-            {item.text}
-          </Text>
-        </View>
-      </View>
-    );
-  };
+  const maxBubbleWidth = W * 0.72;
+  const renderMessage = useCallback(
+    ({ item }: { item: ChatMessage }) => <MessageBubble item={item} maxWidth={maxBubbleWidth} />,
+    [maxBubbleWidth]
+  );
 
   return (
     <View style={styles.container}>
@@ -193,11 +201,7 @@ export default function ChatInterface() {
                   <Text style={styles.avatarText}>AI</Text>
                 </View>
                 <View style={[styles.messageBubble, styles.aiBubble]}>
-                  <View style={styles.typingDots}>
-                    <View style={[styles.dot, styles.dot1]} />
-                    <View style={[styles.dot, styles.dot2]} />
-                    <View style={[styles.dot, styles.dot3]} />
-                  </View>
+                  <ActivityIndicator size="small" color="#E8C8A0" />
                 </View>
               </View>
             ) : null
@@ -311,21 +315,6 @@ const styles = StyleSheet.create({
   userText: {
     color: '#0D0D0D',
   },
-  typingDots: {
-    flexDirection: 'row',
-    gap: 5,
-    paddingVertical: 4,
-    paddingHorizontal: 4,
-  },
-  dot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-  },
-  dot1: { opacity: 0.4 },
-  dot2: { opacity: 0.6 },
-  dot3: { opacity: 0.8 },
   inputWrapper: {
     paddingHorizontal: 16,
     paddingTop: 8,
