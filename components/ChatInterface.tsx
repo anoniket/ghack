@@ -89,7 +89,7 @@ export default function ChatInterface() {
       <KeyboardAvoidingView
         style={styles.flex}
         behavior="padding"
-        keyboardVerticalOffset={tabBarHeight}
+        keyboardVerticalOffset={-tabBarHeight}
       >
         <FlatList
           ref={flatListRef}
