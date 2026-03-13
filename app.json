@@ -2,6 +2,7 @@
   "expo": {
     "name": "mrigAI",
     "slug": "tryonai",
+    "owner": "anoniket",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,8 +15,9 @@
       "backgroundColor": "#0f0f1a"
     },
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.mrigai.app",
+      "buildNumber": "1",
       "infoPlist": {
         "NSCameraUsageDescription": "mrigAI needs camera access to take your selfie for virtual try-on.",
         "NSPhotoLibraryUsageDescription": "mrigAI needs photo library access to select your photo for virtual try-on."
@@ -23,6 +25,7 @@
     },
     "android": {
       "package": "com.mrigai.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#0f0f1a"
