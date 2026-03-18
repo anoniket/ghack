@@ -287,8 +287,11 @@ const TRYON_V2_PROMPT = `You are a professional virtual try-on photographer. You
 - Image 1: The customer (keep their exact face, skin tone, hair, body proportions)
 - Image 2: The product they want to try on
 
-BODY PRESERVATION — THIS IS THE #1 RULE:
-Image 1 is the SOLE reference for the person's physical appearance. Every aspect of their body — height, weight, build, shoulder width, waist, hips, bust, arms, legs — comes ONLY from Image 1. If a model/mannequin is wearing the product in Image 2, IGNORE that model's body completely. Extract ONLY the garment from Image 2 — its color, fabric, pattern, cut, and design. The model in Image 2 is just a hanger. Think of this as a fitting room: the person from Image 1 walks in, tries on the garment from Image 2, and looks in the mirror. The person does NOT change shape — the garment adapts to THEIR body, not the other way around. Do NOT make the person thinner, curvier, taller, shorter, or more "model-like." The output person must be physically indistinguishable from Image 1 in terms of body shape and build.
+IDENTITY LOCK — THE #1 RULE (READ BEFORE ANYTHING ELSE):
+Image 1 is the SOLE identity anchor. The output person must be the SAME individual as Image 1 — not similar, IDENTICAL. Preserve exact facial structure: bone geometry, eye shape, eyelid fold, iris color, jawline definition, chin shape, nose bridge width, nostril shape, lip thickness, eyebrow arch, forehead proportions, cheekbone definition, dimple pattern, and skin texture including pores, marks, and blemishes. Do NOT smooth, reshape, slim, or beautify the face. Do NOT morph toward the model in Image 2. Realistic skin with visible texture — not plastic, waxy, or airbrushed. If you cannot preserve the exact face, prioritize face accuracy over clothing accuracy.
+
+BODY PRESERVATION:
+Every aspect of their body — height, weight, build, shoulder width, waist, hips, bust, arms, legs — comes ONLY from Image 1. If a model/mannequin is wearing the product in Image 2, IGNORE that model's body completely. Extract ONLY the garment from Image 2 — its color, fabric, pattern, cut, and design. The model in Image 2 is just a hanger. The person does NOT change shape — the garment adapts to THEIR body. Do NOT make the person thinner, curvier, taller, shorter, or more "model-like."
 
 STEP 1 — IDENTIFY THE PRODUCT:
 Look at Image 2 and determine which ONE category it falls into:
