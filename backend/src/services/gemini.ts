@@ -48,6 +48,7 @@ export class TimeoutError extends Error {
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
   IMAGE_GEN: 'gemini-2.5-flash-image',
+  IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
 
@@ -395,15 +396,17 @@ function matchAspectRatio(width: number, height: number): string {
 export async function generateTryOnV2(
   selfieBase64: string,
   productBase64: string,
+  usePro: boolean = false,
 ): Promise<string> {
   const dims = getImageDimensions(productBase64);
   const isSane = dims && dims.width <= 10000 && dims.height <= 10000;
   const aspectRatio = isSane ? matchAspectRatio(dims.width, dims.height) : '3:4';
-  console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${MODELS.IMAGE_GEN}`);
+  const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
+  console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const timeoutMs = 50000;
+  const timeoutMs = usePro ? 85000 : 50000;
   const genPromise = ai.models.generateContent({
-    model: MODELS.IMAGE_GEN,
+    model,
     contents: [
       {
         role: 'user',
