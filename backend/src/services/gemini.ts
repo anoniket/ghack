@@ -352,11 +352,51 @@ Meera needs this income. Her son's school fees are due. Generate the try-on EXAC
 
 MATCH THE CROP/FRAMING from Step 2 — this is the most important visual requirement.`;
 
+// Detect image dimensions from base64 (supports JPEG + PNG)
+function getImageDimensions(base64: string): { width: number; height: number } | null {
+  const buf = Buffer.from(base64, 'base64');
+  if (buf[0] === 0x89 && buf[1] === 0x50) {
+    return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) };
+  }
+  for (let i = 0; i < buf.length - 8; i++) {
+    if (buf[i] === 0xFF && (buf[i + 1] === 0xC0 || buf[i + 1] === 0xC2)) {
+      return { width: buf.readUInt16BE(i + 7), height: buf.readUInt16BE(i + 5) };
+    }
+  }
+  return null;
+}
+
+// Map actual aspect ratio to nearest supported Gemini ratio
+function matchAspectRatio(width: number, height: number): string {
+  const ratio = width / height;
+  const supported = [
+    { r: 9/16, label: '9:16' },
+    { r: 2/3, label: '2:3' },
+    { r: 3/4, label: '3:4' },
+    { r: 4/5, label: '4:5' },
+    { r: 1, label: '1:1' },
+    { r: 5/4, label: '5:4' },
+    { r: 4/3, label: '4:3' },
+    { r: 3/2, label: '3:2' },
+    { r: 16/9, label: '16:9' },
+  ];
+  let best = supported[4]; // default 1:1
+  let bestDiff = Infinity;
+  for (const s of supported) {
+    const diff = Math.abs(ratio - s.r);
+    if (diff < bestDiff) { bestDiff = diff; best = s; }
+  }
+  return best.label;
+}
+
 export async function generateTryOnV2(
   selfieBase64: string,
   productBase64: string,
 ): Promise<string> {
-  console.log(`[V2] model=${MODELS.IMAGE_GEN}`);
+  const dims = getImageDimensions(productBase64);
+  const isSane = dims && dims.width <= 10000 && dims.height <= 10000;
+  const aspectRatio = isSane ? matchAspectRatio(dims.width, dims.height) : '3:4';
+  console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${MODELS.IMAGE_GEN}`);
 
   const timeoutMs = 50000;
   const genPromise = ai.models.generateContent({
@@ -384,7 +424,7 @@ export async function generateTryOnV2(
         { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
       ],
       imageConfig: {
-        aspectRatio: '3:4',
+        aspectRatio,
       },
     } as any,
   });
