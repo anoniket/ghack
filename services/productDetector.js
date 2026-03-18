@@ -223,13 +223,13 @@ export const PRODUCT_DETECTOR_JS = `
   var progressInterval = null;
   var quipTimerGlobal = null;
 
-  var __tryonDuration = 15000; // default for NB1 (gemini-2.5-flash-image)
+  var __tryonDuration = 20000; // default for NB1 (gemini-2.5-flash-image)
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
 
     // Reset duration to default — prevents retry's 35s from sticking
-    __tryonDuration = 15000;
+    __tryonDuration = 20000;
 
     // Remove existing overlay
     removeLoadingOverlay();
@@ -313,76 +313,73 @@ export const PRODUCT_DETECTOR_JS = `
     var isVideo = mode === 'video';
     // Fun quirky loading messages — cycle fast regardless of progress speed
     var tryonQuips = [
-      'mentally undressing you...',
       'its giving main character...',
       'okay u kinda ate that...',
-      'checking you out... for science...',
       'not me blushing at pixels...',
       'ur outfit has trust issues...',
-      'stripping... the old clothes off...',
       'the AI said wow btw...',
       'fitting room but make it AI...',
       'this is fashion not a crime...',
-      'wardrobe malfunction loading...',
       'drip check in progress...',
-      'styling you like my crush...',
       'be honest u look expensive...',
       'AI went feral for this one...',
       'the fit is fitting...',
       'gaslight gatekeep slay...',
       'ur giving old money vibes...',
-      'alexa play sexy back...',
       'mirror mirror on the wall...',
       'no thoughts just drip...',
       'ur card declined but u still ate...',
       'downloading rizz...',
       'AI caught feelings ngl...',
-      'objectifying you respectfully...',
       'hold my pixels...',
-      'ur body said yes already...',
-      'this is legal i promise...',
       'the mannequin is shaking rn...',
       'couture but make it unhinged...',
       'outfit so fire calling 911...',
       'dressing u up like my sim...',
       'the algorithm has a crush...',
-      'serving cunt honestly...',
       'ur closet could never...',
-      'AI is down bad for u...',
-      'virtual sugar daddy energy...',
       'ctrl+z ur old outfit...',
       'fashion emergency dispatched...',
       'swipe right on this fit...',
-      'hotter than ur ex ngl...',
       'ur stylist called. its me...',
       'deleting ur old wardrobe...',
       'the vibe check cleared...',
       'giving renaissance era slay...',
       'fabric physics go brr...',
-      'the AI needs a cold shower...',
       'zara who? u ARE the brand...',
       'god tier fit incoming...',
       'ur reflection just gasped...',
       'adding drip... please wait...',
       'confidence.exe loading...',
-      'the cloth consented dw...',
       'stitching pixels with love...',
       'ur mom would be proud ngl...',
       'the fit is about to slap...',
       'breaking fashion laws rn...',
       'outfit reveal in 3 2 1...',
-      'AI is sweating... respectfully...',
       'this is art and ur the canvas...',
-      'certified hot person activity...',
       'ur outfit just got evicted...',
       'new drip who dis...',
       'the try-on of the century...',
-      'processing hotness levels...',
-      'AI having a fashion orgasm...',
       'upgrade in progress bestie...',
       'the algorithm is blushing...',
       'runway ready in seconds...',
       'making mannequins unemployed...',
+      'checking you out... for science...',
+      'styling you like my crush...',
+      'alexa play sexy back...',
+      'AI is down bad for u...',
+      'the AI needs a cold shower...',
+      'AI is sweating... respectfully...',
+      'certified hot person activity...',
+      'processing hotness levels...',
+      'personal stylist has entered...',
+      'ur wardrobe needed this...',
+      'cooking up the look...',
+      'AI doing its thing rn...',
+      'fashion.exe has started...',
+      'tailoring to perfection...',
+      'the glow up is loading...',
+      'fitting the drip...',
     ];
     var videoQuips = [
       'AI directing ur thirst trap...',
