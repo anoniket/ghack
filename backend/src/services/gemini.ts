@@ -283,6 +283,8 @@ function extractBlockReason(response: any, label: string): string {
 // Just: here's a person, here's a product, make them wear it.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+const TRYON_V2_PROMPT_SIMPLE = `Make the person in Image 1 wear the product from Image 2. Keep their exact face, body, and background. Show the product clearly.`;
+
 const TRYON_V2_PROMPT = `You are a professional virtual try-on photographer. You will receive two images:
 - Image 1: The customer (keep their exact face, skin tone, hair, body proportions)
 - Image 2: The product they want to try on
@@ -416,7 +418,7 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: TRYON_V2_PROMPT },
+          { text: TRYON_V2_PROMPT_SIMPLE },
           { text: '\n\nImage 1 (the person):' },
           { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
           { text: '\n\nImage 2 (the product):' },

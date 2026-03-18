@@ -192,13 +192,14 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
 
       if (err.message === 'RATE_LIMITED') {
-        // AC-3: Show cooldown message instead of generic error
+        // AC-3: Show cooldown message
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`
             if (window.__tryonShowError) { window.__tryonShowError('chill, too many requests — try again in a min'); }
             true;
           `);
         }
+        Alert.alert('Slow down', 'Too many requests — try again in a minute.');
       } else if (err.message === 'NETWORK_ERROR') {
         // ERR-22: Specific message for network failures
         if (webViewRef.current) {
