@@ -228,6 +228,9 @@ export const PRODUCT_DETECTOR_JS = `
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
 
+    // Reset duration to default — prevents retry's 35s from sticking
+    __tryonDuration = 15000;
+
     // Remove existing overlay
     removeLoadingOverlay();
 
