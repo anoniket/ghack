@@ -15,11 +15,9 @@ import { WebView } from 'react-native-webview';
 import { useVideoPlayer } from 'expo-video';
 import VideoModal from '@/components/VideoModal';
 import { useAppStore } from '@/services/store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
 import * as api from '@/services/api';
 import { imageUriToBase64 } from '@/utils/imageUtils';
-import { File } from 'expo-file-system';
 import { rlog } from '@/services/logger';
 
 
@@ -46,7 +44,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   // PERF-1: Individual selectors — only re-render when the specific field changes
   const currentUrl = useAppStore((s) => s.currentUrl);
   const selfieUri = useAppStore((s) => s.selfieUri);
-  const selfieS3Key = useAppStore((s) => s.selfieS3Key);
   const currentProduct = useAppStore((s) => s.currentProduct);
   const tryOnLoading = useAppStore((s) => s.tryOnLoading);
   const tryOnResult = useAppStore((s) => s.tryOnResult);
@@ -65,8 +62,6 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setVideoDataUri,
     setLastSessionId,
     setLastTryonS3Key,
-    setSelfieS3Key,
-    setSelfieUri,
   } = useAppStore.getState();
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
@@ -158,30 +153,13 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
 
-      // C5/PERF-2: Send S3 key instead of 3MB base64 — server downloads from S3 directly
-      // Fallback to base64 only if S3 key unavailable (e.g. upload failed during onboarding)
-      let selfieBase64: string | undefined;
-      if (!selfieS3Key) {
-        rlog('TryOn', 'no S3 key — falling back to local selfie base64');
-        const selfieFile = new File(selfieUri);
-        if (!selfieFile.exists) {
-          rlog('TryOn', 'selfie file missing from disk — forcing re-onboarding');
-          setSelfieS3Key(null);
-          setSelfieUri(null);
-          useAppStore.getState().setOnboardingComplete(false);
-          AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
-          AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
-          Alert.alert('Selfie not found', 'Your photo was cleared by the system. Please take a new selfie.');
-          return;
-        }
-        selfieBase64 = await imageUriToBase64(selfieUri);
-      }
+      // Always send selfie base64 from local filesystem — bypasses S3 download latency
+      const selfieBase64 = await imageUriToBase64(selfieUri);
 
       // Single-step V2 — no zone detection, no prepare
       const result = await api.tryOnV2({
         selfieBase64,
         productImageUrl: currentProduct.imageUrl,
-        selfieS3Key: selfieS3Key || undefined,
         sourceUrl: currentProduct.pageUrl,
         retry: currentProduct.retry,
       });
@@ -213,21 +191,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     } catch (err: any) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
 
-      if (err.message === 'SELFIE_NOT_FOUND') {
-        // Selfie was deleted from S3 — clear zustand + AsyncStorage + force re-onboarding
-        setSelfieS3Key(null);
-        setSelfieUri(null);
-        useAppStore.getState().setOnboardingComplete(false);
-        AsyncStorage.removeItem('selfie_s3_key').catch(() => {});
-        AsyncStorage.removeItem('user_selfie_uri').catch(() => {});
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowNoRetryError) { window.__tryonShowNoRetryError('Selfie expired, please retake'); }
-            true;
-          `);
-        }
-        Alert.alert('Selfie not found', 'Your selfie has expired. Please go to the Profile tab and take a new selfie.');
-      } else if (err.message === 'RATE_LIMITED') {
+      if (err.message === 'RATE_LIMITED') {
         // AC-3: Show cooldown message instead of generic error
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`

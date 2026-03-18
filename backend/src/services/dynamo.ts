@@ -25,7 +25,7 @@ export interface TryOnSession {
   deviceId: string;
   sessionId: string;
   sourceUrl?: string;
-  selfieS3Key: string;
+  selfieS3Key?: string;
   tryonS3Key: string;
   videoS3Key?: string;
   tryonCdnUrl: string;
