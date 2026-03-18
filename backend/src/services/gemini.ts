@@ -296,29 +296,31 @@ FOOTWEAR | RING | BRACELET/BANGLE/WATCH | EARRING/JHUMKA | NECKLACE/CHOKER/MANGA
 
 STEP 2 — FRAME THE SHOT (MANDATORY — match the product category):
 
-FOOTWEAR: Camera at KNEE HEIGHT, 10-15° down. Full body head to toe. Footwear = bottom 20-25% of frame. One foot forward turned 30° outward. Shoe silhouette, sole, buckles, logos all sharp. Do NOT shoot from standing eye level.
+UNIVERSAL RULE — FACE ALWAYS VISIBLE: In EVERY category below, the person's face from Image 1 MUST be clearly visible and recognizable. The user is trying to see THEMSELVES — a faceless, back-facing, or cropped-at-neck result is useless. Face must always be in the frame, in focus, and facing the camera (front or 3/4 angle). Never turn the person away from camera. Never crop above the chin.
 
-RING: Camera at chest height, 25-30° down. WAIST-UP CROP ONLY. Ring hand at chest/collarbone, fingers spread, ring finger separated. Ring is focal point — sharp and detailed. Face in upper 30%.
+FOOTWEAR: Full body head to toe, face clearly visible at top. Camera at knee-to-waist height. Footwear prominent in bottom 20-25% of frame. One foot forward turned 30° outward showing shoe profile. Face is smaller but must be sharp and recognizable.
 
-BRACELET/BANGLE/WATCH: Camera at chest height. WAIST-UP CROP. Arm bent 90° at elbow crossing body. Watch face square to camera. Bangles clustered at narrow forearm.
+RING: WAIST-UP CROP. Face in upper 30% of frame, clearly visible. Ring hand raised to chest/collarbone level, fingers spread, ring finger separated. Ring is focal point — sharp and detailed.
 
-EARRING/JHUMKA: Camera at exact eye level. CHEST-UP CROP. Head turned 20-30° to one side, hero earring fully visible. Hair tucked behind hero ear. Full drop visible from hook to lowest element.
+BRACELET/BANGLE/WATCH: WAIST-UP CROP. Face clearly visible in upper portion. Arm bent 90° at elbow crossing body. Watch face square to camera. Bangles clustered at narrow forearm.
 
-NECKLACE/CHOKER/MANGALSUTRA: Camera at collarbone height, 5-10° up. BUST-UP CROP. Shoulders squared, chin lifted 5°. Pendant dead center, chain visible both sides. Do NOT show below chest.
+EARRING/JHUMKA: CHEST-UP CROP, face is the anchor. Head turned 20-30° to one side (NOT away from camera — face still visible). Hero earring fully visible, hair tucked behind hero ear. Full drop visible from hook to lowest element.
 
-SUNGLASSES: Camera at exact eye level. HEAD-AND-SHOULDERS CROP. Face directly at camera. Glasses centered on nose bridge, both lenses visible.
+NECKLACE/CHOKER/MANGALSUTRA: BUST-UP CROP. Face clearly visible in upper half. Shoulders squared, chin lifted 5°. Pendant dead center, chain visible both sides.
 
-TOP: Camera at chest height. MID-THIGH TO HEAD crop. Body angled 15-25°. Full garment from shoulder seam to hem visible. Collar/neckline unobstructed.
+SUNGLASSES: HEAD-AND-SHOULDERS CROP. Face directly at camera, clearly visible. Glasses centered on nose bridge, both lenses visible.
 
-BOTTOM: Camera at HIP HEIGHT, 0-5° up. MID-CHEST TO FLOOR crop including shoes. Body 20-30°. One leg straight, one forward. Waistband to hem fully visible.
+TOP: MID-THIGH TO HEAD crop. Face clearly visible at top. Body angled 15-25°. Full garment from shoulder seam to hem visible. Collar/neckline unobstructed.
 
-FULL_OUTFIT: Camera at waist height. FULL BODY head to toe. Model fills 85-90% of vertical frame. Body at 20-30°. For sarees: pallu over left shoulder, front pleats at feet. For dresses: one foot forward, hand on hip.
+BOTTOM: FULL BODY head to toe, face visible at top. Body 20-30°. One leg straight, one forward. Waistband to hem fully visible.
 
-BAG: Camera at hip height. MID-THIGH TO HEAD crop. Bag on camera-facing side with CLEAR gap from body. Bag front face square to camera.
+FULL_OUTFIT: FULL BODY head to toe, face visible at top. Model fills 85-90% of vertical frame. Body at 20-30°. For sarees: pallu over left shoulder, front pleats at feet. For dresses: one foot forward, hand on hip.
 
-BELT: Camera at navel height. MID-THIGH TO MID-CHEST crop. Buckle faces camera. 60-70% of belt visible.
+BAG: MID-THIGH TO HEAD crop. Face clearly visible. Bag on camera-facing side with CLEAR gap from body. Bag front face square to camera.
 
-DUPATTA/STOLE/SHAWL: Camera at chest height. Waist-up for shoulder pieces, three-quarter for full dupattas. One hand holds fabric edge to show texture.
+BELT: WAIST-UP OR MID-THIGH TO HEAD crop — face MUST be included. Buckle faces camera. Belt clearly visible at waist.
+
+DUPATTA/STOLE/SHAWL: WAIST-UP crop minimum, face clearly visible. Drape covering shoulders. One hand holds fabric edge to show texture.
 
 STEP 3 — OUTFIT COHERENCE:
 The product from Image 2 is the HERO. Everything else must complement it.
