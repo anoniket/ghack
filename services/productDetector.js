@@ -223,7 +223,7 @@ export const PRODUCT_DETECTOR_JS = `
   var progressInterval = null;
   var quipTimerGlobal = null;
 
-  var __tryonDuration = 20000; // default for V2 (Nano Banana 2)
+  var __tryonDuration = 15000; // default for NB1 (gemini-2.5-flash-image)
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
