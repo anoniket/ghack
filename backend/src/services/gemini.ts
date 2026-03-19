@@ -1,7 +1,17 @@
 import { GoogleGenAI } from '@google/genai';
 import { config } from '../config';
 
-const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
+// Multi-key round-robin — spreads load across API keys to avoid per-key rate limits
+const aiClients = config.geminiApiKeys.map(key => new GoogleGenAI({ apiKey: key }));
+let _nextKeyIndex = 0;
+function getAI(): GoogleGenAI {
+  if (aiClients.length === 0) throw new Error('No Gemini API keys configured');
+  const client = aiClients[_nextKeyIndex % aiClients.length];
+  _nextKeyIndex++;
+  return client;
+}
+// Keep a single default for non-try-on calls (chat, video)
+const ai = aiClients[0];
 
 // C4: Concurrency semaphore — limits simultaneous Gemini API calls to prevent OOM
 const MAX_CONCURRENT_GEMINI = 10;
@@ -412,56 +422,74 @@ export async function generateTryOnV2(
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
   const timeoutMs = usePro ? 60000 : 50000;
-  const genPromise = ai.models.generateContent({
-    model,
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: TRYON_V2_PROMPT_SIMPLE },
-          { text: '\n\nImage 1 (the person):' },
-          { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
-          { text: '\n\nImage 2 (the product):' },
-          { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
-        ],
-      },
-    ],
-    config: {
-      responseModalities: ['TEXT', 'IMAGE'] as any,
-      personGeneration: 'ALLOW_ADULT',
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
+  const maxAttempts = Math.min(aiClients.length, 3); // try up to 3 different keys
+
+  const contents = [
+    {
+      role: 'user' as const,
+      parts: [
+        { text: TRYON_V2_PROMPT_SIMPLE },
+        { text: '\n\nImage 1 (the person):' },
+        { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
+        { text: '\n\nImage 2 (the product):' },
+        { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
       ],
-      imageConfig: {
-        aspectRatio,
-      },
-    } as any,
-  });
+    },
+  ];
 
-  let timeoutId2: ReturnType<typeof setTimeout>;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId2 = setTimeout(() => reject(new TimeoutError('V2 generation', timeoutMs)), timeoutMs);
-  });
+  const genConfig = {
+    responseModalities: ['TEXT', 'IMAGE'] as any,
+    personGeneration: 'ALLOW_ADULT',
+    safetySettings: [
+      { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+      { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
+    ],
+    imageConfig: {
+      aspectRatio,
+    },
+  } as any;
 
-  const response = await Promise.race([genPromise, timeoutPromise]);
-  clearTimeout(timeoutId2!); // M14: Clear timer after race resolves
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const client = getAI();
+    const keyIndex = (_nextKeyIndex - 1) % aiClients.length;
 
-  const parts = response.candidates?.[0]?.content?.parts;
-  if (parts) {
-    for (const part of parts) {
-      if ((part as any).inlineData) {
-        return (part as any).inlineData.data;
+    try {
+      const genPromise = client.models.generateContent({ model, contents, config: genConfig });
+
+      let timeoutId2: ReturnType<typeof setTimeout>;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId2 = setTimeout(() => reject(new TimeoutError('V2 generation', timeoutMs)), timeoutMs);
+      });
+
+      const response = await Promise.race([genPromise, timeoutPromise]);
+      clearTimeout(timeoutId2!);
+
+      const parts = response.candidates?.[0]?.content?.parts;
+      if (parts) {
+        for (const part of parts) {
+          if ((part as any).inlineData) {
+            return (part as any).inlineData.data;
+          }
+        }
       }
+
+      // No image but not a 503 — don't retry, it's a content block
+      const reason = extractBlockReason(response, 'V2');
+      throw new ImageBlockedError(reason);
+    } catch (err: any) {
+      const is503 = err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand');
+      if (is503 && attempt < maxAttempts - 1) {
+        console.log(`[V2] Key #${keyIndex} got 503, retrying with next key (attempt ${attempt + 2}/${maxAttempts})`);
+        continue;
+      }
+      throw err;
     }
   }
 
-  // Extract why Gemini refused — finishReason, safety ratings, prompt feedback
-  const reason = extractBlockReason(response, 'V2');
-  throw new ImageBlockedError(reason);
+  throw new Error('All API keys exhausted');
 }
 
 // In-memory video job storage
@@ -564,7 +592,7 @@ export async function startVideoGeneration(
     console.log(`${tag} Video → job=${jobId} downloading video`);
     const rawUrl = video.uri || video.url;
     const separator = rawUrl.includes('?') ? '&' : '?';
-    const downloadUrl = `${rawUrl}${separator}key=${config.geminiApiKey}`;
+    const downloadUrl = `${rawUrl}${separator}key=${config.geminiApiKeys[0]}`;
     const videoResponse = await fetch(downloadUrl);
     if (!videoResponse.ok) {
       throw new Error(`Video download failed: HTTP ${videoResponse.status}`);
@@ -586,7 +614,7 @@ export async function startVideoGeneration(
     });
   } catch (err: any) {
     // M18: Strip API key from error messages before logging
-    const safeMsg = (err.message || '').replace(config.geminiApiKey, '[REDACTED]');
+    const safeMsg = config.geminiApiKeys.reduce((msg, key) => msg.replace(key, '[REDACTED]'), err.message || '');
     console.error(`${tag} Video → job=${jobId} FAILED: ${safeMsg}`);
     const existing = videoJobs.get(jobId);
     videoJobs.set(jobId, {
