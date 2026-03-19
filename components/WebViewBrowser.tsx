@@ -156,13 +156,45 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       // Always send selfie base64 from local filesystem — bypasses S3 download latency
       const selfieBase64 = await imageUriToBase64(selfieUri);
 
-      // Single-step V2 — no zone detection, no prepare
-      const result = await api.tryOnV2({
-        selfieBase64,
-        productImageUrl: currentProduct.imageUrl,
-        sourceUrl: currentProduct.pageUrl,
-        retry: currentProduct.retry,
-      });
+      // Single-step V2 with auto-retry on SERVER_BUSY (503)
+      const MAX_BUSY_RETRIES = 2;
+      let result: Awaited<ReturnType<typeof api.tryOnV2>> | null = null;
+      for (let attempt = 0; attempt <= MAX_BUSY_RETRIES; attempt++) {
+        try {
+          result = await api.tryOnV2({
+            selfieBase64,
+            productImageUrl: currentProduct.imageUrl,
+            sourceUrl: currentProduct.pageUrl,
+            retry: currentProduct.retry,
+          });
+          break; // success
+        } catch (busyErr: any) {
+          if (busyErr.message === 'SERVER_BUSY' && attempt < MAX_BUSY_RETRIES) {
+            rlog('TryOn', `SERVER_BUSY, auto-retrying (${attempt + 1}/${MAX_BUSY_RETRIES})`);
+            // Show "retrying" message in overlay for 3s, then reset loading
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                (function() {
+                  var status = document.querySelector('.__tryon-status-text');
+                  if (status) status.textContent = 'server busy, retrying...';
+                })();
+                true;
+              `);
+            }
+            await new Promise(r => setTimeout(r, 3000));
+            // Reset loading overlay fresh
+            if (webViewRef.current) {
+              webViewRef.current.injectJavaScript(`
+                if (window.__tryonShowLoading) { window.__tryonShowLoading(); }
+                true;
+              `);
+            }
+            continue;
+          }
+          throw busyErr; // not SERVER_BUSY or out of retries
+        }
+      }
+      if (!result) throw new Error('SERVER_BUSY'); // all retries failed
 
       rlog('TryOn', `SUCCESS model=${result.model} session=${result.sessionId}`);
 
@@ -191,7 +223,16 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     } catch (err: any) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
 
-      if (err.message === 'RATE_LIMITED') {
+      if (err.message === 'SERVER_BUSY') {
+        // All retry attempts got 503
+        if (webViewRef.current) {
+          webViewRef.current.injectJavaScript(`
+            if (window.__tryonShowError) { window.__tryonShowError('servers are packed rn, try again in a bit'); }
+            true;
+          `);
+        }
+        Alert.alert('Servers busy', 'AI servers are at capacity. Try again in a minute.');
+      } else if (err.message === 'RATE_LIMITED') {
         // AC-3: Show cooldown message
         if (webViewRef.current) {
           webViewRef.current.injectJavaScript(`

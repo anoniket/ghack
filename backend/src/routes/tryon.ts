@@ -96,7 +96,11 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       }
     })();
   } catch (err: any) {
-    if (err instanceof TimeoutError) {
+    const is503 = err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand');
+    if (is503) {
+      console.error(`${tag} V2 SERVER_BUSY:`, err.message);
+      res.status(503).json({ error: 'SERVER_BUSY' });
+    } else if (err instanceof TimeoutError) {
       console.error(`${tag} V2 TIMEOUT:`, err.message);
       res.status(504).json({ error: 'TIMEOUT' });
     } else if (err instanceof ImageBlockedError) {
