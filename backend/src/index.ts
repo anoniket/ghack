@@ -13,6 +13,7 @@ import { mediaRouter } from './routes/media';
 import { historyRouter } from './routes/history';
 import { authRouter } from './routes/auth';
 import { geminiConcurrency } from './services/gemini';
+import { debugRouter } from './routes/debug-tryon';
 
 const app = express();
 
@@ -48,7 +49,8 @@ const generationLimiter = rateLimit({
 const deviceGenerationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 15,
-  keyGenerator: (req: express.Request) => (req as any).deviceId || req.ip || 'unknown',
+  keyGenerator: (req: express.Request) => (req as any).deviceId || 'unknown',
+  validate: { ip: false },
   standardHeaders: false,
   legacyHeaders: false,
   message: { error: 'Too many requests from this device, slow down' },
@@ -58,6 +60,9 @@ const deviceGenerationLimiter = rateLimit({
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
+
+// Debug try-on UI (no auth — dev/testing only)
+app.use('/debug', debugRouter);
 
 // Auth routes — rate limited but NO deviceIdMiddleware (they handle their own validation)
 app.use('/api/auth', limiter, authRouter);
