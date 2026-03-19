@@ -272,7 +272,7 @@ export const PRODUCT_DETECTOR_JS = `
     statusText.className = '__tryon-status-text';
     var initQuips = mode === 'video'
       ? ['AI directing ur thirst trap...', 'lights camera slay...', 'plotting ur viral moment...']
-      : ['mentally undressing you...', 'checking you out... for science...', 'the AI said wow btw...'];
+      : ['checking you out... for science...', 'the AI said wow btw...', 'fitting room but make it AI...'];
     statusText.textContent = initQuips[Math.floor(Math.random() * initQuips.length)];
     progressWrap.appendChild(statusText);
 
