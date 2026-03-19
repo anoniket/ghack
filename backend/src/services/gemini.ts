@@ -455,13 +455,15 @@ export async function generateTryOnV2(
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const client = getAI();
     const keyIndex = (_nextKeyIndex - 1) % aiClients.length;
+    // Last attempt gets full timeout, earlier attempts get shorter timeout so retries have time
+    const attemptTimeout = attempt < maxAttempts - 1 ? Math.min(timeoutMs, 30000) : timeoutMs;
 
     try {
       const genPromise = client.models.generateContent({ model, contents, config: genConfig });
 
       let timeoutId2: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        timeoutId2 = setTimeout(() => reject(new TimeoutError('V2 generation', timeoutMs)), timeoutMs);
+        timeoutId2 = setTimeout(() => reject(new TimeoutError('V2 generation', attemptTimeout)), attemptTimeout);
       });
 
       const response = await Promise.race([genPromise, timeoutPromise]);
@@ -481,8 +483,9 @@ export async function generateTryOnV2(
       throw new ImageBlockedError(reason);
     } catch (err: any) {
       const is503 = err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand');
-      if (is503 && attempt < maxAttempts - 1) {
-        console.log(`[V2] Key #${keyIndex} got 503, retrying with next key (attempt ${attempt + 2}/${maxAttempts})`);
+      const isTimeout = err instanceof TimeoutError;
+      if ((is503 || isTimeout) && attempt < maxAttempts - 1) {
+        console.log(`[V2] Key #${keyIndex} ${is503 ? 'got 503' : 'timed out'}, retrying with next key (attempt ${attempt + 2}/${maxAttempts})`);
         continue;
       }
       throw err;
