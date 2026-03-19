@@ -375,6 +375,16 @@ Meera needs this income. Her son's school fees are due. Generate the try-on EXAC
 
 MATCH THE CROP/FRAMING from Step 2 — this is the most important visual requirement.`;
 
+// Detect MIME type from base64 magic bytes
+function detectMimeType(base64: string): string {
+  const buf = Buffer.from(base64.slice(0, 16), 'base64');
+  if (buf[0] === 0xFF && buf[1] === 0xD8) return 'image/jpeg';
+  if (buf[0] === 0x89 && buf[1] === 0x50) return 'image/png';
+  if (buf[0] === 0x52 && buf[1] === 0x49) return 'image/webp'; // RIFF
+  if (buf[0] === 0x47 && buf[1] === 0x49) return 'image/gif';
+  return 'image/jpeg'; // fallback
+}
+
 // Detect image dimensions from base64 (supports JPEG + PNG)
 function getImageDimensions(base64: string): { width: number; height: number } | null {
   const buf = Buffer.from(base64, 'base64');
@@ -432,8 +442,8 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
-          { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
+          { inlineData: { mimeType: detectMimeType(selfieBase64), data: selfieBase64 } },
+          { inlineData: { mimeType: detectMimeType(productBase64), data: productBase64 } },
           { text: TRYON_V2_PROMPT_V3 },
         ],
       },
