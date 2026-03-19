@@ -6,6 +6,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { deviceIdMiddleware } from './middleware/deviceId';
+import { playgroundRouter } from './routes/playground';
 import { tryonRouter } from './routes/tryon';
 import { chatRouter } from './routes/chat';
 import { videoRouter } from './routes/video';
@@ -13,7 +14,6 @@ import { mediaRouter } from './routes/media';
 import { historyRouter } from './routes/history';
 import { authRouter } from './routes/auth';
 import { geminiConcurrency } from './services/gemini';
-import { debugRouter } from './routes/debug-tryon';
 
 const app = express();
 
@@ -61,8 +61,8 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
 
-// Debug try-on UI (no auth — dev/testing only)
-app.use('/debug', debugRouter);
+// Debug playground (no auth) — increase body limit for base64 images
+app.use('/', express.json({ limit: '20mb' }), playgroundRouter);
 
 // Auth routes — rate limited but NO deviceIdMiddleware (they handle their own validation)
 app.use('/api/auth', limiter, authRouter);
