@@ -57,7 +57,7 @@ export class TimeoutError extends Error {
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
-  IMAGE_GEN: 'gemini-2.5-flash-image',
+  IMAGE_GEN: 'gemini-3.1-flash-image-preview',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
@@ -288,12 +288,14 @@ function extractBlockReason(response: any, label: string): string {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// V2 — Single-step try-on using Nano Banana (gemini-2.5-flash-image)
-// No zone detection, no thinking, no multi-step.
+// V2 — Single-step try-on using Nano Banana 2 (gemini-3.1-flash-image-preview)
+// No zone detection, no multi-step.
 // Just: here's a person, here's a product, make them wear it.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 const TRYON_V2_PROMPT_SIMPLE = `Make the person in Image 1 wear the product from Image 2. Keep their exact face, body, and background. Show the product clearly.`;
+
+const TRYON_V2_PROMPT_V3 = `Using the exact person from Image 1 — preserving their face, skin tone, hair, and body shape precisely — show them wearing the product from Image 2. The product fits naturally on their body, preserving their pose and proportions. Adjust folds, shadows, and details so it looks realistic and seamless. Natural studio lighting, 85mm portrait lens, soft shadows. Frame the shot to showcase the product fully while keeping the person's face clearly visible and recognizable.`;
 
 const TRYON_V2_PROMPT = `You are a professional virtual try-on photographer. You will receive two images:
 - Image 1: The customer (keep their exact face, skin tone, hair, body proportions)
@@ -430,11 +432,9 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: TRYON_V2_PROMPT_SIMPLE },
-          { text: '\n\nImage 1 (the person):' },
           { inlineData: { mimeType: 'image/jpeg', data: selfieBase64 } },
-          { text: '\n\nImage 2 (the product):' },
           { inlineData: { mimeType: 'image/jpeg', data: productBase64 } },
+          { text: TRYON_V2_PROMPT_V3 },
         ],
       },
     ],
