@@ -169,14 +169,16 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           });
           break; // success
         } catch (busyErr: any) {
-          if (busyErr.message === 'SERVER_BUSY' && attempt < MAX_BUSY_RETRIES) {
-            rlog('TryOn', `SERVER_BUSY, auto-retrying (${attempt + 1}/${MAX_BUSY_RETRIES})`);
+          const isRetryable = (busyErr.message === 'SERVER_BUSY' || busyErr.message === 'TIMEOUT') && attempt < MAX_BUSY_RETRIES;
+          if (isRetryable) {
+            const reason = busyErr.message === 'SERVER_BUSY' ? 'server busy' : 'timed out';
+            rlog('TryOn', `${reason}, auto-retrying (${attempt + 1}/${MAX_BUSY_RETRIES})`);
             // Show "retrying" message in overlay for 3s, then reset loading
             if (webViewRef.current) {
               webViewRef.current.injectJavaScript(`
                 (function() {
                   var status = document.querySelector('.__tryon-status-text');
-                  if (status) status.textContent = 'server busy, retrying...';
+                  if (status) status.textContent = '${reason}, retrying...';
                 })();
                 true;
               `);
