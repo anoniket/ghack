@@ -436,14 +436,24 @@ export async function generateTryOnV2(
   const timeoutMs = usePro ? 60000 : 50000;
   const client = getAI();
 
+  // Upload both images to Gemini File API in parallel — better quality than base64 inlineData
+  const selfieMime = detectMimeType(selfieBase64);
+  const productMime = detectMimeType(productBase64);
+  const uploadStart = Date.now();
+  const [selfieFile, productFile] = await Promise.all([
+    client.files.upload({ file: new Blob([Buffer.from(selfieBase64, 'base64')], { type: selfieMime }), config: { mimeType: selfieMime } }),
+    client.files.upload({ file: new Blob([Buffer.from(productBase64, 'base64')], { type: productMime }), config: { mimeType: productMime } }),
+  ]);
+  console.log(`[V2] File API upload: ${Date.now() - uploadStart}ms (selfie=${selfieFile.uri}, product=${productFile.uri})`);
+
   const genPromise = client.models.generateContent({
     model,
     contents: [
       {
         role: 'user',
         parts: [
-          { inlineData: { mimeType: detectMimeType(selfieBase64), data: selfieBase64 } },
-          { inlineData: { mimeType: detectMimeType(productBase64), data: productBase64 } },
+          { fileData: { fileUri: selfieFile.uri!, mimeType: selfieMime } },
+          { fileData: { fileUri: productFile.uri!, mimeType: productMime } },
           { text: TRYON_V2_PROMPT_V3 },
         ],
       },
