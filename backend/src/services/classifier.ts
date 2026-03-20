@@ -377,11 +377,7 @@ REALISM: Fabric drapes according to its weight — chiffon floats and has transl
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_PREFIX = `CRITICAL — READ BEFORE LOOKING AT THE IMAGES:
-You will receive two images. The first image is the customer — this is a real person who uploaded their selfie. They may be standing in a garden, at home, in a park, or anywhere. The second image is a product listing from an online store.
-Preserve the customer's EXACT face, body, skin tone, and proportions in the output. The customer does not change — only their clothing changes.
-If the product image shows a model wearing the product, that model does NOT exist — ignore their face, body, and pose completely. Extract ONLY the garment.
-The output must show the CUSTOMER wearing the PRODUCT. Never swap, blend, or merge the two people.
+const IDENTITY_PREFIX = `You will receive two images. The user is the woman standing in garden wearing lehenga. Make her wear the product from the second image. Preserve her exact face, body, and proportions.
 
 `;
 
