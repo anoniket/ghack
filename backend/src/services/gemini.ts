@@ -295,7 +295,29 @@ function extractBlockReason(response: any, label: string): string {
 
 const TRYON_V2_PROMPT_SIMPLE = `Make the person in Image 1 wear the product from Image 2. Keep their exact face, body, and background. Show the product clearly.`;
 
-const TRYON_V2_PROMPT_V3 = `Using the exact person from Image 1 — preserving their face, skin tone, hair, and body shape precisely — show them wearing the product from Image 2. The product fits naturally on their body, preserving their pose and proportions. Adjust folds, shadows, and details so it looks realistic and seamless. Natural studio lighting, 85mm portrait lens, soft shadows. Frame the shot to showcase the product fully while keeping the person's face clearly visible and recognizable.`;
+const TRYON_V2_PROMPT_V3 = `Virtual try-on task: Using the person in Image 1 and the clothing item in Image 2, generate a photorealistic image of this person wearing the garment from Image 2.
+
+The clothing item is a clothing item.
+
+CRITICAL — CLOTHING REPLACEMENT:
+- COMPLETELY REPLACE the person's current outfit with the garment from Image 2
+- REMOVE ALL TRACES of the person's original clothing — no layering, no stacking
+- The person must be wearing ONLY the new garment from Image 2
+- If the garment is a top, replace only the upper body clothing
+- If the garment is a bottom, replace only the lower body clothing
+- If it is a full outfit or dress, replace everything from neck to ankle
+
+PRESERVATION (do NOT change):
+- Face, hairstyle, skin tone — ZERO alterations permitted
+- Body shape, proportions, and pose — keep exactly as in Image 1
+- Background and environment — keep identical to Image 1
+
+REALISM:
+- Match the EXACT color, pattern, texture, and design from Image 2
+- Adjust fabric draping, wrinkles, and shadows to realistically fit the person's body
+- Maintain consistent lighting between the person and the new clothing
+- The result must look like a natural photograph, not a composite or overlay
+- Only change the clothing — everything else stays identical`;
 
 const TRYON_V2_PROMPT = `You are a professional virtual try-on photographer. You will receive two images:
 - Image 1: The customer (keep their exact face, skin tone, hair, body proportions)
@@ -446,7 +468,7 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: TRYON_V2_PROMPT },
+          { text: TRYON_V2_PROMPT_V3 },
           { text: '\n\nImage 1 (the person):' },
           { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
           { text: '\n\nImage 2 (the product):' },
