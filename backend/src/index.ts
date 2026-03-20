@@ -38,7 +38,10 @@ app.use('/playground', (_req, res, next) => {
   next();
 }, express.json({ limit: '20mb' }), playgroundRouter);
 
-// PERF-14/SEC-13: Default 1MB body limit — tryon routes get 50MB below
+// PERF-14: 50MB body limit for tryon routes (selfie base64 can be ~5MB)
+app.use('/api/tryon', express.json({ limit: '50mb' }));
+
+// PERF-14/SEC-13: Default 1MB body limit for everything else
 app.use(express.json({ limit: '1mb' }));
 
 // Rate limiting — 300 requests per 15 min per IP
@@ -97,8 +100,6 @@ app.use('/api/tryon', generationLimiter, deviceGenerationLimiter);
 app.use('/api/video', generationLimiter, deviceGenerationLimiter);
 app.use('/api/chat', chatLimiter);
 
-// PERF-14: 50MB body limit only for tryon routes (selfie base64 is ~2MB)
-app.use('/api/tryon', express.json({ limit: '50mb' }));
 
 app.use('/api', tryonRouter);
 app.use('/api', chatRouter);
