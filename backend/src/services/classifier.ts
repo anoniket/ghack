@@ -51,6 +51,43 @@ function detectMimeType(base64: string): string {
   return 'image/jpeg';
 }
 
+// ── Selfie Description ──────────────────────────────────────────────
+
+/**
+ * Describe a selfie in one line using Gemini Flash.
+ * Returns something like: "The user is a young woman with long black hair standing in a garden wearing a red lehenga"
+ */
+export async function describeSelfie(selfieBase64: string): Promise<string> {
+  try {
+    const client = getAI();
+    const mime = detectMimeType(selfieBase64);
+
+    const response = await client.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: mime, data: selfieBase64 } },
+            { text: 'Describe this person in exactly one short sentence starting with "The user is". Include their gender, approximate age, visible features (hair, glasses, facial hair etc), what they are wearing, and where they are (background). Keep it under 30 words. Example: "The user is a young woman with long black hair standing in a garden wearing a blue lehenga"' },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0,
+        maxOutputTokens: 60,
+      },
+    });
+
+    const desc = (response.text || '').trim();
+    console.log(`[Classifier] Selfie description: ${desc}`);
+    return desc || 'The user is the person in the first image';
+  } catch (err: any) {
+    console.error(`[Classifier] Selfie description failed: ${err.message}`);
+    return 'The user is the person in the first image';
+  }
+}
+
 // ── Classification ──────────────────────────────────────────────────
 
 const CLASSIFICATION_MODEL = 'gemini-2.5-flash';
@@ -263,7 +300,7 @@ REALISM: Fabric drapes according to its weight and texture — silk has sheen an
 
   RING: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the ring from the PRODUCT PHOTO.
 
-FRAMING: Waist-up crop. Face occupies the upper 30% of the frame, clearly visible and recognizable. The hand wearing the ring is raised to chest or collarbone level — fingers naturally spread with the ring finger slightly separated to showcase the ring. The ring is the focal point — it must be sharp, detailed, and prominent in the frame. The hand should be at a slight angle to show the ring's profile and any stone setting.
+FRAMING: Waist-up crop. Face clearly visible in upper 30% of frame. Ring hand lightly touching jawline or chin, fingers relaxed and gently curved (not spread or stiff), ring finger naturally separated from adjacent fingers. Ring is the focal point — sharp, detailed, and prominent. The hand-on-chin pose looks natural and stylish, bringing the ring into frame near the face.
 
 FACE: Face is the identity anchor — clearly visible in the upper portion, front-facing or slight 3/4 angle. Sharp, well-lit, natural expression. The face and the ring hand are both in focus.
 
@@ -277,7 +314,7 @@ REALISM: Metal must have correct reflections and shine — gold is warm, silver 
 
   BRACELET: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the bracelet/bangle/watch from the PRODUCT PHOTO.
 
-FRAMING: Waist-up crop. Face clearly visible in the upper portion of the frame. The arm wearing the bracelet/bangle/watch is bent 90 degrees at the elbow, crossing the body naturally — wrist and forearm prominently displayed. For a watch, the face is angled squarely toward the camera. For bangles, they are clustered at the narrower part of the forearm. The wrist accessory is the focal point while the face remains clearly identifiable.
+FRAMING: Waist-up crop. Face clearly visible in the upper portion of the frame. One hand lightly adjusting opposite sleeve cuff or gently resting on the other forearm, wrist turned slightly toward camera to showcase the bracelet/watch face. Relaxed, candid body language — not stiff or posed. For bangles, they are clustered naturally at the narrower part of the forearm. The wrist accessory is the focal point while the face remains clearly identifiable.
 
 FACE: Clearly visible, front-facing or 3/4 angle. Well-lit and sharp. The person's identity must be unmistakable.
 
@@ -291,7 +328,7 @@ REALISM: Metal bangles and watches catch and reflect light with correct specular
 
   EARRING: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the earring from the PRODUCT PHOTO.
 
-FRAMING: Chest-up crop with the face as the primary anchor. Head turned 20-30 degrees to one side (NOT turned away — the face is still clearly visible, just angled to showcase the hero earring). Hair is tucked behind the ear on the hero side so the full earring is visible from hook to lowest element. The earring must be shown in its entirety — no cropping of danglers or drops.
+FRAMING: Chest-up crop with the face as the primary anchor. Head turned 20-30 degrees showing three-quarter face view, slight chin lift to elongate neck. Hero earring fully visible on the camera-facing ear, hair tucked or swept behind that ear. Full drop visible from hook to lowest element. Opposite ear may be partially hidden — favor the hero earring side.
 
 FACE: The face is the dominant element in this frame. Clearly visible, well-lit, natural expression. Both eyes visible (the head is turned slightly, not in full profile). The earring complements the face — they are shown together as a styled look.
 
@@ -305,9 +342,9 @@ REALISM: Earrings hang with correct weight — heavy jhumkas pull slightly on th
 
   NECKLACE: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the necklace from the PRODUCT PHOTO.
 
-FRAMING: Bust-up crop. Face clearly visible in the upper half of the frame. Shoulders squared toward the camera, chin lifted 5 degrees to expose the neckline and collarbone area. The pendant or central element sits dead center on the chest. The chain/strand is visible on both sides draping naturally over the collarbones. The full necklace must be in frame — from clasp line at the back of the neck to the lowest pendant point.
+FRAMING: Bust-up crop. Face clearly visible in the upper half of the frame. Shoulders relaxed and slightly angled (not squared to camera), chin lifted subtly to elongate the neckline. Pendant centered on chest, chain draped naturally and visible on both sides of neck. Collarbone area exposed to frame the necklace. The full necklace must be in frame — from clasp line at the back of the neck to the lowest pendant point.
 
-FACE: Clearly visible, front-facing, well-lit. The face and the necklace are both stars of this frame — the necklace frames the face, the face gives context to the necklace.
+FACE: Clearly visible, front-facing or slight angle, well-lit. The face and the necklace are both stars of this frame — the necklace frames the face, the face gives context to the necklace.
 
 IDENTITY PRESERVATION: Face, skin tone, neck length, shoulder width, collarbone definition, chest proportions — all IDENTICAL to the CUSTOMER PHOTO. Do not alter the neck to make it longer or slimmer for the necklace.
 
@@ -377,19 +414,22 @@ REALISM: Fabric drapes according to its weight — chiffon floats and has transl
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_PREFIX = `The user is the woman standing in garden wearing lehenga. Make her wear the product from the second image. Preserve her exact face, body, and proportions.
+const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Preserve their exact face, body, and proportions. If the product image shows a model wearing it, ignore that model completely — extract only the garment.
 
 `;
 
 /**
  * Get the category-specific try-on prompt for a given product category.
- * Prepends a strong identity preservation instruction to every prompt.
+ * Prepends selfie description + identity preservation instruction to every prompt.
+ * @param selfieDescription - one-line description of the user from Gemini Flash (e.g. "The user is a young man with glasses wearing a grey sweatshirt")
  */
-export function getPromptForCategory(category: ProductCategory): string {
+export function getPromptForCategory(category: ProductCategory, selfieDescription?: string): string {
   const prompt = CATEGORY_PROMPTS[category];
+  const desc = selfieDescription || 'The user is the person in the first image';
+  const prefix = desc + IDENTITY_SUFFIX;
   if (!prompt) {
     console.warn(`[Classifier] No prompt found for category "${category}", using FULL_OUTFIT`);
-    return IDENTITY_PREFIX + CATEGORY_PROMPTS.FULL_OUTFIT;
+    return prefix + CATEGORY_PROMPTS.FULL_OUTFIT;
   }
-  return IDENTITY_PREFIX + prompt;
+  return prefix + prompt;
 }

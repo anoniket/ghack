@@ -338,16 +338,26 @@ export interface TryOnResult {
   durationMs: number;
 }
 
+export async function describeSelfie(selfieBase64: string): Promise<string> {
+  const result = await apiFetch('/api/selfie-describe', {
+    method: 'POST',
+    body: JSON.stringify({ selfieBase64 }),
+    timeout: 15000,
+  });
+  return result.description;
+}
+
 export async function tryOnV2(params: {
   selfieBase64: string;
   productImageUrl: string;
   sourceUrl?: string;
   retry?: boolean;
+  selfieDescription?: string;
 }): Promise<TryOnResult> {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',
     body: JSON.stringify(params),
-    timeout: params.retry ? 60000 : 50000,
+    timeout: 50000,
   });
 }
 

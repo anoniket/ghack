@@ -70,6 +70,23 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const initialLoadDone = useRef(false);
   const videoLoadingRef = useRef(false);
   const tryOnLoadingRef = useRef(false); // SS-16: double-tap guard
+  const selfieDescriptionRef = useRef<string | null>(null);
+
+  // Describe selfie once when it changes — cached until next selfie update
+  useEffect(() => {
+    if (!selfieUri) return;
+    (async () => {
+      try {
+        const b64 = await imageUriToBase64(selfieUri);
+        const desc = await api.describeSelfie(b64);
+        selfieDescriptionRef.current = desc;
+        rlog('Selfie', `Description: ${desc}`);
+      } catch (err: any) {
+        rlog('Selfie', `Description failed: ${err.message}`);
+        selfieDescriptionRef.current = null;
+      }
+    })();
+  }, [selfieUri]);
 
   const videoPlayer = useVideoPlayer(videoDataUri, (player) => {
     player.loop = true;
@@ -166,6 +183,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             productImageUrl: currentProduct.imageUrl,
             sourceUrl: currentProduct.pageUrl,
             retry: currentProduct.retry,
+            selfieDescription: selfieDescriptionRef.current || undefined,
           });
           break; // success
         } catch (busyErr: any) {

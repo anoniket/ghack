@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
-import { classifyProduct, getPromptForCategory, getCachedClassification, cacheClassification } from '../services/classifier';
+import { classifyProduct, getPromptForCategory, getCachedClassification, cacheClassification, describeSelfie } from '../services/classifier';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
 import sharp from 'sharp';
@@ -15,6 +15,23 @@ export const tryonRouter = Router();
 const MAX_SELFIE_BASE64_LEN = 7 * 1024 * 1024;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Selfie description — call once when selfie is set, cache on client
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
+  const { selfieBase64 } = req.body;
+  if (!selfieBase64) {
+    res.status(400).json({ error: 'selfieBase64 is required' });
+    return;
+  }
+  try {
+    const description = await describeSelfie(selfieBase64);
+    res.json({ description });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // V2 — Single-step try-on. No prepare, no zone detection.
 // One call: selfie + product image → result.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -27,7 +44,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   }
 
   const startTime = Date.now();
-  const { selfieBase64, productImageUrl, sourceUrl } = req.body;
+  const { selfieBase64, productImageUrl, sourceUrl, selfieDescription } = req.body;
   const tag = `[${req.deviceId}]`;
 
   if (!selfieBase64) {
@@ -61,7 +78,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       cacheClassification(productImageUrl, category);
       console.log(`${tag} V2 → category (classified): ${category} in ${Date.now() - classStart}ms`);
     }
-    const prompt = getPromptForCategory(category);
+    const prompt = getPromptForCategory(category, selfieDescription);
 
     // Generate with NB1 + category-specific prompt
     const genStart = Date.now();

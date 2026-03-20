@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { classifyProduct, getPromptForCategory, PRODUCT_CATEGORIES, type ProductCategory } from '../services/classifier';
+import { classifyProduct, getPromptForCategory, describeSelfie, PRODUCT_CATEGORIES, type ProductCategory } from '../services/classifier';
 import { generateTryOnV2, downloadImageToBase64 } from '../services/gemini';
 
 const router = Router();
@@ -55,7 +55,7 @@ router.post('/classify', async (req: Request, res: Response) => {
 
 // ── POST /pipeline/generate — full pipeline with SSE streaming ──
 router.post('/generate', async (req: Request, res: Response) => {
-  const { selfieBase64, productBase64, productImageUrl } = req.body;
+  const { selfieBase64, productBase64, productImageUrl, selfieDescription } = req.body;
 
   // Set up SSE — disable compression so events stream in real-time
   (req as any).headers['accept-encoding'] = 'identity';
@@ -83,12 +83,15 @@ router.post('/generate', async (req: Request, res: Response) => {
       return;
     }
 
+    // Step 0.5: Describe selfie (if not provided by client)
+    const selfieDesc = selfieDescription || await describeSelfie(selfieBase64);
+
     // Step 1: Classify
     sendEvent({ step: 'classify_start' });
     const classifyT0 = Date.now();
     const category = await classifyProduct(resolvedProductBase64);
     const classifyDurationMs = Date.now() - classifyT0;
-    const prompt = getPromptForCategory(category);
+    const prompt = getPromptForCategory(category, selfieDesc);
     sendEvent({
       step: 'classify_done',
       category,

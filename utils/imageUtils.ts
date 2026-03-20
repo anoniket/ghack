@@ -11,7 +11,9 @@ export async function saveSelfie(uri: string): Promise<string> {
   const filename = `selfie_${Date.now()}.jpg`;
   const destFile = new File(Paths.document, filename);
   const srcFile = new File(uri);
+  console.log(`[saveSelfie] src uri=${uri}, exists=${srcFile.exists}, size=${srcFile.size}`);
   srcFile.copy(destFile);
+  console.log(`[saveSelfie] dest uri=${destFile.uri}, exists=${destFile.exists}, size=${destFile.size}`);
   await AsyncStorage.setItem(SELFIE_KEY, destFile.uri);
   return destFile.uri;
 }
@@ -46,7 +48,8 @@ export async function deleteSelfie(): Promise<void> {
 
 export async function imageUriToBase64(uri: string): Promise<string> {
   const file = new File(uri);
-  return file.base64();
+  const b64 = await file.base64();
+  return b64;
 }
 
 export async function downloadImageToBase64(url: string): Promise<string> {
