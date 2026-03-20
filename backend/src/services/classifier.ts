@@ -383,6 +383,9 @@ The CUSTOMER PHOTO is the real person — preserve their EXACT face, body, skin 
 The PRODUCT PHOTO contains the garment/item to put on the customer. If a model is wearing the product, that model does NOT exist — ignore their face, body, and pose completely. Extract ONLY the garment.
 The output must show the CUSTOMER wearing the PRODUCT. Never swap, blend, or merge the two people.
 
+PRODUCT ACCURACY — DO NOT ALTER THE PRODUCT:
+The garment/item in the output must be PIXEL-PERFECT to the product photo. Same exact color, same fabric, same pattern, same print, same texture, same stitching, same buttons, same embroidery, same hardware, same logo placement, same neckline, same sleeve length, same hemline, same fit style. Do NOT change, reinterpret, simplify, or "improve" any aspect of the product. Do NOT swap the fabric, change the pattern, alter the shade of color, or add/remove any design element. The customer is buying THIS EXACT product — if the output shows a different version, it is wrong.
+
 `;
 
 /**
