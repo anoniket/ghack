@@ -377,7 +377,7 @@ REALISM: Fabric drapes according to its weight — chiffon floats and has transl
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_PREFIX = `You will receive two images. The user is the woman standing in garden wearing lehenga. Make her wear the product from the second image. Preserve her exact face, body, and proportions.
+const IDENTITY_PREFIX = `The user is the woman standing in garden wearing lehenga. Make her wear the product from the second image. Preserve her exact face, body, and proportions.
 
 `;
 
