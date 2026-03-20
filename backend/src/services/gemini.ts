@@ -471,7 +471,7 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: 'Here is a selfie of the customer:' },
+          { text: 'Here is the customer — she is the women standing in garden wearing lehenga:' },
           { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
           { text: 'Here is the product they want to wear:' },
           { inlineData: { mimeType: productMime, data: productBase64 } },
