@@ -468,7 +468,7 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: TRYON_V2_PROMPT_V3 },
+          { text: TRYON_V2_PROMPT },
           { text: '\n\nImage 1 (the person):' },
           { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
           { text: '\n\nImage 2 (the product):' },
