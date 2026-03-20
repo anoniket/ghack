@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { deviceIdMiddleware } from './middleware/deviceId';
 import { playgroundRouter } from './routes/playground';
+import { pipelineRouter } from './routes/pipeline';
 import { tryonRouter } from './routes/tryon';
 import { chatRouter } from './routes/chat';
 import { videoRouter } from './routes/video';
@@ -20,10 +21,23 @@ const app = express();
 // Railway runs behind a reverse proxy — needed for express-rate-limit to read X-Forwarded-For
 app.set('trust proxy', 1);
 
+// Pipeline dashboard — mounted BEFORE compression so SSE streams in real-time
+app.use('/pipeline', (_req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  next();
+}, express.json({ limit: '20mb' }), pipelineRouter);
+
 app.use(helmet());
 app.use(compression()); // M8: Compress all responses
 // SEC-8: Disable CORS headers — mobile app uses x-device-id auth, not browser cookies
 app.use(cors({ origin: false }));
+
+// Debug playground (no auth, no helmet CSP) — mount before global body parser
+app.use('/playground', (_req, res, next) => {
+  res.removeHeader('Content-Security-Policy');
+  next();
+}, express.json({ limit: '20mb' }), playgroundRouter);
+
 // PERF-14/SEC-13: Default 1MB body limit — tryon routes get 50MB below
 app.use(express.json({ limit: '1mb' }));
 
@@ -61,8 +75,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
 
-// Debug playground (no auth) — increase body limit for base64 images
-app.use('/', express.json({ limit: '20mb' }), playgroundRouter);
+
 
 // Auth routes — rate limited but NO deviceIdMiddleware (they handle their own validation)
 app.use('/api/auth', limiter, authRouter);

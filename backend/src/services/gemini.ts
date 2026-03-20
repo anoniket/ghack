@@ -57,7 +57,7 @@ export class TimeoutError extends Error {
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
-  IMAGE_GEN: 'gemini-3.1-flash-image-preview',
+  IMAGE_GEN: 'gemini-2.5-flash-image',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
@@ -448,6 +448,7 @@ export async function generateTryOnV2(
   selfieBase64: string,
   productBase64: string,
   usePro: boolean = false,
+  customPrompt?: string,
 ): Promise<string> {
   const dims = getImageDimensions(productBase64);
   const isSane = dims && dims.width <= 10000 && dims.height <= 10000;
@@ -455,7 +456,7 @@ export async function generateTryOnV2(
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const timeoutMs = 60000;
+  const timeoutMs = 40000;
   const client = getAI();
 
   // Detect MIME types from magic bytes for correct inlineData
@@ -468,28 +469,15 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: TRYON_V2_PROMPT },
-          { text: '\n\nImage 1 (the person):' },
           { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
-          { text: '\n\nImage 2 (the product):' },
           { inlineData: { mimeType: productMime, data: productBase64 } },
+          { text: customPrompt || TRYON_V2_PROMPT },
         ],
       },
     ],
     config: {
-      responseModalities: ['TEXT', 'IMAGE'] as any,
-      personGeneration: 'ALLOW_ADULT',
-      safetySettings: [
-        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
-      ],
-      imageConfig: {
-        aspectRatio,
-      },
-    } as any,
+      responseModalities: ['Text', 'Image'] as any,
+    },
   });
 
   let timeoutId2: ReturnType<typeof setTimeout>;

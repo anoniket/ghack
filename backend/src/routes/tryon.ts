@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
+import { classifyProduct, getPromptForCategory, getCachedClassification, cacheClassification } from '../services/classifier';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
 import sharp from 'sharp';
@@ -26,9 +27,8 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   }
 
   const startTime = Date.now();
-  const { selfieBase64, productImageUrl, sourceUrl, retry } = req.body;
+  const { selfieBase64, productImageUrl, sourceUrl } = req.body;
   const tag = `[${req.deviceId}]`;
-  const usePro = !!retry;
 
   if (!selfieBase64) {
     res.status(400).json({ error: 'selfieBase64 is required' });
@@ -51,12 +51,23 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const productBase64 = await downloadImageToBase64(productImageUrl);
     console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
 
-    // Generate — NB1 default, Pro on retry
+    // Classify product → category-specific prompt
+    const classStart = Date.now();
+    let category = getCachedClassification(productImageUrl);
+    if (category) {
+      console.log(`${tag} V2 → category (cached): ${category}`);
+    } else {
+      category = await classifyProduct(productBase64);
+      cacheClassification(productImageUrl, category);
+      console.log(`${tag} V2 → category (classified): ${category} in ${Date.now() - classStart}ms`);
+    }
+    const prompt = getPromptForCategory(category);
+
+    // Generate with NB1 + category-specific prompt
     const genStart = Date.now();
-    const modelLabel = usePro ? 'pro' : 'nb1';
     console.log(`${tag} V2 → productImageUrl=${productImageUrl}`);
-    console.log(`${tag} V2 → generating with ${modelLabel}${retry ? ' (retry)' : ''}`);
-    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64, productBase64, usePro));
+    console.log(`${tag} V2 → generating with nb1, category=${category}`);
+    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64, productBase64, false, prompt));
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
@@ -69,7 +80,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       tryonS3Key,
       resultBase64,
       resultCdnUrl: cdnUrl(tryonS3Key),
-      model: usePro ? 'v2-pro' : 'v2',
+      model: 'v2',
       durationMs,
     });
 
@@ -87,7 +98,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
           sourceUrl: sourceUrl || undefined,
           tryonS3Key,
           tryonCdnUrl: tryonS3Key,
-          model: usePro ? 'v2-pro' : 'v2',
+          model: 'v2',
           createdAt: new Date().toISOString(),
         });
         console.log(`${tag} V2 → DynamoDB save (bg): done`);
