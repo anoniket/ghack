@@ -57,7 +57,7 @@ export class TimeoutError extends Error {
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
-  IMAGE_GEN: 'gemini-2.5-flash-image',
+  IMAGE_GEN: 'gemini-3.1-flash-image-preview',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
@@ -288,8 +288,8 @@ function extractBlockReason(response: any, label: string): string {
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// V2 — Single-step try-on using Nano Banana 2 (gemini-3.1-flash-image-preview)
-// No zone detection, no multi-step.
+// V2 — Single-step try-on using NB2 (gemini-3.1-flash-image-preview) default, Pro fallback
+// Inline base64 — no File API overhead. Full detailed prompt.
 // Just: here's a person, here's a product, make them wear it.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -433,18 +433,12 @@ export async function generateTryOnV2(
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const timeoutMs = usePro ? 60000 : 50000;
+  const timeoutMs = 60000;
   const client = getAI();
 
-  // Upload both images to Gemini File API in parallel — better quality than base64 inlineData
+  // Detect MIME types from magic bytes for correct inlineData
   const selfieMime = detectMimeType(selfieBase64);
   const productMime = detectMimeType(productBase64);
-  const uploadStart = Date.now();
-  const [selfieFile, productFile] = await Promise.all([
-    client.files.upload({ file: new Blob([Buffer.from(selfieBase64, 'base64')], { type: selfieMime }), config: { mimeType: selfieMime } }),
-    client.files.upload({ file: new Blob([Buffer.from(productBase64, 'base64')], { type: productMime }), config: { mimeType: productMime } }),
-  ]);
-  console.log(`[V2] File API upload: ${Date.now() - uploadStart}ms (selfie=${selfieFile.uri}, product=${productFile.uri})`);
 
   const genPromise = client.models.generateContent({
     model,
@@ -452,9 +446,11 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { fileData: { fileUri: selfieFile.uri!, mimeType: selfieMime } },
-          { fileData: { fileUri: productFile.uri!, mimeType: productMime } },
-          { text: TRYON_V2_PROMPT_SIMPLE },
+          { text: TRYON_V2_PROMPT },
+          { text: '\n\nImage 1 (the person):' },
+          { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
+          { text: '\n\nImage 2 (the product):' },
+          { inlineData: { mimeType: productMime, data: productBase64 } },
         ],
       },
     ],
