@@ -146,10 +146,19 @@ export async function classifyProduct(productBase64: string): Promise<ProductCat
       },
     });
 
-    const raw = (response.text || '').trim().toUpperCase().replace(/[^A-Z_]/g, '');
+    const rawText = response.text;
+    console.log(`[Classifier] Raw Gemini response: "${rawText}"`);
+    console.log(`[Classifier] Response candidates: ${JSON.stringify(response.candidates?.[0]?.finishReason || 'none')}`);
+    const raw = (rawText || '').trim().toUpperCase().replace(/[^A-Z_]/g, '');
     if (isValidCategory(raw)) {
       console.log(`[Classifier] Classified product as: ${raw}`);
       return raw;
+    }
+
+    // Empty response — skip fuzzy match
+    if (!raw) {
+      console.warn(`[Classifier] Empty response, falling back to FULL_OUTFIT`);
+      return 'FULL_OUTFIT';
     }
 
     // Try to fuzzy-match if model returned something close
