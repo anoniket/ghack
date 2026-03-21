@@ -63,7 +63,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
     const mime = detectMimeType(selfieBase64);
 
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-2.5-flash-lite',
       contents: [
         {
           role: 'user',
