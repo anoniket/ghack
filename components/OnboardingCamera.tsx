@@ -7,11 +7,13 @@ import {
   Image,
   ActivityIndicator,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { saveSelfie, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
+import ImageCropPicker from 'react-native-image-crop-picker';
+import { saveSelfie, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
 import { useAppStore } from '@/services/store';
+import * as api from '@/services/api';
 
 export default function OnboardingCamera() {
   const { width: W } = useWindowDimensions();
@@ -20,30 +22,35 @@ export default function OnboardingCamera() {
   const { setSelfieUri, setSelfieS3Key, setOnboardingComplete } = useAppStore();
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+    try {
+      const image = await ImageCropPicker.openPicker({
+        mediaType: 'photo',
+        cropping: true,
+        freeStyleCropEnabled: true,
+        width: 2000,
+        height: 2000,
+        compressImageQuality: 1,
+      });
+      console.log(`[Picker] width=${image.width}, height=${image.height}, size=${image.size}`);
+      setImageUri(image.path);
+    } catch (err: any) {
+      if (err.code !== 'E_PICKER_CANCELLED') console.warn('Pick failed:', err);
     }
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      alert('Camera permission is needed for selfie capture.');
-      return;
-    }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+    try {
+      const image = await ImageCropPicker.openCamera({
+        cropping: true,
+        freeStyleCropEnabled: true,
+        width: 2000,
+        height: 2000,
+        compressImageQuality: 1,
+      });
+      console.log(`[Camera] width=${image.width}, height=${image.height}, size=${image.size}`);
+      setImageUri(image.path);
+    } catch (err: any) {
+      if (err.code !== 'E_PICKER_CANCELLED') console.warn('Camera failed:', err);
     }
   };
 
@@ -54,13 +61,28 @@ export default function OnboardingCamera() {
       const savedUri = await saveSelfie(imageUri);
       setSelfieUri(savedUri);
 
+      // Get selfie description from Gemini — must succeed before proceeding
+      try {
+        const b64 = await imageUriToBase64(savedUri);
+        console.log('[Onboarding] Getting selfie description...');
+        const desc = await api.describeSelfie(b64);
+        console.log('[Onboarding] Selfie description:', desc);
+        // Store in AsyncStorage so WebViewBrowser can read it
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem('selfie_description', desc);
+      } catch (descErr: any) {
+        console.error('[Onboarding] Selfie description failed:', descErr.message);
+        Alert.alert('Error', 'Could not process your selfie. Please try again.');
+        setSaving(false);
+        return; // Block — don't proceed without description
+      }
+
       // Upload to S3 in background
       try {
         const s3Key = await uploadSelfieAndSaveKey(savedUri);
         setSelfieS3Key(s3Key);
       } catch (uploadErr) {
         console.error('S3 selfie upload failed:', uploadErr);
-        // Continue anyway — will retry on next app launch
       }
 
       setOnboardingComplete(true);

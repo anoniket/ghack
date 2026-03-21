@@ -254,7 +254,9 @@ PRODUCT ACCURACY: Reproduce the EXACT footwear from the PRODUCT PHOTO — correc
 
 OUTFIT COHERENCE: Keep the person's existing outfit ONLY if it works with the new footwear. If it clashes, replace with a simple complementary outfit — clean jeans and a plain tee for casual footwear, tailored trousers and a blouse for formal heels, a kurta with churidar for ethnic juttis/kolhapuris. The footwear is the hero — the outfit should not compete.
 
-REALISM: Natural shadows beneath the shoes on the ground surface. Correct lighting on shoe material — leather sheen, suede matte, fabric texture, metallic embellishments catching light. The footwear must look worn on actual feet, not pasted. Ground plane perspective must be consistent.`,
+REALISM: Natural shadows beneath the shoes on the ground surface. Correct lighting on shoe material — leather sheen, suede matte, fabric texture, metallic embellishments catching light. The footwear must look worn on actual feet, not pasted. Ground plane perspective must be consistent.
+
+DO NOT: Change the shoe color, swap the material, alter the sole design, add or remove laces/straps/buckles, change the brand logo, modify the heel height, or generate a different shoe model. Do not change the person's face, body shape, or skin tone.`,
 
   TOP: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the top/upper garment from the PRODUCT PHOTO.
 
@@ -268,7 +270,9 @@ PRODUCT ACCURACY: Reproduce the EXACT garment from the PRODUCT PHOTO — correct
 
 OUTFIT COHERENCE: Replace ONLY the upper body clothing. Keep existing bottoms if they work with the new top. If they clash, swap for complementary bottoms — blue jeans for casual tops, tailored trousers for blazers, palazzos or a skirt for a dressy blouse. Existing accessories and jewelry can stay if they complement the look.
 
-REALISM: Fabric must react to the body — natural draping at the bust, creasing at the elbows if sleeves are bent, gentle pull across the shoulders if fitted. Lighting on the fabric must match the scene. Shadows under the collar and at sleeve openings. No floating fabric, no unnatural stiffness.`,
+REALISM: Fabric must react to the body — natural draping at the bust, creasing at the elbows if sleeves are bent, gentle pull across the shoulders if fitted. Lighting on the fabric must match the scene. Shadows under the collar and at sleeve openings. No floating fabric, no unnatural stiffness.
+
+DO NOT: Change the fabric pattern, swap colors, alter the print, modify the neckline/collar style, add or remove sleeves, change button count or placement, alter the fit (fitted vs loose), or generate a different garment. Do not change the person's face, body shape, or skin tone.`,
 
   BOTTOM: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the bottom garment from the PRODUCT PHOTO.
 
@@ -282,7 +286,9 @@ PRODUCT ACCURACY: Reproduce the EXACT bottom from the PRODUCT PHOTO — correct 
 
 OUTFIT COHERENCE: Replace ONLY the lower body clothing. Keep the existing top if it works with the new bottom. If it clashes, replace with a simple complementary top — plain tee for casual bottoms, a tucked blouse for formal trousers, a short kurti for ethnic palazzos or salwar. The bottom garment is the hero.
 
-REALISM: Natural creasing at knees and hips. Fabric falls correctly with gravity — heavier fabrics hang straight, lighter fabrics may flutter slightly. Correct shadows between the legs and on the ground. Waistband sits naturally at the person's actual waist/hip level.`,
+REALISM: Natural creasing at knees and hips. Fabric falls correctly with gravity — heavier fabrics hang straight, lighter fabrics may flutter slightly. Correct shadows between the legs and on the ground. Waistband sits naturally at the person's actual waist/hip level.
+
+DO NOT: Change the fabric, alter the color/wash, modify the fit (slim vs wide), change the rise, add or remove pockets/stitching, alter the length, or generate different bottoms. Do not change the person's face, body shape, hip width, or skin tone.`,
 
   FULL_OUTFIT: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the complete outfit from the PRODUCT PHOTO.
 
@@ -296,7 +302,9 @@ PRODUCT ACCURACY: Reproduce the EXACT outfit from the PRODUCT PHOTO — correct 
 
 OUTFIT COHERENCE: This IS the complete outfit — replace everything the person is wearing from neck to toe. If the outfit includes specific accessories (like a matching dupatta or belt), include them. Keep existing jewelry only if it complements the outfit. Add simple complementary footwear if feet are visible — ethnic juttis/heels for traditional wear, heels/sneakers for western.
 
-REALISM: Fabric drapes according to its weight and texture — silk has sheen and flow, cotton is crisp, chiffon is sheer and light, velvet is heavy and rich. Embroidery and embellishments catch light naturally. Pleats, gathers, and folds match how the actual fabric would behave on this person's body. Natural shadows in fabric folds.`,
+REALISM: Fabric drapes according to its weight and texture — silk has sheen and flow, cotton is crisp, chiffon is sheer and light, velvet is heavy and rich. Embroidery and embellishments catch light naturally. Pleats, gathers, and folds match how the actual fabric would behave on this person's body. Natural shadows in fabric folds.
+
+DO NOT: Change the outfit color, fabric, embroidery, border work, draping style, or any design element. Do not simplify the pattern, remove embellishments, or generate a different outfit. Do not change the person's face, body shape, weight, or skin tone.`,
 
   RING: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the ring from the PRODUCT PHOTO.
 
@@ -310,7 +318,9 @@ PRODUCT ACCURACY: Reproduce the EXACT ring from the PRODUCT PHOTO — correct me
 
 OUTFIT COHERENCE: Keep the person's existing outfit if it complements the ring. If the current outfit distracts or clashes, replace with something simple and elegant — a solid-color top with a complementary neckline that does not compete with the ring. For traditional rings, a subtle ethnic outfit works. Nails should be clean and presentable.
 
-REALISM: Metal must have correct reflections and shine — gold is warm, silver is cool, platinum has a subtle gray sheen. Gemstones must refract and reflect light naturally. The ring casts a tiny shadow on the finger. Correct scale — the ring fits the person's actual finger width.`,
+REALISM: Metal must have correct reflections and shine — gold is warm, silver is cool, platinum has a subtle gray sheen. Gemstones must refract and reflect light naturally. The ring casts a tiny shadow on the finger. Correct scale — the ring fits the person's actual finger width.
+
+DO NOT: Change the metal color, swap stones, alter the band design, modify engravings, or generate a different ring. Do not change the person's face, hand shape, or skin tone.`,
 
   BRACELET: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the bracelet/bangle/watch from the PRODUCT PHOTO.
 
@@ -324,7 +334,9 @@ PRODUCT ACCURACY: Reproduce the EXACT accessory from the PRODUCT PHOTO — corre
 
 OUTFIT COHERENCE: Keep the person's existing outfit if it complements the accessory. If it clashes, swap for something that lets the wrist piece shine — rolled-up sleeves for watches, a sleeveless or short-sleeve top for bangles. For ethnic bangles/kada, a simple kurta or saree blouse works. The wrist accessory is the hero.
 
-REALISM: Metal bangles and watches catch and reflect light with correct specularity. Glass bangles have translucency. Leather straps show grain. The accessory sits at the correct position on the wrist — watches on top, bangles slide slightly with gravity. Natural shadows where the accessory meets the skin.`,
+REALISM: Metal bangles and watches catch and reflect light with correct specularity. Glass bangles have translucency. Leather straps show grain. The accessory sits at the correct position on the wrist — watches on top, bangles slide slightly with gravity. Natural shadows where the accessory meets the skin.
+
+DO NOT: Change the metal type, alter engravings/meenakari, swap strap material, modify the watch dial, change bangle count, or generate a different accessory. Do not change the person's face, wrist size, or skin tone.`,
 
   EARRING: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the earring from the PRODUCT PHOTO.
 
@@ -338,7 +350,9 @@ PRODUCT ACCURACY: Reproduce the EXACT earring from the PRODUCT PHOTO — correct
 
 OUTFIT COHERENCE: Keep the person's existing outfit if it flatters the earrings. Neckline matters — a V-neck or open neckline for statement earrings, a collared shirt for studs. If the current top competes with the earrings, replace with a simple solid-color top with an appropriate neckline. Remove competing necklaces if they clash with statement earrings.
 
-REALISM: Earrings hang with correct weight — heavy jhumkas pull slightly on the earlobe, light studs sit flush. Metal and stones catch light naturally. Earrings sway slightly if danglers (implied by the angle). Correct shadow cast on the neck by larger earrings.`,
+REALISM: Earrings hang with correct weight — heavy jhumkas pull slightly on the earlobe, light studs sit flush. Metal and stones catch light naturally. Earrings sway slightly if danglers (implied by the angle). Correct shadow cast on the neck by larger earrings.
+
+DO NOT: Change the earring design, swap metal color, alter stone arrangement, modify the drop length, or generate different earrings. Do not change the person's face, ear shape, or skin tone.`,
 
   NECKLACE: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the necklace from the PRODUCT PHOTO.
 
@@ -352,7 +366,9 @@ PRODUCT ACCURACY: Reproduce the EXACT necklace from the PRODUCT PHOTO — correc
 
 OUTFIT COHERENCE: The neckline of the outfit is critical. If the current top has a neckline that hides the necklace, replace it with an appropriate one — V-neck, round neck, or off-shoulder depending on the necklace length. Chokers need an open neckline. Long necklaces work with most necklines. Remove competing earrings only if they clash with a statement necklace. The necklace is the hero.
 
-REALISM: Chain links or beads drape with gravity, following the contour of the neck and chest. Metal has correct reflections — gold is warm, silver is cool. Pendants hang at the correct angle based on gravity and chain stiffness. The necklace rests on the actual skin of the person, with tiny shadows where it touches the body. Stones and gems refract light naturally.`,
+REALISM: Chain links or beads drape with gravity, following the contour of the neck and chest. Metal has correct reflections — gold is warm, silver is cool. Pendants hang at the correct angle based on gravity and chain stiffness. The necklace rests on the actual skin of the person, with tiny shadows where it touches the body. Stones and gems refract light naturally.
+
+DO NOT: Change the chain type, alter pendant design, swap metal color, modify stone settings, change the necklace length, or generate a different necklace. Do not change the person's face, neck length, or skin tone.`,
 
   SUNGLASSES: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the sunglasses from the PRODUCT PHOTO.
 
@@ -366,7 +382,9 @@ PRODUCT ACCURACY: Reproduce the EXACT sunglasses from the PRODUCT PHOTO — corr
 
 OUTFIT COHERENCE: Keep the person's existing outfit if it creates a cohesive look with the sunglasses. Sporty sunglasses pair with casual wear, elegant frames with polished outfits. If the outfit clashes, swap for something complementary — a clean tee and jacket for aviators, a dressy top for cat-eye frames. Hair should be styled to not obscure the sunglasses temples.
 
-REALISM: Lenses have correct reflections based on their type — mirror lenses reflect the environment, gradient lenses are darker at top, polarized lenses have a subtle color cast. The frame casts a small shadow on the cheeks. The sunglasses sit naturally on the nose bridge — not floating above or sinking into the face. Temples press gently against the sides of the head. Eyes may be faintly visible through lighter lenses.`,
+REALISM: Lenses have correct reflections based on their type — mirror lenses reflect the environment, gradient lenses are darker at top, polarized lenses have a subtle color cast. The frame casts a small shadow on the cheeks. The sunglasses sit naturally on the nose bridge — not floating above or sinking into the face. Temples press gently against the sides of the head. Eyes may be faintly visible through lighter lenses.
+
+DO NOT: Change the frame shape, swap lens color, alter frame material/color, modify the temple design, or generate different sunglasses. Do not change the person's face shape, nose bridge, or skin tone.`,
 
   BAG: `Virtual try-on: Make the person in the CUSTOMER PHOTO carry/wear the bag from the PRODUCT PHOTO.
 
@@ -380,7 +398,9 @@ PRODUCT ACCURACY: Reproduce the EXACT bag from the PRODUCT PHOTO — correct mat
 
 OUTFIT COHERENCE: Keep the person's existing outfit if it complements the bag. If it clashes, replace with a styled but simple outfit that lets the bag stand out — jeans and a top for casual bags, a dress or tailored outfit for formal/evening bags, ethnic wear for potli bags. The bag is the hero accessory.
 
-REALISM: Leather has correct grain and sheen, canvas is matte, metallics reflect light. Hardware (buckles, chains, clasps) catches light with correct specularity. The strap/handle deforms slightly under gravity where it bends. The bag has volume and structure — not flat or deflated. Natural shadow where the bag is close to the body.`,
+REALISM: Leather has correct grain and sheen, canvas is matte, metallics reflect light. Hardware (buckles, chains, clasps) catches light with correct specularity. The strap/handle deforms slightly under gravity where it bends. The bag has volume and structure — not flat or deflated. Natural shadow where the bag is close to the body.
+
+DO NOT: Change the bag material, swap colors, alter hardware, modify the strap/handle style, change the closure type, or generate a different bag. Do not change the person's face, body shape, or skin tone.`,
 
   BELT: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the belt from the PRODUCT PHOTO.
 
@@ -394,7 +414,9 @@ PRODUCT ACCURACY: Reproduce the EXACT belt from the PRODUCT PHOTO — correct ma
 
 OUTFIT COHERENCE: The belt needs an outfit that shows it off. If the current outfit hides the belt (e.g., an untucked oversized top), adjust — tuck the top in, or replace with a fitted top and pants/skirt that lets the belt be visible. For kamarbands, pair with ethnic wear — a saree or lehenga. The belt is the hero — the outfit should frame it.
 
-REALISM: Leather belts show natural bending around the body's curves. The buckle has correct weight and metallic reflections. Belt loops (if on pants) hold the belt correctly. The belt creates a natural cinch or sits relaxed depending on fit. Slight shadow beneath the belt where it lifts off the fabric.`,
+REALISM: Leather belts show natural bending around the body's curves. The buckle has correct weight and metallic reflections. Belt loops (if on pants) hold the belt correctly. The belt creates a natural cinch or sits relaxed depending on fit. Slight shadow beneath the belt where it lifts off the fabric.
+
+DO NOT: Change the belt material, swap buckle design, alter the width, modify the color/pattern, or generate a different belt. Do not change the person's face, waist size, or skin tone.`,
 
   DUPATTA: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the dupatta/stole/shawl from the PRODUCT PHOTO.
 
@@ -408,13 +430,15 @@ PRODUCT ACCURACY: Reproduce the EXACT dupatta/stole/shawl from the PRODUCT PHOTO
 
 OUTFIT COHERENCE: The dupatta needs an outfit that makes sense with it. If the current outfit works — keep it. If not, pair with complementary clothing — a simple kurta for an ethnic dupatta, a plain top for a printed stole, a dress or sweater for a pashmina shawl. The dupatta is the hero accessory. Remove competing scarves or neckpieces.
 
-REALISM: Fabric drapes according to its weight — chiffon floats and has translucency at edges, silk flows with a liquid drape, pashmina has body and warmth, cotton hangs with crisp folds. Wind or movement may cause light fabrics to flutter subtly. The fabric interacts with the body — pressing slightly where it rests on shoulders, hanging freely where it falls. Border details and embellishments are crisp and visible.`,
+REALISM: Fabric drapes according to its weight — chiffon floats and has translucency at edges, silk flows with a liquid drape, pashmina has body and warmth, cotton hangs with crisp folds. Wind or movement may cause light fabrics to flutter subtly. The fabric interacts with the body — pressing slightly where it rests on shoulders, hanging freely where it falls. Border details and embellishments are crisp and visible.
+
+DO NOT: Change the fabric type, swap colors, alter the border/print design, modify embellishments, or generate a different dupatta/stole. Do not change the person's face, body shape, or skin tone.`,
 
 };
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Preserve their exact face, body, and proportions. If the product image shows a model wearing it, ignore that model completely — extract only the garment.
+const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Preserve their exact face, body, and proportions. Anatomically correct human body — exactly five fingers on each hand, natural finger curvature, correct joint bending, two arms, two legs, symmetrical face with two eyes, one nose, one mouth. Sharp photorealistic quality, no blur, no distortion, no artifacts.
 
 `;
 

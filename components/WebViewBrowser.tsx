@@ -72,17 +72,17 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const tryOnLoadingRef = useRef(false); // SS-16: double-tap guard
   const selfieDescriptionRef = useRef<string | null>(null);
 
-  // Describe selfie once when it changes — cached until next selfie update
+  // Load selfie description from AsyncStorage (set during onboarding/profile update)
   useEffect(() => {
     if (!selfieUri) return;
     (async () => {
       try {
-        const b64 = await imageUriToBase64(selfieUri);
-        const desc = await api.describeSelfie(b64);
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const desc = await AsyncStorage.getItem('selfie_description');
         selfieDescriptionRef.current = desc;
-        rlog('Selfie', `Description: ${desc}`);
+        rlog('Selfie', `Description loaded: ${desc}`);
       } catch (err: any) {
-        rlog('Selfie', `Description failed: ${err.message}`);
+        rlog('Selfie', `Description load failed: ${err.message}`);
         selfieDescriptionRef.current = null;
       }
     })();

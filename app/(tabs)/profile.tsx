@@ -9,10 +9,11 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
+import ImageCropPicker from 'react-native-image-crop-picker';
 import { useAppStore } from '@/services/store';
-import { saveSelfie, deleteSelfie, uploadSelfieAndSaveKey } from '@/utils/imageUtils';
+import { saveSelfie, deleteSelfie, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
 import { resetChat } from '@/services/gemini';
+import * as api from '@/services/api';
 
 export default function ProfileScreen() {
   const {
@@ -27,19 +28,35 @@ export default function ProfileScreen() {
   const [updating, setUpdating] = useState(false);
 
   // M32: Shared save/upload/alert logic for both camera and gallery
-  const handleSelfieResult = async (result: ImagePicker.ImagePickerResult) => {
-    if (result.canceled || !result.assets[0]) return;
+  const handleSelfieResult = async (uri: string) => {
+    if (!uri) return;
     setUpdating(true);
     try {
       await deleteSelfie();
-      const newUri = await saveSelfie(result.assets[0].uri);
+      const newUri = await saveSelfie(uri);
       setSelfieUri(newUri);
       setOnboardingComplete(true);
+
+      // Get selfie description — must succeed
+      try {
+        const b64 = await imageUriToBase64(newUri);
+        console.log('[Profile] Getting selfie description...');
+        const desc = await api.describeSelfie(b64);
+        console.log('[Profile] Selfie description:', desc);
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        await AsyncStorage.setItem('selfie_description', desc);
+      } catch (descErr: any) {
+        console.error('[Profile] Selfie description failed:', descErr.message);
+        Alert.alert('Error', 'Could not process your selfie. Please try again.');
+        setUpdating(false);
+        return;
+      }
+
       try {
         const s3Key = await uploadSelfieAndSaveKey(newUri);
         setSelfieS3Key(s3Key);
       } catch (uploadErr) {
-        console.error('☁️ [Profile] S3 selfie upload failed:', uploadErr);
+        console.error('[Profile] S3 selfie upload failed:', uploadErr);
       }
       Alert.alert('Updated!', 'Your selfie has been updated.');
     } catch (err) {
@@ -50,27 +67,34 @@ export default function ProfileScreen() {
   };
 
   const retakeSelfie = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.8,
-    });
-    handleSelfieResult(result);
+    try {
+      const image = await ImageCropPicker.openPicker({
+        mediaType: 'photo',
+        cropping: true,
+        freeStyleCropEnabled: true,
+        width: 2000,
+        height: 2000,
+        compressImageQuality: 1,
+      });
+      handleSelfieResult(image.path);
+    } catch (err: any) {
+      if (err.code !== 'E_PICKER_CANCELLED') console.warn('Pick failed:', err);
+    }
   };
 
   const takeNewSelfie = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Camera permission is needed.');
-      return;
+    try {
+      const image = await ImageCropPicker.openCamera({
+        cropping: true,
+        freeStyleCropEnabled: true,
+        width: 2000,
+        height: 2000,
+        compressImageQuality: 1,
+      });
+      handleSelfieResult(image.path);
+    } catch (err: any) {
+      if (err.code !== 'E_PICKER_CANCELLED') console.warn('Camera failed:', err);
     }
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.8,
-    });
-    handleSelfieResult(result);
   };
 
   const handleClearChat = () => {
