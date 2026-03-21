@@ -92,7 +92,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
 
 const CLASSIFICATION_MODEL = 'gemini-2.5-flash';
 
-const CLASSIFICATION_PROMPT = `You are a product classifier for a fashion virtual try-on system. Look at this product image and classify it into EXACTLY ONE of these categories. Reply with ONLY the category name — no explanation, no punctuation, no extra words.
+const CLASSIFICATION_PROMPT = `Classify this product image into one category. Respond in JSON format.
 
 Categories:
 FOOTWEAR — shoes, sneakers, heels, sandals, boots, juttis, kolhapuris, mojaris, chappals, wedges, loafers, floaters
@@ -108,16 +108,11 @@ BAG — handbag, purse, tote, clutch, sling bag, backpack, crossbody, potli, wal
 BELT — belt, waist belt, kamarband
 DUPATTA — dupatta, stole, shawl, chunni, scarf, muffler, wrap, pashmina
 
-KEY RULES:
-- If it is a kurta/kurti that goes BELOW the knee, classify as FULL_OUTFIT
-- If it is a kurta/kurti that is ABOVE the knee (short kurti), classify as TOP
-- A saree is ALWAYS FULL_OUTFIT
-- A lehenga is ALWAYS FULL_OUTFIT (even if only the skirt is shown — it implies a full outfit)
-- A blouse alone (without saree) is TOP
-- If you see a full set (top + bottom together), classify as FULL_OUTFIT
-- If unsure between two categories, pick the one that requires showing MORE of the body in the try-on
-
-Reply with ONLY the EXACT category name from the list above (e.g. FULL_OUTFIT not FULL, FOOTWEAR not FOOT). One word or phrase, nothing else.`;
+Rules:
+- Kurta/kurti BELOW knee = FULL_OUTFIT, ABOVE knee = TOP
+- Saree, lehenga = always FULL_OUTFIT
+- Blouse alone = TOP
+- Full set (top + bottom together) = FULL_OUTFIT`;
 
 /**
  * Classify a product image into one of the defined product categories.
@@ -144,34 +139,47 @@ export async function classifyProduct(productBase64: string): Promise<ProductCat
         temperature: 0,
         maxOutputTokens: 1024,
         thinkingConfig: { thinkingBudget: 0 },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: 'object' as const,
+          properties: {
+            category: {
+              type: 'string' as const,
+              enum: [...PRODUCT_CATEGORIES],
+            },
+          },
+          required: ['category'],
+        },
       },
     });
 
     const rawText = response.text;
-    console.log(`[Classifier] Raw Gemini response: "${rawText}"`);
-    console.log(`[Classifier] Response candidates: ${JSON.stringify(response.candidates?.[0]?.finishReason || 'none')}`);
-    const raw = (rawText || '').trim().toUpperCase().replace(/[^A-Z_]/g, '');
-    if (isValidCategory(raw)) {
-      console.log(`[Classifier] Classified product as: ${raw}`);
-      return raw;
-    }
+    console.log(`[Classifier] Raw Gemini response: ${rawText}`);
 
-    // Empty response — skip fuzzy match
-    if (!raw) {
-      console.warn(`[Classifier] Empty response, falling back to FULL_OUTFIT`);
+    if (!rawText) {
+      console.warn(`[Classifier] Empty response (finishReason: ${response.candidates?.[0]?.finishReason}), falling back to FULL_OUTFIT`);
       return 'FULL_OUTFIT';
     }
 
-    // Try to fuzzy-match if model returned something close
-    // Check both directions: raw contains category OR category contains raw
-    const match = PRODUCT_CATEGORIES.find(cat => raw.includes(cat) || cat.includes(raw));
-    if (match) {
-      console.log(`[Classifier] Fuzzy-matched product as: ${match} (raw: ${raw})`);
-      return match;
+    try {
+      const parsed = JSON.parse(rawText);
+      const category = (parsed.category || '').toUpperCase();
+      if (isValidCategory(category)) {
+        console.log(`[Classifier] Classified product as: ${category}`);
+        return category;
+      }
+      console.warn(`[Classifier] Invalid category in JSON: "${parsed.category}", falling back to FULL_OUTFIT`);
+      return 'FULL_OUTFIT';
+    } catch {
+      // JSON parse failed — try raw text as fallback
+      const raw = rawText.trim().toUpperCase().replace(/[^A-Z_]/g, '');
+      if (isValidCategory(raw)) {
+        console.log(`[Classifier] Classified product as (text fallback): ${raw}`);
+        return raw;
+      }
+      console.warn(`[Classifier] Could not parse response: "${rawText}", falling back to FULL_OUTFIT`);
+      return 'FULL_OUTFIT';
     }
-
-    console.warn(`[Classifier] Unrecognized category "${raw}", falling back to FULL_OUTFIT`);
-    return 'FULL_OUTFIT';
   } catch (err: any) {
     console.error(`[Classifier] Classification failed: ${err.message}, falling back to FULL_OUTFIT`);
     return 'FULL_OUTFIT';
