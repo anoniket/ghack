@@ -461,7 +461,14 @@ DO NOT: Change the fabric type, swap colors, alter the border/print design, modi
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Preserve their exact face, body, and proportions from their photo. Keep their pose and body angle where visible — if the photo only shows the upper body, naturally extend to a full body standing pose consistent with their visible posture. The product image is ONLY a product reference — if a model is wearing it, completely ignore that model's pose, stance, and body position. Extract only the product design from the product image, nothing else. Anatomically correct human body — exactly five fingers on each hand, natural finger curvature, two arms, two legs. Sharp photorealistic quality.
+const IDENTITY_SUFFIX = `
+
+TASK: Put the product onto this customer. The customer is in the FIRST image (the selfie). The product is in the SECOND image.
+
+CUSTOMER = FIRST image. Use ONLY this person's face, body, skin, and hair. Do not change their appearance.
+PRODUCT = SECOND image. Use ONLY the garment/accessory design. If a model is shown wearing it, ignore that model entirely — extract the product design only.
+
+Keep the customer's pose where visible. If the selfie shows only the upper body, extend naturally to a full standing pose matching their visible posture. Sharp photorealistic quality.
 
 `;
 
@@ -473,7 +480,7 @@ const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Pre
 export function getPromptForCategory(category: ProductCategory, selfieDescription?: string, productDescription?: string): string {
   const prompt = CATEGORY_PROMPTS[category];
   const userDesc = selfieDescription || 'The user is the person in the first image';
-  const productDesc = productDescription ? `, the product is ${productDescription}` : '';
+  const productDesc = productDescription ? `\nThe product is ${productDescription}.` : '';
   const prefix = userDesc + productDesc + IDENTITY_SUFFIX;
   if (!prompt) {
     console.warn(`[Classifier] No prompt found for category "${category}", using FULL_OUTFIT`);
