@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
-import { classifyProduct, getPromptForCategory, getCachedClassification, cacheClassification, describeSelfie } from '../services/classifier';
+import { classifyProduct, getPromptForCategory, describeSelfie } from '../services/classifier';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
 import sharp from 'sharp';
@@ -73,16 +73,10 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const productBase64 = await downloadImageToBase64(productImageUrl);
     console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
 
-    // Classify product → category-specific prompt
+    // Classify product — fresh every time
     const classStart = Date.now();
-    let category = getCachedClassification(productImageUrl);
-    if (category) {
-      console.log(`${tag} V2 → category (cached): ${category}`);
-    } else {
-      category = await classifyProduct(productBase64);
-      cacheClassification(productImageUrl, category);
-      console.log(`${tag} V2 → category (classified): ${category} in ${Date.now() - classStart}ms`);
-    }
+    const category = await classifyProduct(productBase64);
+    console.log(`${tag} V2 → category: ${category} in ${Date.now() - classStart}ms`);
     const prompt = getPromptForCategory(category, selfieDescription);
 
     // Generate with NB1 + category-specific prompt
