@@ -24,7 +24,12 @@ tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
     return;
   }
   try {
-    const description = await describeSelfie(selfieBase64);
+    // Compress selfie for description only — don't need 5MB for a 1-line text description
+    const fullBuffer = Buffer.from(selfieBase64, 'base64');
+    const smallBuffer = await sharp(fullBuffer).resize(512).jpeg({ quality: 70 }).toBuffer();
+    const smallBase64 = smallBuffer.toString('base64');
+    console.log(`[selfie-describe] Compressed ${(selfieBase64.length / 1024).toFixed(0)}KB → ${(smallBase64.length / 1024).toFixed(0)}KB for description`);
+    const description = await describeSelfie(smallBase64);
     res.json({ description });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
