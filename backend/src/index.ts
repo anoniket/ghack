@@ -38,8 +38,9 @@ app.use('/playground', (_req, res, next) => {
   next();
 }, express.json({ limit: '20mb' }), playgroundRouter);
 
-// PERF-14: 50MB body limit for tryon routes (selfie base64 can be ~5MB)
+// PERF-14: 50MB body limit for tryon + selfie-describe routes (selfie base64 can be ~5MB)
 app.use('/api/tryon', express.json({ limit: '50mb' }));
+app.use('/api/selfie-describe', express.json({ limit: '50mb' }));
 
 // PERF-14/SEC-13: Default 1MB body limit for everything else
 app.use(express.json({ limit: '1mb' }));
