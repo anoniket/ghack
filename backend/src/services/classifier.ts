@@ -142,7 +142,8 @@ export async function classifyProduct(productBase64: string): Promise<ProductCat
       ],
       config: {
         temperature: 0,
-        maxOutputTokens: 20,
+        maxOutputTokens: 1024,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
