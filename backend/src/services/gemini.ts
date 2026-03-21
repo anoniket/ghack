@@ -462,8 +462,12 @@ export async function generateTryOnV2(
   // Detect MIME types from magic bytes for correct inlineData
   const selfieMime = detectMimeType(selfieBase64);
   const productMime = detectMimeType(productBase64);
-  console.log(`[V2-DEBUG] selfie: len=${selfieBase64.length}, mime=${selfieMime}, start=${selfieBase64.slice(0, 30)}`);
-  console.log(`[V2-DEBUG] product: len=${productBase64.length}, mime=${productMime}, start=${productBase64.slice(0, 30)}`);
+  console.log(`[V2-DEBUG] selfie: len=${selfieBase64.length}, mime=${selfieMime}`);
+  console.log(`[V2-DEBUG] product: len=${productBase64.length}, mime=${productMime}`);
+  const promptText = customPrompt || TRYON_V2_PROMPT;
+  const promptLines = promptText.split('\n').filter((l: string) => l.trim());
+  console.log(`[V2-PROMPT] Line 1: ${promptLines[0]}`);
+  console.log(`[V2-PROMPT] Line 2: ${promptLines[1] || '(none)'}`);
 
   const genPromise = client.models.generateContent({
     model,

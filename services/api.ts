@@ -342,7 +342,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
   const result = await apiFetch('/api/selfie-describe', {
     method: 'POST',
     body: JSON.stringify({ selfieBase64 }),
-    timeout: 15000,
+    timeout: 60000,
   });
   return result.description;
 }
