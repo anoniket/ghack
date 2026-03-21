@@ -7,6 +7,7 @@ import {
   Image,
   Alert,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageCropPicker from 'react-native-image-crop-picker';
@@ -26,11 +27,13 @@ export default function ProfileScreen() {
     setCurrentUrl,
   } = useAppStore();
   const [updating, setUpdating] = useState(false);
+  const [statusText, setStatusText] = useState('');
 
   // M32: Shared save/upload/alert logic for both camera and gallery
   const handleSelfieResult = async (uri: string) => {
     if (!uri) return;
     setUpdating(true);
+    setStatusText('Saving photo...');
     try {
       await deleteSelfie();
       const newUri = await saveSelfie(uri);
@@ -38,26 +41,28 @@ export default function ProfileScreen() {
       setOnboardingComplete(true);
 
       // Get selfie description — must succeed
+      setStatusText('Analyzing your photo...');
       try {
         const b64 = await imageUriToBase64(newUri);
-        console.log('[Profile] Getting selfie description...');
         const desc = await api.describeSelfie(b64);
-        console.log('[Profile] Selfie description:', desc);
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem('selfie_description', desc);
       } catch (descErr: any) {
-        console.error('[Profile] Selfie description failed:', descErr.message);
+        api.sendLogs([{ tag: 'Profile', msg: `Selfie description failed: ${descErr.message}` }]).catch(() => {});
         Alert.alert('Error', 'Could not process your selfie. Please try again.');
         setUpdating(false);
+        setStatusText('');
         return;
       }
 
+      setStatusText('Uploading...');
       try {
         const s3Key = await uploadSelfieAndSaveKey(newUri);
         setSelfieS3Key(s3Key);
       } catch (uploadErr) {
-        console.error('[Profile] S3 selfie upload failed:', uploadErr);
+        api.sendLogs([{ tag: 'Profile', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
       }
+      setStatusText('');
       Alert.alert('Updated!', 'Your selfie has been updated.');
     } catch (err) {
       Alert.alert('Error', 'Failed to update selfie.');
@@ -133,22 +138,29 @@ export default function ProfileScreen() {
                 </View>
               )}
             </View>
-            <View style={styles.selfieActions}>
-              <TouchableOpacity
-                style={styles.btnPrimary}
-                onPress={takeNewSelfie}
-                disabled={updating}
-              >
-                <Text style={styles.btnPrimaryText}>Take New Photo</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.btnSecondary}
-                onPress={retakeSelfie}
-                disabled={updating}
-              >
-                <Text style={styles.btnSecondaryText}>Choose from Gallery</Text>
-              </TouchableOpacity>
-            </View>
+            {updating && statusText ? (
+              <View style={styles.selfieActions}>
+                <ActivityIndicator size="small" color="#6cff7a" />
+                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>{statusText}</Text>
+              </View>
+            ) : (
+              <View style={styles.selfieActions}>
+                <TouchableOpacity
+                  style={styles.btnPrimary}
+                  onPress={takeNewSelfie}
+                  disabled={updating}
+                >
+                  <Text style={styles.btnPrimaryText}>Take New Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.btnSecondary}
+                  onPress={retakeSelfie}
+                  disabled={updating}
+                >
+                  <Text style={styles.btnSecondaryText}>Choose from Gallery</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
 
           {/* Settings */}

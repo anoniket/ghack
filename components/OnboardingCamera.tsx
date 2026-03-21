@@ -19,6 +19,7 @@ export default function OnboardingCamera() {
   const { width: W } = useWindowDimensions();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [savingStatus, setSavingStatus] = useState('');
   const { setSelfieUri, setSelfieS3Key, setOnboardingComplete } = useAppStore();
 
   const pickImage = async () => {
@@ -57,34 +58,36 @@ export default function OnboardingCamera() {
   const confirmPhoto = async () => {
     if (!imageUri) return;
     setSaving(true);
+    setSavingStatus('Saving photo...');
     try {
       const savedUri = await saveSelfie(imageUri);
       setSelfieUri(savedUri);
 
       // Get selfie description from Gemini — must succeed before proceeding
+      setSavingStatus('Analyzing your photo...');
       try {
         const b64 = await imageUriToBase64(savedUri);
-        console.log('[Onboarding] Getting selfie description...');
         const desc = await api.describeSelfie(b64);
-        console.log('[Onboarding] Selfie description:', desc);
-        // Store in AsyncStorage so WebViewBrowser can read it
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem('selfie_description', desc);
       } catch (descErr: any) {
-        console.error('[Onboarding] Selfie description failed:', descErr.message);
+        api.sendLogs([{ tag: 'Onboarding', msg: `Selfie description failed: ${descErr.message}` }]).catch(() => {});
         Alert.alert('Error', 'Could not process your selfie. Please try again.');
         setSaving(false);
-        return; // Block — don't proceed without description
+        setSavingStatus('');
+        return;
       }
 
       // Upload to S3 in background
+      setSavingStatus('Uploading...');
       try {
         const s3Key = await uploadSelfieAndSaveKey(savedUri);
         setSelfieS3Key(s3Key);
       } catch (uploadErr) {
-        console.error('S3 selfie upload failed:', uploadErr);
+        api.sendLogs([{ tag: 'Onboarding', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
       }
 
+      setSavingStatus('');
       setOnboardingComplete(true);
     } catch (err) {
       console.error('Error saving selfie:', err);
@@ -127,7 +130,10 @@ export default function OnboardingCamera() {
                   activeOpacity={0.8}
                 >
                   {saving ? (
-                    <ActivityIndicator color="#0D0D0D" />
+                    <View style={{ alignItems: 'center' }}>
+                      <ActivityIndicator color="#0D0D0D" />
+                      {savingStatus ? <Text style={{ color: '#0D0D0D', fontSize: 12, marginTop: 4 }}>{savingStatus}</Text> : null}
+                    </View>
                   ) : (
                     <Text style={styles.btnPrimaryText}>Continue</Text>
                   )}

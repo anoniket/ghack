@@ -79,7 +79,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
       },
     });
 
-    const desc = (response.text || '').trim();
+    const desc = response.text || '';
     console.log(`[Classifier] Selfie description: ${desc}`);
     return desc || 'The user is the person in the first image';
   } catch (err: any) {
