@@ -75,7 +75,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
       ],
       config: {
         temperature: 0,
-        maxOutputTokens: 60,
+        maxOutputTokens: 500,
       },
     });
 
