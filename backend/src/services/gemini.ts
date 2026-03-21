@@ -473,7 +473,7 @@ export async function generateTryOnV2(
         parts: [
           { text: 'Here is a selfie of the customer:' },
           { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
-          { text: 'Here is the product they want to wear:' },
+          { text: 'Here is the product — extract ONLY the product design, ignore any model\'s pose:' },
           { inlineData: { mimeType: productMime, data: productBase64 } },
           { text: customPrompt || TRYON_V2_PROMPT },
         ],

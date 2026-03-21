@@ -438,7 +438,7 @@ DO NOT: Change the fabric type, swap colors, alter the border/print design, modi
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Preserve their exact face, body, and proportions. Anatomically correct human body — exactly five fingers on each hand, natural finger curvature, correct joint bending, two arms, two legs, symmetrical face with two eyes, one nose, one mouth. Sharp photorealistic quality, no blur, no distortion, no artifacts.
+const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Preserve their exact face, body, proportions, pose, stance, and body angle from their photo. The product image is ONLY a product reference — if a model is wearing it, completely ignore that model's pose, stance, and body position. Extract only the product design from the product image, nothing else. Anatomically correct human body — exactly five fingers on each hand, natural finger curvature, two arms, two legs. Sharp photorealistic quality.
 
 `;
 
