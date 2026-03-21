@@ -260,7 +260,7 @@ DO NOT: Change the shoe color, swap the material, alter the sole design, add or 
 
   TOP: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the top/upper garment from the PRODUCT PHOTO.
 
-FRAMING: Mid-thigh to head crop. The person fills 85% of the frame vertically. Body angled 15-25 degrees from camera for a natural, flattering pose. The full garment must be visible from shoulder seam to hem — collar, neckline, sleeves, cuffs, buttons, prints, and hemline all clearly shown. Do not crop any part of the garment.
+FRAMING: Mid-thigh to head crop — zoom in if the original photo is full body. The person fills 85% of the frame vertically. Body angled 15-25 degrees from camera for a natural, flattering pose. The full garment must be visible from shoulder seam to hem — collar, neckline, sleeves, cuffs, buttons, prints, and hemline all clearly shown. Do not crop any part of the garment.
 
 FACE: Face must be clearly visible in the upper portion of the frame. Front-facing or natural 3/4 angle. Sharp, in focus, well-lit. Never obscured by hair, collar, or shadows.
 
@@ -308,7 +308,7 @@ DO NOT: Change the outfit color, fabric, embroidery, border work, draping style,
 
   RING: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the ring from the PRODUCT PHOTO.
 
-FRAMING: Waist-up crop. Face clearly visible in upper 30% of frame. Ring hand lightly touching jawline or chin, fingers relaxed and gently curved (not spread or stiff), ring finger naturally separated from adjacent fingers. Ring is the focal point — sharp, detailed, and prominent. The hand-on-chin pose looks natural and stylish, bringing the ring into frame near the face.
+FRAMING: Waist-up crop — zoom in if the original photo is full body. Face clearly visible in upper 30% of frame. Ring hand lightly touching jawline or chin, fingers relaxed and gently curved (not spread or stiff), ring finger naturally separated from adjacent fingers. Ring is the focal point — sharp, detailed, and prominent. The hand-on-chin pose looks natural and stylish, bringing the ring into frame near the face.
 
 FACE: Face is the identity anchor — clearly visible in the upper portion, front-facing or slight 3/4 angle. Sharp, well-lit, natural expression. The face and the ring hand are both in focus.
 
@@ -324,7 +324,7 @@ DO NOT: Change the metal color, swap stones, alter the band design, modify engra
 
   BRACELET: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the bracelet/bangle/watch from the PRODUCT PHOTO.
 
-FRAMING: Waist-up crop. Face clearly visible in the upper portion of the frame. One hand lightly adjusting opposite sleeve cuff or gently resting on the other forearm, wrist turned slightly toward camera to showcase the bracelet/watch face. Relaxed, candid body language — not stiff or posed. For bangles, they are clustered naturally at the narrower part of the forearm. The wrist accessory is the focal point while the face remains clearly identifiable.
+FRAMING: Waist-up crop — zoom in if the original photo is full body. Face clearly visible in the upper portion of the frame. One hand lightly adjusting opposite sleeve cuff or gently resting on the other forearm, wrist turned slightly toward camera to showcase the bracelet/watch face. Relaxed, candid body language — not stiff or posed. For bangles, they are clustered naturally at the narrower part of the forearm. The wrist accessory is the focal point while the face remains clearly identifiable.
 
 FACE: Clearly visible, front-facing or 3/4 angle. Well-lit and sharp. The person's identity must be unmistakable.
 
@@ -340,7 +340,7 @@ DO NOT: Change the metal type, alter engravings/meenakari, swap strap material, 
 
   EARRING: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the earring from the PRODUCT PHOTO.
 
-FRAMING: Chest-up crop with the face as the primary anchor. Head turned 20-30 degrees showing three-quarter face view, slight chin lift to elongate neck. Hero earring fully visible on the camera-facing ear, hair tucked or swept behind that ear. Full drop visible from hook to lowest element. Opposite ear may be partially hidden — favor the hero earring side.
+FRAMING: Chest-up crop — zoom in if the original photo is full body. Face is the primary anchor. Head turned 20-30 degrees showing three-quarter face view, slight chin lift to elongate neck. Hero earring fully visible on the camera-facing ear, hair tucked or swept behind that ear. Full drop visible from hook to lowest element. Opposite ear may be partially hidden — favor the hero earring side.
 
 FACE: The face is the dominant element in this frame. Clearly visible, well-lit, natural expression. Both eyes visible (the head is turned slightly, not in full profile). The earring complements the face — they are shown together as a styled look.
 
@@ -356,7 +356,7 @@ DO NOT: Change the earring design, swap metal color, alter stone arrangement, mo
 
   NECKLACE: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the necklace from the PRODUCT PHOTO.
 
-FRAMING: Bust-up crop. Face clearly visible in the upper half of the frame. Shoulders relaxed and slightly angled (not squared to camera), chin lifted subtly to elongate the neckline. Pendant centered on chest, chain draped naturally and visible on both sides of neck. Collarbone area exposed to frame the necklace. The full necklace must be in frame — from clasp line at the back of the neck to the lowest pendant point.
+FRAMING: Bust-up crop — zoom in if the original photo is full body. Face clearly visible in the upper half of the frame. Shoulders relaxed and slightly angled (not squared to camera), chin lifted subtly to elongate the neckline. Pendant centered on chest, chain draped naturally and visible on both sides of neck. Collarbone area exposed to frame the necklace. The full necklace must be in frame — from clasp line at the back of the neck to the lowest pendant point.
 
 FACE: Clearly visible, front-facing or slight angle, well-lit. The face and the necklace are both stars of this frame — the necklace frames the face, the face gives context to the necklace.
 
@@ -372,7 +372,7 @@ DO NOT: Change the chain type, alter pendant design, swap metal color, modify st
 
   SUNGLASSES: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the sunglasses from the PRODUCT PHOTO.
 
-FRAMING: Head-and-shoulders crop. The face is the centerpiece — large and prominent in the frame. Face directly facing the camera. The sunglasses are centered on the nose bridge with both lenses fully visible. The temples (arms) of the sunglasses extend past the ears naturally. Enough of the shoulders visible to give the image a styled look, not just a floating head.
+FRAMING: Head-and-shoulders crop — zoom in if the original photo is full body. The face is the centerpiece — large and prominent in the frame. Face directly facing the camera. The sunglasses are centered on the nose bridge with both lenses fully visible. The temples (arms) of the sunglasses extend past the ears naturally. Enough of the shoulders visible to give the image a styled look, not just a floating head.
 
 FACE: The face IS the frame for the sunglasses. It must be clearly recognizable despite the eyes being covered — jawline, chin, nose, mouth, forehead, and cheekbones all clearly visible and matching the CUSTOMER PHOTO exactly. The sunglasses should look like a natural addition, not a mask.
 
@@ -404,7 +404,7 @@ DO NOT: Change the bag material, swap colors, alter hardware, modify the strap/h
 
   BELT: `Virtual try-on: Make the person in the CUSTOMER PHOTO wear the belt from the PRODUCT PHOTO.
 
-FRAMING: Waist-up or mid-thigh to head crop — the face MUST be included and clearly visible. The belt is at the natural waist/hip level, clearly visible and not obscured by hands, arms, or the top's hem. The buckle faces the camera squarely. Enough torso visible above and below the belt to show how it cinches or sits on the outfit.
+FRAMING: Waist-up or mid-thigh to head crop — zoom in if the original photo is full body. The face MUST be included and clearly visible. The belt is at the natural waist/hip level, clearly visible and not obscured by hands, arms, or the top's hem. The buckle faces the camera squarely. Enough torso visible above and below the belt to show how it cinches or sits on the outfit.
 
 FACE: Clearly visible in the upper portion of the frame. Front-facing or 3/4 angle, well-lit. The person is identifiable — the belt is an accessory to their look, not a standalone item.
 
