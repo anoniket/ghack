@@ -75,9 +75,9 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
 
     // Classify product — fresh every time
     const classStart = Date.now();
-    const category = await classifyProduct(productBase64);
-    console.log(`${tag} V2 → category: ${category} in ${Date.now() - classStart}ms`);
-    const prompt = getPromptForCategory(category, selfieDescription);
+    const { category, description: productDesc } = await classifyProduct(productBase64);
+    console.log(`${tag} V2 → category: ${category}, product: ${productDesc}, in ${Date.now() - classStart}ms`);
+    const prompt = getPromptForCategory(category, selfieDescription, productDesc);
 
     // Generate with NB1 + category-specific prompt
     const genStart = Date.now();

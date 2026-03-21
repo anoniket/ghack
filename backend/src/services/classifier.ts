@@ -92,7 +92,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
 
 const CLASSIFICATION_MODEL = 'gemini-2.5-flash';
 
-const CLASSIFICATION_PROMPT = `Classify this product image into one category. Respond in JSON format.
+const CLASSIFICATION_PROMPT = `Classify this product image into one category and describe the product in one short line. Describe ONLY the product/garment itself (color, type, pattern, material) — do NOT describe any model or person wearing it. Respond in JSON format.
 
 Categories:
 FOOTWEAR — shoes, sneakers, heels, sandals, boots, juttis, kolhapuris, mojaris, chappals, wedges, loafers, floaters
@@ -114,12 +114,17 @@ Rules:
 - Blouse alone = TOP
 - Full set (top + bottom together) = FULL_OUTFIT`;
 
+export interface ClassificationResult {
+  category: ProductCategory;
+  description: string;
+}
+
 /**
- * Classify a product image into one of the defined product categories.
+ * Classify a product image and describe it in one line.
  * Uses Gemini 2.5 Flash text model with temperature 0 for deterministic output.
  * Falls back to FULL_OUTFIT on any error (safest default — shows the most body).
  */
-export async function classifyProduct(productBase64: string): Promise<ProductCategory> {
+export async function classifyProduct(productBase64: string): Promise<ClassificationResult> {
   try {
     const client = getAI();
     const mime = detectMimeType(productBase64);
@@ -147,8 +152,11 @@ export async function classifyProduct(productBase64: string): Promise<ProductCat
               type: 'string' as const,
               enum: [...PRODUCT_CATEGORIES],
             },
+            description: {
+              type: 'string' as const,
+            },
           },
-          required: ['category'],
+          required: ['category', 'description'],
         },
       },
     });
@@ -156,33 +164,30 @@ export async function classifyProduct(productBase64: string): Promise<ProductCat
     const rawText = response.text;
     console.log(`[Classifier] Raw Gemini response: ${rawText}`);
 
+    const fallback: ClassificationResult = { category: 'FULL_OUTFIT', description: 'a fashion product' };
+
     if (!rawText) {
-      console.warn(`[Classifier] Empty response (finishReason: ${response.candidates?.[0]?.finishReason}), falling back to FULL_OUTFIT`);
-      return 'FULL_OUTFIT';
+      console.warn(`[Classifier] Empty response (finishReason: ${response.candidates?.[0]?.finishReason}), falling back`);
+      return fallback;
     }
 
     try {
       const parsed = JSON.parse(rawText);
       const category = (parsed.category || '').toUpperCase();
+      const description = parsed.description || 'a fashion product';
       if (isValidCategory(category)) {
-        console.log(`[Classifier] Classified product as: ${category}`);
-        return category;
+        console.log(`[Classifier] Category: ${category}, Description: ${description}`);
+        return { category, description };
       }
-      console.warn(`[Classifier] Invalid category in JSON: "${parsed.category}", falling back to FULL_OUTFIT`);
-      return 'FULL_OUTFIT';
+      console.warn(`[Classifier] Invalid category: "${parsed.category}", falling back`);
+      return { ...fallback, description };
     } catch {
-      // JSON parse failed — try raw text as fallback
-      const raw = rawText.trim().toUpperCase().replace(/[^A-Z_]/g, '');
-      if (isValidCategory(raw)) {
-        console.log(`[Classifier] Classified product as (text fallback): ${raw}`);
-        return raw;
-      }
-      console.warn(`[Classifier] Could not parse response: "${rawText}", falling back to FULL_OUTFIT`);
-      return 'FULL_OUTFIT';
+      console.warn(`[Classifier] Could not parse response: "${rawText}", falling back`);
+      return fallback;
     }
   } catch (err: any) {
-    console.error(`[Classifier] Classification failed: ${err.message}, falling back to FULL_OUTFIT`);
-    return 'FULL_OUTFIT';
+    console.error(`[Classifier] Classification failed: ${err.message}, falling back`);
+    return { category: 'FULL_OUTFIT', description: 'a fashion product' };
   }
 }
 
@@ -465,10 +470,11 @@ const IDENTITY_SUFFIX = `. Make them wear the product from the second image. Pre
  * Prepends selfie description + identity preservation instruction to every prompt.
  * @param selfieDescription - one-line description of the user from Gemini Flash (e.g. "The user is a young man with glasses wearing a grey sweatshirt")
  */
-export function getPromptForCategory(category: ProductCategory, selfieDescription?: string): string {
+export function getPromptForCategory(category: ProductCategory, selfieDescription?: string, productDescription?: string): string {
   const prompt = CATEGORY_PROMPTS[category];
-  const desc = selfieDescription || 'The user is the person in the first image';
-  const prefix = desc + IDENTITY_SUFFIX;
+  const userDesc = selfieDescription || 'The user is the person in the first image';
+  const productDesc = productDescription ? `, the product is ${productDescription}` : '';
+  const prefix = userDesc + productDesc + IDENTITY_SUFFIX;
   if (!prompt) {
     console.warn(`[Classifier] No prompt found for category "${category}", using FULL_OUTFIT`);
     return prefix + CATEGORY_PROMPTS.FULL_OUTFIT;

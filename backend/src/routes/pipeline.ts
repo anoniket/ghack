@@ -44,10 +44,10 @@ router.post('/classify', async (req: Request, res: Response) => {
       return;
     }
     const t0 = Date.now();
-    const category = await classifyProduct(base64);
+    const { category, description } = await classifyProduct(base64);
     const durationMs = Date.now() - t0;
-    const prompt = getPromptForCategory(category);
-    res.json({ category, prompt, cached: false, durationMs });
+    const prompt = getPromptForCategory(category, undefined, description);
+    res.json({ category, description, prompt, cached: false, durationMs });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -89,12 +89,13 @@ router.post('/generate', async (req: Request, res: Response) => {
     // Step 1: Classify
     sendEvent({ step: 'classify_start' });
     const classifyT0 = Date.now();
-    const category = await classifyProduct(resolvedProductBase64);
+    const { category, description: productDesc } = await classifyProduct(resolvedProductBase64);
     const classifyDurationMs = Date.now() - classifyT0;
-    const prompt = getPromptForCategory(category, selfieDesc);
+    const prompt = getPromptForCategory(category, selfieDesc, productDesc);
     sendEvent({
       step: 'classify_done',
       category,
+      productDescription: productDesc,
       prompt,
       cached: false,
       durationMs: classifyDurationMs,
