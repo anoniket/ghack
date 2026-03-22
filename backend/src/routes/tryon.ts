@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { generateTryOnV2, generateTryOnChat, initTryOnChat, hasChatSession, clearChatSession, downloadImageToBase64, ImageBlockedError, TimeoutError } from '../services/gemini';
+import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError } from '../services/gemini';
 import { classifyProduct, getPromptForCategory, describeSelfie } from '../services/classifier';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
@@ -166,50 +166,14 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     console.log(`${tag} V2 → category: ${category}, product: ${productDesc}, in ${Date.now() - classStart}ms`);
     const prompt = getPromptForCategory(category, selfieDescription, productDesc, selfieBase64s.length);
 
-    // Generate — try chat session first (faster, no selfie re-upload), fallback to single-turn
+    // Generate with selected model
     const usePro = requestedModel === 'pro';
     const useNb1 = requestedModel === 'nb1';
-    const model = usePro ? 'gemini-3-pro-image-preview' : useNb1 ? 'gemini-2.5-flash-image' : 'gemini-3.1-flash-image-preview';
     const modelLabel = usePro ? 'pro' : useNb1 ? 'nb1' : 'nb2';
     const genStart = Date.now();
     console.log(`${tag} V2 → productImageUrl=${productImageUrl}`);
-
-    let resultBase64: string;
-
-    if (hasChatSession(req.deviceId)) {
-      // Chat session exists — send only product image
-      console.log(`${tag} V2 → generating with ${modelLabel} via CHAT SESSION, category=${category}`);
-      try {
-        resultBase64 = await generateTryOnChat(req.deviceId, productBase64, prompt);
-      } catch (chatErr: any) {
-        // Chat failed — clear session and fallback to single-turn
-        console.warn(`${tag} V2 → chat failed (${chatErr.message}), falling back to single-turn`);
-        clearChatSession(req.deviceId);
-        console.log(`${tag} V2 → generating with ${modelLabel} via SINGLE-TURN fallback, category=${category}, selfies=${selfieBase64s.length}`);
-        resultBase64 = await generateTryOnV2(selfieBase64s, productBase64, usePro, prompt, useNb1);
-      }
-    } else {
-      // No chat session — initialize one with selfies, then generate
-      console.log(`${tag} V2 → initializing chat session with ${selfieBase64s.length} selfies`);
-      try {
-        // Compress selfies for chat init (same as single-turn does internally)
-        const compressed = await Promise.all(selfieBase64s.map(async (b64) => {
-          const buf = Buffer.from(b64, 'base64');
-          const small = await sharp(buf).resize(1024, undefined, { withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
-          return small.toString('base64');
-        }));
-        await initTryOnChat(req.deviceId, compressed, selfieDescription || 'The user is the person in these photos', model);
-        console.log(`${tag} V2 → generating with ${modelLabel} via NEW CHAT SESSION, category=${category}`);
-        resultBase64 = await generateTryOnChat(req.deviceId, productBase64, prompt);
-      } catch (initErr: any) {
-        // Chat init failed — fallback to single-turn
-        console.warn(`${tag} V2 → chat init failed (${initErr.message}), falling back to single-turn`);
-        clearChatSession(req.deviceId);
-        console.log(`${tag} V2 → generating with ${modelLabel} via SINGLE-TURN fallback, category=${category}, selfies=${selfieBase64s.length}`);
-        resultBase64 = await generateTryOnV2(selfieBase64s, productBase64, usePro, prompt, useNb1);
-      }
-    }
-
+    console.log(`${tag} V2 → generating with ${modelLabel}, category=${category}, selfies=${selfieBase64s.length}`);
+    const resultBase64 = await generateTryOnV2(selfieBase64s, productBase64, usePro, prompt, useNb1);
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
