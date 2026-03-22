@@ -530,6 +530,136 @@ export async function generateTryOnV2(
   throw new ImageBlockedError(reason);
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Chat-based try-on — selfies sent once, reused across try-ons
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+interface ChatSession {
+  chat: any; // Chat object from @google/genai
+  selfieCount: number;
+  model: string;
+  createdAt: number;
+}
+
+const chatSessions = new Map<string, ChatSession>();
+const CHAT_SESSION_TTL_MS = 30 * 60 * 1000; // 30 min
+
+// Cleanup stale chat sessions every 10 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, session] of chatSessions) {
+    if (now - session.createdAt > CHAT_SESSION_TTL_MS) {
+      chatSessions.delete(key);
+      console.log(`[ChatSession] Evicted ${key} (inactive ${Math.round((now - session.createdAt) / 60000)}min)`);
+    }
+  }
+}, 10 * 60 * 1000);
+
+/**
+ * Initialize a chat session with selfie images.
+ * Turn 1: sends selfies + description so Gemini "remembers" the person.
+ */
+export async function initTryOnChat(
+  deviceId: string,
+  compressedSelfies: string[],
+  selfieDescription: string,
+  model: string,
+): Promise<void> {
+  const client = getAI();
+
+  const chat = client.chats.create({
+    model,
+    config: {
+      responseModalities: ['Text', 'Image'],
+      personGeneration: 'ALLOW_ADULT',
+      safetySettings: [
+        { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
+        { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
+      ],
+    } as any,
+  });
+
+  // Turn 1: Send selfies + description — ask Gemini to remember this person
+  const selfieParts = compressedSelfies.map(b64 => ({
+    inlineData: { mimeType: 'image/jpeg', data: b64 },
+  }));
+
+  const initT0 = Date.now();
+  await chat.sendMessage({
+    message: [
+      ...selfieParts,
+      { text: `${selfieDescription}. Remember this person exactly — their face, body, skin tone, weight, and proportions. I will ask you to make them wear different products in the following messages. Always use the ORIGINAL person from this first message, never any edited versions.` },
+    ],
+  });
+  console.log(`[ChatSession] Initialized for ${deviceId} with ${compressedSelfies.length} selfies in ${Date.now() - initT0}ms`);
+
+  chatSessions.set(deviceId, {
+    chat,
+    selfieCount: compressedSelfies.length,
+    model,
+    createdAt: Date.now(),
+  });
+}
+
+/**
+ * Generate try-on using an existing chat session.
+ * Sends only the product image — selfies are already in the chat context.
+ */
+export async function generateTryOnChat(
+  deviceId: string,
+  productBase64: string,
+  customPrompt: string,
+): Promise<string> {
+  const session = chatSessions.get(deviceId);
+  if (!session) throw new Error('CHAT_SESSION_NOT_FOUND');
+
+  const productMime = detectMimeType(productBase64);
+  const timeoutMs = 40000;
+
+  console.log(`[V2-CHAT] Using chat session for ${deviceId}, product: len=${productBase64.length}, mime=${productMime}`);
+
+  const genPromise = session.chat.sendMessage({
+    message: [
+      { inlineData: { mimeType: productMime, data: productBase64 } },
+      { text: `Now make the ORIGINAL person from the first message wear this product. Ignore any previously generated images — go back to the original person. ${customPrompt}` },
+    ],
+  });
+
+  let timeoutId: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new TimeoutError('Chat generation', timeoutMs)), timeoutMs);
+  });
+
+  const response = await Promise.race([genPromise, timeoutPromise]);
+  clearTimeout(timeoutId!);
+
+  session.createdAt = Date.now(); // refresh TTL
+
+  const parts = response.candidates?.[0]?.content?.parts;
+  if (parts) {
+    for (const part of parts) {
+      if ((part as any).inlineData) {
+        return (part as any).inlineData.data;
+      }
+    }
+  }
+
+  const reason = extractBlockReason(response, 'V2-CHAT');
+  throw new ImageBlockedError(reason);
+}
+
+export function hasChatSession(deviceId: string): boolean {
+  return chatSessions.has(deviceId);
+}
+
+export function clearChatSession(deviceId: string): void {
+  chatSessions.delete(deviceId);
+  console.log(`[ChatSession] Cleared for ${deviceId}`);
+}
+
 // In-memory video job storage
 // SEC-9: deviceId stored per job for ownership verification on poll
 interface VideoJob {
