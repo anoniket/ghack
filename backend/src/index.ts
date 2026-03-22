@@ -54,19 +54,10 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, slow down' },
 });
 
-// Generation limit — 30 requests per minute per IP
-const generationLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Generation rate limit reached, try again later' },
-});
-
-// Per-device generation limit — 10 requests per minute
+// Per-device generation limit — 200 RPM
 const deviceGenerationLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 10,
+  max: 200,
   keyGenerator: (req: express.Request) => (req as any).deviceId || 'unknown',
   validate: { ip: false },
   standardHeaders: false,
@@ -97,8 +88,8 @@ const chatLimiter = rateLimit({
 });
 
 // Stricter limits on generation endpoints (IP + device)
-app.use('/api/tryon', generationLimiter, deviceGenerationLimiter);
-app.use('/api/video', generationLimiter, deviceGenerationLimiter);
+app.use('/api/tryon', deviceGenerationLimiter);
+app.use('/api/video', deviceGenerationLimiter);
 app.use('/api/chat', chatLimiter);
 
 
