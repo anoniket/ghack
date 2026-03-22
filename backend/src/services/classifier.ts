@@ -143,7 +143,7 @@ export async function classifyProduct(productBase64: string): Promise<Classifica
       config: {
         temperature: 0,
         maxOutputTokens: 1024,
-        thinkingConfig: { thinkingBudget: 0 },
+        thinkingConfig: { thinkingLevel: 'LOW' as any },
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'object' as const,
