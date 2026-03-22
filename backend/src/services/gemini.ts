@@ -57,7 +57,7 @@ export class TimeoutError extends Error {
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
-  IMAGE_GEN: 'gemini-2.5-flash-image',
+  IMAGE_GEN: 'gemini-3-pro-image-preview',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
@@ -456,7 +456,7 @@ export async function generateTryOnV2(
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const timeoutMs = 40000;
+  const timeoutMs = 60000;
   const client = getAI();
 
   // Detect MIME types from magic bytes for correct inlineData
