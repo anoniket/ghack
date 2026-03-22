@@ -497,7 +497,7 @@ export async function generateTryOnV2(
       },
     ],
     config: {
-      responseModalities: ['Text', 'Image'] as any,
+      responseModalities: ['Text', 'Image'],
       personGeneration: 'ALLOW_ADULT',
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
@@ -506,7 +506,7 @@ export async function generateTryOnV2(
         { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
       ],
-    },
+    } as any,
   });
 
   let timeoutId2: ReturnType<typeof setTimeout>;
