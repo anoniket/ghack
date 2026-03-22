@@ -100,17 +100,28 @@ export default function OnboardingCamera() {
         return;
       }
 
-      // Upload all to S3 in parallel -- don't block onboarding
+      // Upload to S3 + cache on backend — all in parallel, don't block onboarding
       setSavingStatus('Uploading...');
-      const uploadPromises = savedUris.map(async (uri) => {
-        try {
-          return await uploadSelfieAndSaveKey(uri);
-        } catch (uploadErr) {
-          api.sendLogs([{ tag: 'Onboarding', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
-          return null;
-        }
-      });
-      const s3Keys = (await Promise.all(uploadPromises)).filter((k): k is string => k !== null);
+      const allBase64s = await Promise.all(savedUris.map(uri => imageUriToBase64(uri)));
+
+      // Fire all 3 in parallel: S3 uploads + backend cache
+      const [s3Results] = await Promise.all([
+        // S3 uploads
+        Promise.all(savedUris.map(async (uri) => {
+          try {
+            return await uploadSelfieAndSaveKey(uri);
+          } catch (uploadErr) {
+            api.sendLogs([{ tag: 'Onboarding', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
+            return null;
+          }
+        })),
+        // Backend cache
+        api.cacheSelfies(allBase64s).catch((err: any) => {
+          console.warn('[Onboarding] Backend selfie cache failed:', err.message);
+        }),
+      ]);
+
+      const s3Keys = s3Results.filter((k): k is string => k !== null);
       if (s3Keys.length > 0) {
         await saveSelfieS3Keys(s3Keys);
         setSelfieS3Keys(s3Keys);

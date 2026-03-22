@@ -171,16 +171,30 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
 
-      // Get model preference and limit selfies accordingly
+      // Get model preference
       const preferredModel = useAppStore.getState().preferredModel;
-      // NB1 supports max 3 images total (2 selfies + 1 product), NB2/Pro support more
-      const maxSelfies = preferredModel === 'nb1' ? 2 : 3;
-      const selfiesToUse = selfieUris.slice(0, maxSelfies);
 
-      // Convert selfie URIs to base64
-      const selfieBase64s = await Promise.all(
-        selfiesToUse.map(uri => imageUriToBase64(uri))
-      );
+      // Check if backend has cached selfies — if not, send them as fallback
+      let selfieBase64sFallback: string[] | undefined;
+      try {
+        const cacheStatus = await api.checkSelfieCache();
+        if (!cacheStatus.cached) {
+          rlog('TryOn', 'Backend cache miss — sending selfies');
+          const maxSelfies = preferredModel === 'nb1' ? 2 : 3;
+          selfieBase64sFallback = await Promise.all(
+            selfieUris.slice(0, maxSelfies).map(uri => imageUriToBase64(uri))
+          );
+        } else {
+          rlog('TryOn', `Backend has ${cacheStatus.count} cached selfies`);
+        }
+      } catch {
+        // Cache check failed — send selfies as fallback
+        rlog('TryOn', 'Cache check failed — sending selfies');
+        const maxSelfies = preferredModel === 'nb1' ? 2 : 3;
+        selfieBase64sFallback = await Promise.all(
+          selfieUris.slice(0, maxSelfies).map(uri => imageUriToBase64(uri))
+        );
+      }
 
       // Single-step V2 with auto-retry on SERVER_BUSY (503)
       const MAX_BUSY_RETRIES = 2;
@@ -188,12 +202,12 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       for (let attempt = 0; attempt <= MAX_BUSY_RETRIES; attempt++) {
         try {
           result = await api.tryOnV2({
-            selfieBase64s,
             productImageUrl: currentProduct.imageUrl,
             sourceUrl: currentProduct.pageUrl,
             retry: currentProduct.retry,
             selfieDescription: selfieDescriptionRef.current || undefined,
             model: preferredModel,
+            selfieBase64s: selfieBase64sFallback,
           });
           break; // success
         } catch (busyErr: any) {

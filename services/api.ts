@@ -347,13 +347,25 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
   return result.description;
 }
 
+export async function cacheSelfies(selfieBase64s: string[]): Promise<{ cached: boolean; count: number }> {
+  return apiFetch('/api/tryon/selfie-cache', {
+    method: 'POST',
+    body: JSON.stringify({ selfieBase64s }),
+    timeout: 60000,
+  });
+}
+
+export async function checkSelfieCache(): Promise<{ cached: boolean; count: number }> {
+  return apiFetch('/api/tryon/selfie-cache/status', { timeout: 10000 });
+}
+
 export async function tryOnV2(params: {
-  selfieBase64s: string[];
   productImageUrl: string;
   sourceUrl?: string;
   retry?: boolean;
   selfieDescription?: string;
   model?: 'nb1' | 'nb2' | 'pro';
+  selfieBase64s?: string[]; // fallback if cache miss
 }): Promise<TryOnResult> {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',

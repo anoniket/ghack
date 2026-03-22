@@ -15,6 +15,58 @@ export const tryonRouter = Router();
 const MAX_SELFIE_BASE64_LEN = 7 * 1024 * 1024;
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// Selfie cache — stores base64 per device, sent once during onboarding
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+interface SelfieCacheEntry {
+  base64s: string[];
+  updatedAt: number;
+}
+const selfieCache = new Map<string, SelfieCacheEntry>();
+const SELFIE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour inactivity
+
+// Cleanup stale entries every 10 min
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of selfieCache) {
+    if (now - entry.updatedAt > SELFIE_CACHE_TTL_MS) {
+      selfieCache.delete(key);
+      console.log(`[SelfieCache] Evicted ${key} (inactive ${Math.round((now - entry.updatedAt) / 60000)}min)`);
+    }
+  }
+}, 10 * 60 * 1000);
+
+// POST /selfie-cache — phone sends selfie base64s once, backend caches
+tryonRouter.post('/selfie-cache', async (req: Request, res: Response) => {
+  const { selfieBase64s } = req.body;
+  const deviceId = req.deviceId;
+
+  if (!Array.isArray(selfieBase64s) || selfieBase64s.length === 0) {
+    res.status(400).json({ error: 'selfieBase64s array required' });
+    return;
+  }
+  if (selfieBase64s.length > 3) {
+    res.status(400).json({ error: 'Maximum 3 selfies' });
+    return;
+  }
+
+  selfieCache.set(deviceId, { base64s: selfieBase64s, updatedAt: Date.now() });
+  const totalKB = selfieBase64s.reduce((sum: number, s: string) => sum + s.length, 0) / 1024;
+  console.log(`[SelfieCache] Cached ${selfieBase64s.length} selfies for ${deviceId} (${totalKB.toFixed(0)}KB total, ${selfieCache.size} devices cached)`);
+  res.json({ cached: true, count: selfieBase64s.length });
+});
+
+// GET /selfie-cache/status — phone checks if backend has cached selfies
+tryonRouter.get('/selfie-cache/status', (req: Request, res: Response) => {
+  const entry = selfieCache.get(req.deviceId);
+  if (entry) {
+    entry.updatedAt = Date.now(); // refresh TTL on check
+    res.json({ cached: true, count: entry.base64s.length });
+  } else {
+    res.json({ cached: false, count: 0 });
+  }
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // Selfie description — call once when selfie is set, cache on client
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
@@ -52,14 +104,26 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   const { productImageUrl, sourceUrl, selfieDescription, model: requestedModel } = req.body;
   const tag = `[${req.deviceId}]`;
 
-  // Accept selfieBase64s (array) or selfieBase64 (string, backward compat for old clients)
+  // Resolve selfies: cache first, then body, then backward compat
   let selfieBase64s: string[];
-  if (Array.isArray(req.body.selfieBase64s) && req.body.selfieBase64s.length > 0) {
+  const cacheEntry = selfieCache.get(req.deviceId);
+
+  if (cacheEntry) {
+    // Use cached selfies — zero upload overhead
+    selfieBase64s = cacheEntry.base64s;
+    cacheEntry.updatedAt = Date.now(); // refresh TTL
+    console.log(`${tag} V2 → using cached selfies (${selfieBase64s.length} images)`);
+  } else if (Array.isArray(req.body.selfieBase64s) && req.body.selfieBase64s.length > 0) {
     selfieBase64s = req.body.selfieBase64s;
+    // Cache them for next time
+    selfieCache.set(req.deviceId, { base64s: selfieBase64s, updatedAt: Date.now() });
+    console.log(`${tag} V2 → selfies from body, now cached (${selfieBase64s.length} images)`);
   } else if (typeof req.body.selfieBase64 === 'string' && req.body.selfieBase64.length > 0) {
     selfieBase64s = [req.body.selfieBase64];
+    selfieCache.set(req.deviceId, { base64s: selfieBase64s, updatedAt: Date.now() });
+    console.log(`${tag} V2 → single selfie from body (backward compat), now cached`);
   } else {
-    res.status(400).json({ error: 'selfieBase64 or selfieBase64s is required' });
+    res.status(400).json({ error: 'No selfies available. Upload selfies first.' });
     return;
   }
 

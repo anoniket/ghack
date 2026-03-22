@@ -94,16 +94,26 @@ export default function ProfileScreen() {
         }
       }
 
-      // Upload to S3 in background
+      // Upload to S3 + update backend cache — in parallel
       setStatusText('Uploading...');
-      try {
-        const s3Key = await uploadSelfieAndSaveKey(savedUri);
-        const newKeys = [...selfieS3Keys, s3Key];
-        await saveSelfieS3Keys(newKeys);
-        setSelfieS3Keys(newKeys);
-      } catch (uploadErr) {
-        api.sendLogs([{ tag: 'Profile', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
-      }
+      const allBase64s = await Promise.all(newUris.map(u => imageUriToBase64(u)));
+      await Promise.all([
+        // S3 upload
+        (async () => {
+          try {
+            const s3Key = await uploadSelfieAndSaveKey(savedUri);
+            const newKeys = [...selfieS3Keys, s3Key];
+            await saveSelfieS3Keys(newKeys);
+            setSelfieS3Keys(newKeys);
+          } catch (uploadErr) {
+            api.sendLogs([{ tag: 'Profile', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
+          }
+        })(),
+        // Backend cache update
+        api.cacheSelfies(allBase64s).catch((err: any) => {
+          console.warn('[Profile] Backend cache failed:', err.message);
+        }),
+      ]);
 
       setStatusText('');
     } catch (err) {
