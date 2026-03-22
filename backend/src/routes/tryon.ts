@@ -60,8 +60,10 @@ tryonRouter.get('/selfie-cache/status', (req: Request, res: Response) => {
   const entry = selfieCache.get(req.deviceId);
   if (entry) {
     entry.updatedAt = Date.now(); // refresh TTL on check
+    console.log(`[${req.deviceId}] SelfieCache → HIT (${entry.base64s.length} selfies cached)`);
     res.json({ cached: true, count: entry.base64s.length });
   } else {
+    console.log(`[${req.deviceId}] SelfieCache → MISS (no cached selfies)`);
     res.json({ cached: false, count: 0 });
   }
 });
@@ -71,19 +73,24 @@ tryonRouter.get('/selfie-cache/status', (req: Request, res: Response) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
   const { selfieBase64 } = req.body;
+  const tag = `[${req.deviceId}]`;
   if (!selfieBase64) {
     res.status(400).json({ error: 'selfieBase64 is required' });
     return;
   }
   try {
+    console.log(`${tag} SelfieDescribe → received ${(selfieBase64.length / 1024).toFixed(0)}KB selfie`);
     // Compress selfie for description only — don't need 5MB for a 1-line text description
     const fullBuffer = Buffer.from(selfieBase64, 'base64');
     const smallBuffer = await sharp(fullBuffer).resize(512).jpeg({ quality: 70 }).toBuffer();
     const smallBase64 = smallBuffer.toString('base64');
-    console.log(`[selfie-describe] Compressed ${(selfieBase64.length / 1024).toFixed(0)}KB → ${(smallBase64.length / 1024).toFixed(0)}KB for description`);
+    console.log(`${tag} SelfieDescribe → compressed to ${(smallBase64.length / 1024).toFixed(0)}KB, calling Gemini...`);
+    const t0 = Date.now();
     const description = await describeSelfie(smallBase64);
+    console.log(`${tag} SelfieDescribe → done in ${Date.now() - t0}ms: "${description}"`);
     res.json({ description });
   } catch (err: any) {
+    console.error(`${tag} SelfieDescribe → ERROR: ${err.message}`);
     res.status(500).json({ error: err.message });
   }
 });
