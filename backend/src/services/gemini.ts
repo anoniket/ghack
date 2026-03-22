@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import sharp from 'sharp';
 import { config } from '../config';
 
 // Multi-key round-robin — spreads load across API keys to avoid per-key rate limits
@@ -460,12 +461,23 @@ export async function generateTryOnV2(
   const timeoutMs = 40000;
   const client = getAI();
 
-  // Build selfie parts from array — supports 1-3 selfie images
-  const selfieParts = selfieBase64s.map(b64 => ({
-    inlineData: { mimeType: detectMimeType(b64), data: b64 },
+  // Compress selfies to 1024px for Gemini — cached originals stay full-size
+  const compressT0 = Date.now();
+  const compressedSelfies = await Promise.all(selfieBase64s.map(async (b64) => {
+    const buf = Buffer.from(b64, 'base64');
+    const small = await sharp(buf).resize(1024, undefined, { withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer();
+    return small.toString('base64');
+  }));
+  const compressMs = Date.now() - compressT0;
+  const originalKB = selfieBase64s.reduce((s, b) => s + b.length, 0) / 1024;
+  const compressedKB = compressedSelfies.reduce((s, b) => s + b.length, 0) / 1024;
+  console.log(`[V2-COMPRESS] Selfies: ${originalKB.toFixed(0)}KB → ${compressedKB.toFixed(0)}KB (${compressedSelfies.length} images, ${compressMs}ms)`);
+
+  // Build parts for Gemini
+  const selfieParts = compressedSelfies.map(b64 => ({
+    inlineData: { mimeType: 'image/jpeg' as string, data: b64 },
   }));
   const productMime = detectMimeType(productBase64);
-  console.log(`[V2-DEBUG] selfies: count=${selfieBase64s.length}, sizes=[${selfieBase64s.map(b => b.length).join(', ')}], mimes=[${selfieBase64s.map(b => detectMimeType(b)).join(', ')}]`);
   console.log(`[V2-DEBUG] product: len=${productBase64.length}, mime=${productMime}`);
   const promptText = customPrompt || TRYON_V2_PROMPT;
   const promptLines = promptText.split('\n').filter((l: string) => l.trim());
