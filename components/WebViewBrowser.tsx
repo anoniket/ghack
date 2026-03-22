@@ -163,10 +163,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
 
     try {
-      // On retry, use pro model — update duration to 35s
+      // On retry, keep same 30s duration
       if (currentProduct.retry && webViewRef.current) {
         webViewRef.current.injectJavaScript(`
-          if (window.__tryonSetDuration) { window.__tryonSetDuration(35000); }
+          if (window.__tryonSetDuration) { window.__tryonSetDuration(30000); }
           true;
         `);
       }
