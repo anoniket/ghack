@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError, withGeminiLimit, geminiConcurrency } from '../services/gemini';
+import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError } from '../services/gemini';
 import { classifyProduct, getPromptForCategory, describeSelfie } from '../services/classifier';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
@@ -108,13 +108,6 @@ tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
 // One call: selfie + product image → result.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
-  // C4: Reject if server is overloaded
-  const { queued } = geminiConcurrency();
-  if (queued >= MAX_QUEUED) {
-    res.status(503).json({ error: 'Server busy, try again in a moment' });
-    return;
-  }
-
   const startTime = Date.now();
   const { productImageUrl, sourceUrl, selfieDescription, model: requestedModel } = req.body;
   const tag = `[${req.deviceId}]`;
@@ -180,7 +173,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const genStart = Date.now();
     console.log(`${tag} V2 → productImageUrl=${productImageUrl}`);
     console.log(`${tag} V2 → generating with ${modelLabel}, category=${category}, selfies=${selfieBase64s.length}`);
-    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64s, productBase64, usePro, prompt, useNb1));
+    const resultBase64 = await generateTryOnV2(selfieBase64s, productBase64, usePro, prompt, useNb1);
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
