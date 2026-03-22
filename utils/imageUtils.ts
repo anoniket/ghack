@@ -105,6 +105,7 @@ export async function deleteSelfie(): Promise<void> {
   }
   await AsyncStorage.removeItem(SELFIE_URIS_KEY);
   await AsyncStorage.removeItem(SELFIE_S3_KEYS_KEY);
+  await AsyncStorage.removeItem('selfie_description');
   // Also clean up legacy keys in case migration hasn't run yet
   await AsyncStorage.removeItem(LEGACY_SELFIE_KEY);
   await AsyncStorage.removeItem(LEGACY_SELFIE_S3_KEY);

@@ -68,17 +68,19 @@ export default function ProfileScreen() {
   };
 
   const handleAddPhoto = async (uri: string) => {
-    if (!uri || selfieUris.length >= MAX_PHOTOS) return;
+    // Read fresh state to avoid stale closures
+    const currentUris = useAppStore.getState().selfieUris;
+    const currentKeys = useAppStore.getState().selfieS3Keys;
+    if (!uri || currentUris.length >= MAX_PHOTOS) return;
     setUpdating(true);
     setStatusText('Saving photo...');
     try {
       const savedUri = await saveSelfie(uri);
-      const newUris = [...selfieUris, savedUri];
+      const newUris = [...currentUris, savedUri];
       await saveSelfieUris(newUris);
       setSelfieUris(newUris);
-      setOnboardingComplete(true);
 
-      // If this is the first photo (slot 0), run describeSelfie
+      // If this is the first photo, run describeSelfie — must succeed
       if (newUris.length === 1) {
         setStatusText('Analyzing your photo...');
         try {
@@ -87,6 +89,9 @@ export default function ProfileScreen() {
           const AsyncStorage = require('@react-native-async-storage/async-storage').default;
           await AsyncStorage.setItem('selfie_description', desc);
         } catch (descErr: any) {
+          // Roll back — remove the URI we just added
+          await saveSelfieUris(currentUris);
+          setSelfieUris(currentUris);
           api.sendLogs([{ tag: 'Profile', msg: `Selfie description failed: ${descErr.message}` }]).catch(() => {});
           Alert.alert('Error', 'Could not process your selfie. Please try again.');
           setUpdating(false);
@@ -95,22 +100,23 @@ export default function ProfileScreen() {
         }
       }
 
-      // Upload to S3 + update backend cache — in parallel
+      setOnboardingComplete(true);
+
+      // Upload to S3 + update backend cache
       setStatusText('Uploading...');
       const allBase64s = await Promise.all(newUris.map(u => imageUriToBase64(u)));
       await Promise.all([
-        // S3 upload
         (async () => {
           try {
             const s3Key = await uploadSelfieAndSaveKey(savedUri);
-            const newKeys = [...selfieS3Keys, s3Key];
+            const freshKeys = useAppStore.getState().selfieS3Keys;
+            const newKeys = [...freshKeys, s3Key];
             await saveSelfieS3Keys(newKeys);
             setSelfieS3Keys(newKeys);
           } catch (uploadErr) {
             api.sendLogs([{ tag: 'Profile', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
           }
         })(),
-        // Backend cache update
         api.cacheSelfies(allBase64s).catch((err: any) => {
           console.warn('[Profile] Backend cache failed:', err.message);
         }),
@@ -131,25 +137,46 @@ export default function ProfileScreen() {
         text: 'Remove',
         style: 'destructive',
         onPress: async () => {
-          const newUris = selfieUris.filter((_, i) => i !== index);
-          const newKeys = selfieS3Keys.filter((_, i) => i !== index);
+          // Read fresh state
+          const currentUris = useAppStore.getState().selfieUris;
+          const currentKeys = useAppStore.getState().selfieS3Keys;
+          const removedUri = currentUris[index];
+          const newUris = currentUris.filter((_, i) => i !== index);
+          const newKeys = currentKeys.filter((_, i) => i !== index);
 
-          // If all photos removed, reset onboarding
+          setUpdating(true);
+
+          // Delete the file from disk
+          try {
+            const { File } = require('expo-file-system');
+            const file = new File(removedUri);
+            if (file.exists) file.delete();
+          } catch {}
+
+          // If all photos removed — full reset
           if (newUris.length === 0) {
-            setUpdating(true);
             setStatusText('Resetting...');
-            await deleteSelfie();
+            await deleteSelfie(); // clears AsyncStorage + files
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            await AsyncStorage.removeItem('selfie_description');
             setSelfieUris([]);
             setSelfieS3Keys([]);
             setOnboardingComplete(false);
+            // Clear backend cache
+            api.cacheSelfies([]).catch(() => {});
             setUpdating(false);
             setStatusText('');
             return;
           }
 
-          // If primary (index 0) was removed, re-run describeSelfie on new first photo
+          // Save updated arrays
+          await saveSelfieUris(newUris);
+          await saveSelfieS3Keys(newKeys);
+          setSelfieUris(newUris);
+          setSelfieS3Keys(newKeys);
+
+          // If primary (index 0) was removed, re-describe the new primary
           if (index === 0) {
-            setUpdating(true);
             setStatusText('Analyzing your photo...');
             try {
               const b64 = await imageUriToBase64(newUris[0]);
@@ -160,14 +187,19 @@ export default function ProfileScreen() {
               api.sendLogs([{ tag: 'Profile', msg: `Selfie re-description failed: ${descErr.message}` }]).catch(() => {});
               Alert.alert('Warning', 'Could not re-analyze your primary photo.');
             }
-            setUpdating(false);
-            setStatusText('');
           }
 
-          await saveSelfieUris(newUris);
-          await saveSelfieS3Keys(newKeys);
-          setSelfieUris(newUris);
-          setSelfieS3Keys(newKeys);
+          // Update backend cache with remaining photos
+          setStatusText('Updating...');
+          try {
+            const allBase64s = await Promise.all(newUris.map(u => imageUriToBase64(u)));
+            await api.cacheSelfies(allBase64s);
+          } catch (err: any) {
+            console.warn('[Profile] Backend cache update after delete failed:', err.message);
+          }
+
+          setUpdating(false);
+          setStatusText('');
         },
       },
     ]);

@@ -6,7 +6,7 @@ import ChatBubble from '@/components/ChatBubble';
 import OnboardingCamera from '@/components/OnboardingCamera';
 import CrashBoundary from '@/components/CrashBoundary';
 import { useAppStore } from '@/services/store';
-import { getSelfieUris, getSelfieS3Keys, uploadSelfieAndSaveKey, mapHistoryItem } from '@/utils/imageUtils';
+import { getSelfieUris, getSelfieS3Keys, saveSelfieS3Keys, uploadSelfieAndSaveKey, mapHistoryItem } from '@/utils/imageUtils';
 import { getDeviceId, getHistory } from '@/services/api';
 
 export default function HomeScreen() {
@@ -57,7 +57,10 @@ export default function HomeScreen() {
             }
             s3Keys = updated;
           }
-          if (s3Keys.length > 0) setSelfieS3Keys(s3Keys);
+          if (s3Keys.length > 0) {
+            await saveSelfieS3Keys(s3Keys);
+            setSelfieS3Keys(s3Keys);
+          }
         })(),
         // Load saved try-ons from cloud
         getHistory().then(({ items }) => {
