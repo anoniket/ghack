@@ -461,14 +461,7 @@ DO NOT: Change the fabric type, swap colors, alter the border/print design, modi
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_SUFFIX = `
-
-TASK: Put the product onto this customer. The customer is in the FIRST image (the selfie). The product is in the SECOND image.
-
-CUSTOMER = FIRST image. Use ONLY this person's face, body, skin, and hair. Do not change their appearance.
-PRODUCT = SECOND image. Use ONLY the garment/accessory design. If a model is shown wearing it, ignore that model entirely — extract the product design only.
-
-Keep the customer's pose where visible. If the selfie shows only the upper body, extend naturally to a full standing pose matching their visible posture. Sharp photorealistic quality.
+const IDENTITY_SUFFIX = `. Take this person from the first image and make them wear the product from the second image. Ensure the person's face and features remain completely unchanged. The product should look naturally worn, following the body's shape. If the second image shows a model wearing the product, ignore that model — only use the product design. Generate a realistic, well-lit photo.
 
 `;
 

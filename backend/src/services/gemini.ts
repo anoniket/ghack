@@ -57,7 +57,7 @@ export class TimeoutError extends Error {
 
 const MODELS = {
   CHAT: 'gemini-2.5-flash',
-  IMAGE_GEN: 'gemini-3-pro-image-preview',
+  IMAGE_GEN: 'gemini-3.1-flash-image-preview',
   IMAGE_GEN_PRO: 'gemini-3-pro-image-preview',
   VIDEO_GEN: 'veo-3.1-fast-generate-preview',
 } as const;
@@ -475,9 +475,7 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { text: 'FIRST IMAGE — the customer (selfie):' },
           { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
-          { text: 'SECOND IMAGE — the product:' },
           { inlineData: { mimeType: productMime, data: productBase64 } },
           { text: customPrompt || TRYON_V2_PROMPT },
         ],
