@@ -449,11 +449,12 @@ export async function generateTryOnV2(
   productBase64: string,
   usePro: boolean = false,
   customPrompt?: string,
+  useNb1: boolean = false,
 ): Promise<string> {
   const dims = getImageDimensions(productBase64);
   const isSane = dims && dims.width <= 10000 && dims.height <= 10000;
   const aspectRatio = isSane ? matchAspectRatio(dims.width, dims.height) : '3:4';
-  const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
+  const model = usePro ? MODELS.IMAGE_GEN_PRO : useNb1 ? 'gemini-2.5-flash-image' : MODELS.IMAGE_GEN;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
   const timeoutMs = 40000;

@@ -77,6 +77,10 @@ interface AppState {
   // Chat bubble visibility (when in webview mode)
   chatBubbleExpanded: boolean;
   setChatBubbleExpanded: (expanded: boolean) => void;
+
+  // Model preference (debug)
+  preferredModel: 'nb1' | 'nb2' | 'pro';
+  setPreferredModel: (model: 'nb1' | 'nb2' | 'pro') => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -126,4 +130,7 @@ export const useAppStore = create<AppState>((set) => ({
 
   chatBubbleExpanded: false,
   setChatBubbleExpanded: (expanded) => set({ chatBubbleExpanded: expanded }),
+
+  preferredModel: 'nb2',
+  setPreferredModel: (model) => set({ preferredModel: model }),
 }));

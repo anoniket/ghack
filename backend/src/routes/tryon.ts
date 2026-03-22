@@ -49,7 +49,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   }
 
   const startTime = Date.now();
-  const { productImageUrl, sourceUrl, selfieDescription } = req.body;
+  const { productImageUrl, sourceUrl, selfieDescription, model: requestedModel } = req.body;
   const tag = `[${req.deviceId}]`;
 
   // Accept selfieBase64s (array) or selfieBase64 (string, backward compat for old clients)
@@ -94,11 +94,14 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     console.log(`${tag} V2 → category: ${category}, product: ${productDesc}, in ${Date.now() - classStart}ms`);
     const prompt = getPromptForCategory(category, selfieDescription, productDesc, selfieBase64s.length);
 
-    // Generate with NB1 + category-specific prompt
+    // Generate with selected model
+    const usePro = requestedModel === 'pro';
+    const useNb1 = requestedModel === 'nb1';
+    const modelLabel = usePro ? 'pro' : useNb1 ? 'nb1' : 'nb2';
     const genStart = Date.now();
     console.log(`${tag} V2 → productImageUrl=${productImageUrl}`);
-    console.log(`${tag} V2 → generating with nb1, category=${category}, selfies=${selfieBase64s.length}`);
-    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64s, productBase64, false, prompt));
+    console.log(`${tag} V2 → generating with ${modelLabel}, category=${category}, selfies=${selfieBase64s.length}`);
+    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64s, productBase64, usePro, prompt, useNb1));
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 

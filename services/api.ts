@@ -353,6 +353,7 @@ export async function tryOnV2(params: {
   sourceUrl?: string;
   retry?: boolean;
   selfieDescription?: string;
+  model?: 'nb1' | 'nb2' | 'pro';
 }): Promise<TryOnResult> {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',

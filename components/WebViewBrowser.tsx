@@ -171,9 +171,15 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
 
-      // Convert ALL selfie URIs to base64 — bypasses S3 download latency
+      // Get model preference and limit selfies accordingly
+      const preferredModel = useAppStore.getState().preferredModel;
+      // NB1 supports max 3 images total (2 selfies + 1 product), NB2/Pro support more
+      const maxSelfies = preferredModel === 'nb1' ? 2 : 3;
+      const selfiesToUse = selfieUris.slice(0, maxSelfies);
+
+      // Convert selfie URIs to base64
       const selfieBase64s = await Promise.all(
-        selfieUris.map(uri => imageUriToBase64(uri))
+        selfiesToUse.map(uri => imageUriToBase64(uri))
       );
 
       // Single-step V2 with auto-retry on SERVER_BUSY (503)
@@ -187,6 +193,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
             sourceUrl: currentProduct.pageUrl,
             retry: currentProduct.retry,
             selfieDescription: selfieDescriptionRef.current || undefined,
+            model: preferredModel,
           });
           break; // success
         } catch (busyErr: any) {

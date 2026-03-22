@@ -30,6 +30,8 @@ export default function ProfileScreen() {
     clearMessages,
     setMode,
     setCurrentUrl,
+    preferredModel,
+    setPreferredModel,
   } = useAppStore();
   const [updating, setUpdating] = useState(false);
   const [statusText, setStatusText] = useState('');
@@ -244,6 +246,28 @@ export default function ProfileScreen() {
             ) : null}
           </View>
 
+          {/* Model Switcher */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI MODEL</Text>
+            <View style={styles.modelSwitcher}>
+              {([
+                { key: 'nb1' as const, label: 'NB1', sub: '2.5 Flash · max 2 selfies' },
+                { key: 'nb2' as const, label: 'NB2', sub: '3.1 Flash · max 3 selfies' },
+                { key: 'pro' as const, label: 'Pro', sub: '3 Pro · max 3 selfies' },
+              ]).map(({ key, label, sub }) => (
+                <TouchableOpacity
+                  key={key}
+                  style={[styles.modelOption, preferredModel === key && styles.modelOptionActive]}
+                  onPress={() => setPreferredModel(key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.modelLabel, preferredModel === key && styles.modelLabelActive]}>{label}</Text>
+                  <Text style={[styles.modelSub, preferredModel === key && styles.modelSubActive]}>{sub}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
           {/* Settings */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>SETTINGS</Text>
@@ -389,6 +413,40 @@ const styles = StyleSheet.create({
   statusText: {
     color: 'rgba(255,255,255,0.6)',
     fontSize: 13,
+  },
+  modelSwitcher: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modelOption: {
+    flex: 1,
+    backgroundColor: '#1A1A1A',
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.06)',
+  },
+  modelOptionActive: {
+    borderColor: '#E8C8A0',
+    backgroundColor: 'rgba(232,200,160,0.08)',
+  },
+  modelLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.5)',
+    marginBottom: 4,
+  },
+  modelLabelActive: {
+    color: '#E8C8A0',
+  },
+  modelSub: {
+    fontSize: 10,
+    color: 'rgba(255,255,255,0.25)',
+    textAlign: 'center',
+  },
+  modelSubActive: {
+    color: 'rgba(232,200,160,0.6)',
   },
   settingItem: {
     flexDirection: 'row',
