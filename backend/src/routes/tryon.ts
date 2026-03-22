@@ -40,7 +40,7 @@ tryonRouter.post('/tryon/selfie-cache', async (req: Request, res: Response) => {
   const { selfieBase64s } = req.body;
   const deviceId = req.deviceId;
 
-  if (!Array.isArray(selfieBase64s) || selfieBase64s.length === 0) {
+  if (!Array.isArray(selfieBase64s)) {
     res.status(400).json({ error: 'selfieBase64s array required' });
     return;
   }
@@ -49,9 +49,17 @@ tryonRouter.post('/tryon/selfie-cache', async (req: Request, res: Response) => {
     return;
   }
 
+  // Empty array = clear cache (delete-all flow)
+  if (selfieBase64s.length === 0) {
+    selfieCache.delete(deviceId);
+    console.log(`[${deviceId}] SelfieCache → CLEARED (delete-all, ${selfieCache.size} devices remain)`);
+    res.json({ cached: false, count: 0 });
+    return;
+  }
+
   selfieCache.set(deviceId, { base64s: selfieBase64s, updatedAt: Date.now() });
   const totalKB = selfieBase64s.reduce((sum: number, s: string) => sum + s.length, 0) / 1024;
-  console.log(`[SelfieCache] Cached ${selfieBase64s.length} selfies for ${deviceId} (${totalKB.toFixed(0)}KB total, ${selfieCache.size} devices cached)`);
+  console.log(`[${deviceId}] SelfieCache → STORED ${selfieBase64s.length} selfies (${totalKB.toFixed(0)}KB total, ${selfieCache.size} devices cached)`);
   res.json({ cached: true, count: selfieBase64s.length });
 });
 
