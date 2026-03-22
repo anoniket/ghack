@@ -295,15 +295,24 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         }
         Alert.alert('No connection', 'Check your internet and try again.');
       } else if (err.message === 'IMAGE_BLOCKED') {
-        // Safety filter — retrying won't help
-        const blockedText = 'AI couldn\'t generate this — try a different product or photo';
+        // Safety filter — retrying won't help, pick a random fun message
+        const blockedQuips = [
+          'The AI got shy looking at this outfit. Try something it can handle without blushing.',
+          'Our AI said "too hot to handle" and ran away. Try another product?',
+          'Even robots have boundaries. This one made our AI need a moment.',
+          'The AI\'s mom said no. Try a different outfit.',
+          'This outfit broke the AI\'s confidence. Maybe try something less iconic?',
+          'Our AI just filed for emotional support. Pick something gentler.',
+        ];
+        const blockedText = blockedQuips[Math.floor(Math.random() * blockedQuips.length)];
         if (webViewRef.current) {
+          const escaped = JSON.stringify(blockedText);
           webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowError) { window.__tryonShowError(${JSON.stringify(blockedText)}); }
+            if (window.__tryonShowError) { window.__tryonShowError(${escaped}); }
             true;
           `);
         }
-        Alert.alert('Blocked by AI', blockedText);
+        Alert.alert('Oops!', blockedText);
       } else {
         const isTimeout = err.message === 'TIMEOUT';
         const timeoutQuips = [
