@@ -6,14 +6,14 @@ import ChatBubble from '@/components/ChatBubble';
 import OnboardingCamera from '@/components/OnboardingCamera';
 import CrashBoundary from '@/components/CrashBoundary';
 import { useAppStore } from '@/services/store';
-import { getSelfieUri, getSelfieS3Key, uploadSelfieAndSaveKey, mapHistoryItem } from '@/utils/imageUtils';
+import { getSelfieUris, getSelfieS3Keys, uploadSelfieAndSaveKey, mapHistoryItem } from '@/utils/imageUtils';
 import { getDeviceId, getHistory } from '@/services/api';
 
 export default function HomeScreen() {
   // H16: Individual selectors for read-state, getState() for setters
   const onboardingComplete = useAppStore((s) => s.onboardingComplete);
   const mode = useAppStore((s) => s.mode);
-  const { setOnboardingComplete, setSelfieUri, setSelfieS3Key, setDeviceId, setSavedTryOns, setHistoryLoaded, setCurrentProduct } = useAppStore.getState();
+  const { setOnboardingComplete, setSelfieUris, setSelfieS3Keys, setDeviceId, setSavedTryOns, setHistoryLoaded, setCurrentProduct } = useAppStore.getState();
 
   // SS-8: Track loading state to prevent onboarding flash
   const [initialLoading, setInitialLoading] = useState(true);
@@ -26,29 +26,38 @@ export default function HomeScreen() {
 
   const loadInitialData = async () => {
     // PERF-10: Run independent ops in parallel
-    const [, selfie] = await Promise.all([
+    const [, selfies] = await Promise.all([
       // Initialize device ID
       getDeviceId().then((id) => setDeviceId(id)).catch((err) => {
         console.error('Failed to get device ID:', err);
       }),
-      // Load selfie URI
-      getSelfieUri(),
+      // Load selfie URIs (migrates from legacy single-key automatically)
+      getSelfieUris(),
     ]);
 
-    if (selfie) {
-      setSelfieUri(selfie);
+    if (selfies.length > 0) {
+      setSelfieUris(selfies);
       setOnboardingComplete(true);
 
-      // S3 key + history can load in parallel
+      // S3 keys + history can load in parallel
       await Promise.all([
-        // Load S3 key (or upload if missing)
+        // Load S3 keys (or upload selfies that don't have corresponding keys)
         (async () => {
-          let s3Key = await getSelfieS3Key();
-          if (!s3Key) {
-            try { s3Key = await uploadSelfieAndSaveKey(selfie); }
-            catch (err) { console.error('Failed to upload selfie to S3:', err); }
+          let s3Keys = await getSelfieS3Keys();
+          // Upload any selfie URIs that don't yet have a corresponding S3 key
+          if (s3Keys.length < selfies.length) {
+            const updated = [...s3Keys];
+            for (let i = s3Keys.length; i < selfies.length; i++) {
+              try {
+                const key = await uploadSelfieAndSaveKey(selfies[i]);
+                updated.push(key);
+              } catch (err) {
+                console.error(`Failed to upload selfie ${i} to S3:`, err);
+              }
+            }
+            s3Keys = updated;
           }
-          if (s3Key) setSelfieS3Key(s3Key);
+          if (s3Keys.length > 0) setSelfieS3Keys(s3Keys);
         })(),
         // Load saved try-ons from cloud
         getHistory().then(({ items }) => {

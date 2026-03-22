@@ -23,11 +23,11 @@ interface AppState {
   deviceId: string | null;
   setDeviceId: (id: string) => void;
 
-  // Onboarding
-  selfieUri: string | null;
-  setSelfieUri: (uri: string | null) => void;
-  selfieS3Key: string | null;
-  setSelfieS3Key: (key: string | null) => void;
+  // Onboarding (multi-selfie)
+  selfieUris: string[];
+  setSelfieUris: (uris: string[]) => void;
+  selfieS3Keys: string[];
+  setSelfieS3Keys: (keys: string[]) => void;
   onboardingComplete: boolean;
   setOnboardingComplete: (complete: boolean) => void;
 
@@ -83,10 +83,10 @@ export const useAppStore = create<AppState>((set) => ({
   deviceId: null,
   setDeviceId: (id) => set({ deviceId: id }),
 
-  selfieUri: null,
-  setSelfieUri: (uri) => set({ selfieUri: uri }),
-  selfieS3Key: null,
-  setSelfieS3Key: (key) => set({ selfieS3Key: key }),
+  selfieUris: [],
+  setSelfieUris: (uris) => set({ selfieUris: uris }),
+  selfieS3Keys: [],
+  setSelfieS3Keys: (keys) => set({ selfieS3Keys: keys }),
   onboardingComplete: false,
   setOnboardingComplete: (complete) => set({ onboardingComplete: complete }),
 

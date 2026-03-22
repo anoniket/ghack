@@ -445,7 +445,7 @@ function matchAspectRatio(width: number, height: number): string {
 }
 
 export async function generateTryOnV2(
-  selfieBase64: string,
+  selfieBase64s: string[],
   productBase64: string,
   usePro: boolean = false,
   customPrompt?: string,
@@ -459,10 +459,12 @@ export async function generateTryOnV2(
   const timeoutMs = 40000;
   const client = getAI();
 
-  // Detect MIME types from magic bytes for correct inlineData
-  const selfieMime = detectMimeType(selfieBase64);
+  // Build selfie parts from array — supports 1-3 selfie images
+  const selfieParts = selfieBase64s.map(b64 => ({
+    inlineData: { mimeType: detectMimeType(b64), data: b64 },
+  }));
   const productMime = detectMimeType(productBase64);
-  console.log(`[V2-DEBUG] selfie: len=${selfieBase64.length}, mime=${selfieMime}`);
+  console.log(`[V2-DEBUG] selfies: count=${selfieBase64s.length}, sizes=[${selfieBase64s.map(b => b.length).join(', ')}], mimes=[${selfieBase64s.map(b => detectMimeType(b)).join(', ')}]`);
   console.log(`[V2-DEBUG] product: len=${productBase64.length}, mime=${productMime}`);
   const promptText = customPrompt || TRYON_V2_PROMPT;
   const promptLines = promptText.split('\n').filter((l: string) => l.trim());
@@ -475,7 +477,7 @@ export async function generateTryOnV2(
       {
         role: 'user',
         parts: [
-          { inlineData: { mimeType: selfieMime, data: selfieBase64 } },
+          ...selfieParts,
           { inlineData: { mimeType: productMime, data: productBase64 } },
           { text: customPrompt || TRYON_V2_PROMPT },
         ],

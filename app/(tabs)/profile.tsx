@@ -12,15 +12,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageCropPicker from 'react-native-image-crop-picker';
 import { useAppStore } from '@/services/store';
-import { saveSelfie, deleteSelfie, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
+import { saveSelfie, deleteSelfie, saveSelfieUris, saveSelfieS3Keys, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
 import { resetChat } from '@/services/gemini';
 import * as api from '@/services/api';
 
+const MAX_PHOTOS = 3;
+const SLOT_WIDTH = 100;
+const SLOT_HEIGHT = 133; // ~3:4 ratio
+
 export default function ProfileScreen() {
   const {
-    selfieUri,
-    setSelfieUri,
-    setSelfieS3Key,
+    selfieUris,
+    setSelfieUris,
+    selfieS3Keys,
+    setSelfieS3Keys,
     setOnboardingComplete,
     clearMessages,
     setMode,
@@ -29,49 +34,7 @@ export default function ProfileScreen() {
   const [updating, setUpdating] = useState(false);
   const [statusText, setStatusText] = useState('');
 
-  // M32: Shared save/upload/alert logic for both camera and gallery
-  const handleSelfieResult = async (uri: string) => {
-    if (!uri) return;
-    setUpdating(true);
-    setStatusText('Saving photo...');
-    try {
-      await deleteSelfie();
-      const newUri = await saveSelfie(uri);
-      setSelfieUri(newUri);
-      setOnboardingComplete(true);
-
-      // Get selfie description — must succeed
-      setStatusText('Analyzing your photo...');
-      try {
-        const b64 = await imageUriToBase64(newUri);
-        const desc = await api.describeSelfie(b64);
-        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-        await AsyncStorage.setItem('selfie_description', desc);
-      } catch (descErr: any) {
-        api.sendLogs([{ tag: 'Profile', msg: `Selfie description failed: ${descErr.message}` }]).catch(() => {});
-        Alert.alert('Error', 'Could not process your selfie. Please try again.');
-        setUpdating(false);
-        setStatusText('');
-        return;
-      }
-
-      setStatusText('Uploading...');
-      try {
-        const s3Key = await uploadSelfieAndSaveKey(newUri);
-        setSelfieS3Key(s3Key);
-      } catch (uploadErr) {
-        api.sendLogs([{ tag: 'Profile', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
-      }
-      setStatusText('');
-      Alert.alert('Updated!', 'Your selfie has been updated.');
-    } catch (err) {
-      Alert.alert('Error', 'Failed to update selfie.');
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const retakeSelfie = async () => {
+  const pickImageForSlot = async () => {
     try {
       const image = await ImageCropPicker.openPicker({
         mediaType: 'photo',
@@ -81,13 +44,13 @@ export default function ProfileScreen() {
         height: 2000,
         compressImageQuality: 1,
       });
-      handleSelfieResult(image.path);
+      await handleAddPhoto(image.path);
     } catch (err: any) {
       if (err.code !== 'E_PICKER_CANCELLED') console.warn('Pick failed:', err);
     }
   };
 
-  const takeNewSelfie = async () => {
+  const takePhotoForSlot = async () => {
     try {
       const image = await ImageCropPicker.openCamera({
         cropping: true,
@@ -96,10 +59,113 @@ export default function ProfileScreen() {
         height: 2000,
         compressImageQuality: 1,
       });
-      handleSelfieResult(image.path);
+      await handleAddPhoto(image.path);
     } catch (err: any) {
       if (err.code !== 'E_PICKER_CANCELLED') console.warn('Camera failed:', err);
     }
+  };
+
+  const handleAddPhoto = async (uri: string) => {
+    if (!uri || selfieUris.length >= MAX_PHOTOS) return;
+    setUpdating(true);
+    setStatusText('Saving photo...');
+    try {
+      const savedUri = await saveSelfie(uri);
+      const newUris = [...selfieUris, savedUri];
+      await saveSelfieUris(newUris);
+      setSelfieUris(newUris);
+
+      // If this is the first photo (slot 0), run describeSelfie
+      if (newUris.length === 1) {
+        setStatusText('Analyzing your photo...');
+        try {
+          const b64 = await imageUriToBase64(savedUri);
+          const desc = await api.describeSelfie(b64);
+          const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+          await AsyncStorage.setItem('selfie_description', desc);
+        } catch (descErr: any) {
+          api.sendLogs([{ tag: 'Profile', msg: `Selfie description failed: ${descErr.message}` }]).catch(() => {});
+          Alert.alert('Error', 'Could not process your selfie. Please try again.');
+          setUpdating(false);
+          setStatusText('');
+          return;
+        }
+      }
+
+      // Upload to S3 in background
+      setStatusText('Uploading...');
+      try {
+        const s3Key = await uploadSelfieAndSaveKey(savedUri);
+        const newKeys = [...selfieS3Keys, s3Key];
+        await saveSelfieS3Keys(newKeys);
+        setSelfieS3Keys(newKeys);
+      } catch (uploadErr) {
+        api.sendLogs([{ tag: 'Profile', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
+      }
+
+      setStatusText('');
+    } catch (err) {
+      Alert.alert('Error', 'Failed to add photo.');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    Alert.alert('Remove Photo', 'Are you sure you want to remove this photo?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: async () => {
+          const newUris = selfieUris.filter((_, i) => i !== index);
+          const newKeys = selfieS3Keys.filter((_, i) => i !== index);
+
+          // If all photos removed, reset onboarding
+          if (newUris.length === 0) {
+            setUpdating(true);
+            setStatusText('Resetting...');
+            await deleteSelfie();
+            setSelfieUris([]);
+            setSelfieS3Keys([]);
+            setOnboardingComplete(false);
+            setUpdating(false);
+            setStatusText('');
+            return;
+          }
+
+          // If primary (index 0) was removed, re-run describeSelfie on new first photo
+          if (index === 0) {
+            setUpdating(true);
+            setStatusText('Analyzing your photo...');
+            try {
+              const b64 = await imageUriToBase64(newUris[0]);
+              const desc = await api.describeSelfie(b64);
+              const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+              await AsyncStorage.setItem('selfie_description', desc);
+            } catch (descErr: any) {
+              api.sendLogs([{ tag: 'Profile', msg: `Selfie re-description failed: ${descErr.message}` }]).catch(() => {});
+              Alert.alert('Warning', 'Could not re-analyze your primary photo.');
+            }
+            setUpdating(false);
+            setStatusText('');
+          }
+
+          await saveSelfieUris(newUris);
+          await saveSelfieS3Keys(newKeys);
+          setSelfieUris(newUris);
+          setSelfieS3Keys(newKeys);
+        },
+      },
+    ]);
+  };
+
+  const handleEmptySlotTap = () => {
+    Alert.alert('Add Photo', 'Choose a method', [
+      { text: 'Take Photo', onPress: takePhotoForSlot },
+      { text: 'Choose from Gallery', onPress: pickImageForSlot },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
   };
 
   const handleClearChat = () => {
@@ -118,6 +184,12 @@ export default function ProfileScreen() {
     ]);
   };
 
+  // Build the 3-slot array
+  const slots: Array<{ uri: string | null; index: number }> = [];
+  for (let i = 0; i < MAX_PHOTOS; i++) {
+    slots.push({ uri: selfieUris[i] || null, index: i });
+  }
+
   return (
     <View style={styles.container}>
       <SafeAreaView style={{ flex: 1 }}>
@@ -126,41 +198,50 @@ export default function ProfileScreen() {
 
           {/* Selfie section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>YOUR PHOTO</Text>
-            <View style={styles.selfieContainer}>
-              {selfieUri ? (
-                <View style={styles.selfieBorder}>
-                  <Image source={{ uri: selfieUri }} style={styles.selfie} />
+            <Text style={styles.sectionTitle}>YOUR PHOTOS</Text>
+            <View style={styles.slotRow}>
+              {slots.map((slot) => (
+                <View key={slot.index} style={styles.slotContainer}>
+                  {slot.uri ? (
+                    <View style={styles.filledSlot}>
+                      <View style={styles.slotBorder}>
+                        <Image source={{ uri: slot.uri }} style={styles.slotImage} />
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeBtn}
+                        onPress={() => handleRemovePhoto(slot.index)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        disabled={updating}
+                      >
+                        <View style={styles.removeBtnInner}>
+                          <Text style={styles.removeBtnText}>{'\u00D7'}</Text>
+                        </View>
+                      </TouchableOpacity>
+                      {slot.index === 0 && (
+                        <View style={styles.primaryBadge}>
+                          <Text style={styles.primaryBadgeText}>PRIMARY</Text>
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.emptySlot}
+                      onPress={handleEmptySlotTap}
+                      activeOpacity={0.7}
+                      disabled={updating || slot.index > selfieUris.length}
+                    >
+                      <Text style={styles.emptySlotPlus}>+</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
-              ) : (
-                <View style={[styles.selfie, styles.selfiePlaceholder]}>
-                  <Text style={styles.placeholderText}>No photo</Text>
-                </View>
-              )}
+              ))}
             </View>
             {updating && statusText ? (
-              <View style={styles.selfieActions}>
-                <ActivityIndicator size="small" color="#6cff7a" />
-                <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8 }}>{statusText}</Text>
+              <View style={styles.statusRow}>
+                <ActivityIndicator size="small" color="#E8C8A0" />
+                <Text style={styles.statusText}>{statusText}</Text>
               </View>
-            ) : (
-              <View style={styles.selfieActions}>
-                <TouchableOpacity
-                  style={styles.btnPrimary}
-                  onPress={takeNewSelfie}
-                  disabled={updating}
-                >
-                  <Text style={styles.btnPrimaryText}>Take New Photo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.btnSecondary}
-                  onPress={retakeSelfie}
-                  disabled={updating}
-                >
-                  <Text style={styles.btnSecondaryText}>Choose from Gallery</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            ) : null}
           </View>
 
           {/* Settings */}
@@ -221,58 +302,93 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     marginBottom: 16,
   },
-  selfieContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
+  slotRow: {
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'center',
+    marginBottom: 16,
   },
-  selfieBorder: {
-    borderRadius: 20,
+  slotContainer: {
+    width: SLOT_WIDTH,
+    height: SLOT_HEIGHT,
+  },
+  filledSlot: {
+    flex: 1,
+    position: 'relative',
+  },
+  slotBorder: {
+    flex: 1,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(232,200,160,0.25)',
   },
-  selfie: {
-    width: 150,
-    height: 200,
-    borderRadius: 18,
+  slotImage: {
+    flex: 1,
+    borderRadius: 12,
   },
-  selfiePlaceholder: {
-    backgroundColor: '#1A1A1A',
+  removeBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 10,
+  },
+  removeBtnInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,60,60,0.9)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
   },
-  placeholderText: {
-    color: 'rgba(255,255,255,0.25)',
-    fontSize: 14,
-  },
-  selfieActions: {
-    gap: 10,
-  },
-  btnPrimary: {
-    paddingVertical: 15,
-    borderRadius: 14,
-    alignItems: 'center',
-    backgroundColor: '#E8C8A0',
-  },
-  btnPrimaryText: {
-    color: '#0D0D0D',
+  removeBtnText: {
+    color: '#fff',
     fontSize: 15,
     fontWeight: '700',
+    lineHeight: 18,
   },
-  btnSecondary: {
-    paddingVertical: 15,
-    borderRadius: 14,
+  primaryBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 0,
+    right: 0,
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
   },
-  btnSecondaryText: {
+  primaryBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#E8C8A0',
+    letterSpacing: 1,
+    backgroundColor: 'rgba(13,13,13,0.8)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  emptySlot: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptySlotPlus: {
+    fontSize: 28,
+    color: 'rgba(255,255,255,0.3)',
+    fontWeight: '300',
+    lineHeight: 32,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  statusText: {
     color: 'rgba(255,255,255,0.6)',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 13,
   },
   settingItem: {
     flexDirection: 'row',

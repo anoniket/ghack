@@ -105,7 +105,7 @@ router.post('/generate', async (req: Request, res: Response) => {
     const model = 'gemini-2.5-flash-image';
     sendEvent({ step: 'generate_start', model });
     const genT0 = Date.now();
-    const resultBase64 = await generateTryOnV2(selfieBase64, resolvedProductBase64, false, prompt);
+    const resultBase64 = await generateTryOnV2([selfieBase64], resolvedProductBase64, false, prompt);
     const genDurationMs = Date.now() - genT0;
     sendEvent({
       step: 'generate_done',
