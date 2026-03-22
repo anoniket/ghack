@@ -456,7 +456,7 @@ export async function generateTryOnV2(
   const model = usePro ? MODELS.IMAGE_GEN_PRO : MODELS.IMAGE_GEN;
   console.log(`[V2] product dims=${dims ? `${dims.width}x${dims.height}` : 'unknown'} → aspect=${aspectRatio}, model=${model}`);
 
-  const timeoutMs = 60000;
+  const timeoutMs = 40000;
   const client = getAI();
 
   // Detect MIME types from magic bytes for correct inlineData

@@ -223,13 +223,13 @@ export const PRODUCT_DETECTOR_JS = `
   var progressInterval = null;
   var quipTimerGlobal = null;
 
-  var __tryonDuration = 60000; // default for Pro (gemini-3-pro-image-preview)
+  var __tryonDuration = 25000; // default for NB2 (gemini-3.1-flash-image-preview)
 
   function showLoadingOverlay(mode) {
     mode = mode || 'tryon';
 
     // Reset duration to default — prevents retry's duration from sticking
-    __tryonDuration = 60000;
+    __tryonDuration = 25000;
 
     // Remove existing overlay
     removeLoadingOverlay();

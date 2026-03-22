@@ -357,7 +357,7 @@ export async function tryOnV2(params: {
   return apiFetch('/api/tryon/v2', {
     method: 'POST',
     body: JSON.stringify(params),
-    timeout: 70000,
+    timeout: 50000,
   });
 }
 
