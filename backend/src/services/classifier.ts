@@ -90,7 +90,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
 
 // ── Classification ──────────────────────────────────────────────────
 
-const CLASSIFICATION_MODEL = 'gemini-2.5-flash';
+const CLASSIFICATION_MODEL = 'gemini-2.5-flash-lite';
 
 const CLASSIFICATION_PROMPT = `Classify this product image into one category and describe the product in one short line. Describe ONLY the product/garment itself (color, type, pattern, material) — do NOT describe any model or person wearing it. Respond in JSON format.
 

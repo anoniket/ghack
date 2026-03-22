@@ -160,10 +160,10 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const productBase64 = await downloadImageToBase64(productImageUrl);
     console.log(`${tag} V2 → product download: ${Date.now() - dlStart}ms`);
 
-    // TEMP: Skip classification to test speed — using FULL_OUTFIT default
-    const category = 'FULL_OUTFIT' as const;
-    const productDesc = '';
-    console.log(`${tag} V2 → category: ${category} (classification SKIPPED for speed test)`);
+    // Classify product — fresh every time
+    const classStart = Date.now();
+    const { category, description: productDesc } = await classifyProduct(productBase64);
+    console.log(`${tag} V2 → category: ${category}, product: ${productDesc}, in ${Date.now() - classStart}ms`);
     const prompt = getPromptForCategory(category, selfieDescription, productDesc, selfieBase64s.length);
 
     // Generate with selected model
