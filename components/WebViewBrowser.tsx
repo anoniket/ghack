@@ -43,7 +43,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   // PERF-1: Individual selectors — only re-render when the specific field changes
   const currentUrl = useAppStore((s) => s.currentUrl);
-  const selfieUri = useAppStore((s) => s.selfieUri);
+  const selfieUris = useAppStore((s) => s.selfieUris);
   const currentProduct = useAppStore((s) => s.currentProduct);
   const tryOnLoading = useAppStore((s) => s.tryOnLoading);
   const tryOnResult = useAppStore((s) => s.tryOnResult);
@@ -73,8 +73,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const selfieDescriptionRef = useRef<string | null>(null);
 
   // Load selfie description from AsyncStorage (set during onboarding/profile update)
+  // Only depends on primary selfie (selfieUris[0]) — description is derived from the first photo
   useEffect(() => {
-    if (!selfieUri) return;
+    if (selfieUris.length === 0) return;
     (async () => {
       try {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
@@ -86,7 +87,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         selfieDescriptionRef.current = null;
       }
     })();
-  }, [selfieUri]);
+  }, [selfieUris[0]]);
 
   const videoPlayer = useVideoPlayer(videoDataUri, (player) => {
     player.loop = true;
@@ -127,10 +128,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   // Trigger try-on generation when currentProduct is set
   useEffect(() => {
-    if (currentProduct && selfieUri && !tryOnResult && !tryOnLoading) {
+    if (currentProduct && selfieUris.length > 0 && !tryOnResult && !tryOnLoading) {
       rlog('TryOn', 'product received, starting generation');
       startTryOn();
-    } else if (currentProduct && !selfieUri) {
+    } else if (currentProduct && selfieUris.length === 0) {
       // Selfie missing — tell WebView to unlock and reset
       rlog('TryOn', 'product received but no selfie — aborting');
       if (webViewRef.current) {
@@ -141,10 +142,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
       setCurrentProduct(null);
     }
-  }, [currentProduct, selfieUri]);
+  }, [currentProduct, selfieUris]);
 
   const startTryOn = async () => {
-    if (!selfieUri || !currentProduct) return;
+    if (selfieUris.length === 0 || !currentProduct) return;
     // SS-16: Ref-based double-tap guard (same pattern as videoLoadingRef)
     if (tryOnLoadingRef.current) return;
     tryOnLoadingRef.current = true;
@@ -170,8 +171,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         `);
       }
 
-      // Always send selfie base64 from local filesystem — bypasses S3 download latency
-      const selfieBase64 = await imageUriToBase64(selfieUri);
+      // Convert ALL selfie URIs to base64 — bypasses S3 download latency
+      const selfieBase64s = await Promise.all(
+        selfieUris.map(uri => imageUriToBase64(uri))
+      );
 
       // Single-step V2 with auto-retry on SERVER_BUSY (503)
       const MAX_BUSY_RETRIES = 2;
@@ -179,7 +182,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       for (let attempt = 0; attempt <= MAX_BUSY_RETRIES; attempt++) {
         try {
           result = await api.tryOnV2({
-            selfieBase64,
+            selfieBase64s,
             productImageUrl: currentProduct.imageUrl,
             sourceUrl: currentProduct.pageUrl,
             retry: currentProduct.retry,

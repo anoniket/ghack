@@ -11,16 +11,20 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ImageCropPicker from 'react-native-image-crop-picker';
-import { saveSelfie, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
+import { saveSelfie, saveSelfieUris, saveSelfieS3Keys, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
 import { useAppStore } from '@/services/store';
 import * as api from '@/services/api';
 
+const MAX_PHOTOS = 3;
+
 export default function OnboardingCamera() {
   const { width: W } = useWindowDimensions();
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [imageUris, setImageUris] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingStatus, setSavingStatus] = useState('');
-  const { setSelfieUri, setSelfieS3Key, setOnboardingComplete } = useAppStore();
+  const { setSelfieUris, setSelfieS3Keys, setOnboardingComplete } = useAppStore();
+
+  const thumbSize = Math.min((W - 56 - 28) / 3, 100); // 3 thumbs with gaps
 
   const pickImage = async () => {
     try {
@@ -33,7 +37,7 @@ export default function OnboardingCamera() {
         compressImageQuality: 1,
       });
       console.log(`[Picker] width=${image.width}, height=${image.height}, size=${image.size}`);
-      setImageUri(image.path);
+      setImageUris((prev) => [...prev, image.path]);
     } catch (err: any) {
       if (err.code !== 'E_PICKER_CANCELLED') console.warn('Pick failed:', err);
     }
@@ -49,24 +53,42 @@ export default function OnboardingCamera() {
         compressImageQuality: 1,
       });
       console.log(`[Camera] width=${image.width}, height=${image.height}, size=${image.size}`);
-      setImageUri(image.path);
+      setImageUris((prev) => [...prev, image.path]);
     } catch (err: any) {
       if (err.code !== 'E_PICKER_CANCELLED') console.warn('Camera failed:', err);
     }
   };
 
-  const confirmPhoto = async () => {
-    if (!imageUri) return;
-    setSaving(true);
-    setSavingStatus('Saving photo...');
-    try {
-      const savedUri = await saveSelfie(imageUri);
-      setSelfieUri(savedUri);
+  const removePhoto = (index: number) => {
+    setImageUris((prev) => prev.filter((_, i) => i !== index));
+  };
 
-      // Get selfie description from Gemini — must succeed before proceeding
+  const addAnotherPhoto = () => {
+    Alert.alert('Add Photo', 'Choose a method', [
+      { text: 'Take Photo', onPress: takePhoto },
+      { text: 'Choose from Gallery', onPress: pickImage },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
+  const confirmPhotos = async () => {
+    if (imageUris.length === 0) return;
+    setSaving(true);
+    setSavingStatus('Saving photos...');
+    try {
+      // Save all photos locally
+      const savedUris: string[] = [];
+      for (const uri of imageUris) {
+        const savedUri = await saveSelfie(uri);
+        savedUris.push(savedUri);
+      }
+      await saveSelfieUris(savedUris);
+      setSelfieUris(savedUris);
+
+      // Get selfie description from Gemini on FIRST photo -- must succeed before proceeding
       setSavingStatus('Analyzing your photo...');
       try {
-        const b64 = await imageUriToBase64(savedUri);
+        const b64 = await imageUriToBase64(savedUris[0]);
         const desc = await api.describeSelfie(b64);
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem('selfie_description', desc);
@@ -78,24 +100,33 @@ export default function OnboardingCamera() {
         return;
       }
 
-      // Upload to S3 in background
+      // Upload all to S3 in parallel -- don't block onboarding
       setSavingStatus('Uploading...');
-      try {
-        const s3Key = await uploadSelfieAndSaveKey(savedUri);
-        setSelfieS3Key(s3Key);
-      } catch (uploadErr) {
-        api.sendLogs([{ tag: 'Onboarding', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
+      const uploadPromises = savedUris.map(async (uri) => {
+        try {
+          return await uploadSelfieAndSaveKey(uri);
+        } catch (uploadErr) {
+          api.sendLogs([{ tag: 'Onboarding', msg: `S3 upload failed: ${(uploadErr as any).message}` }]).catch(() => {});
+          return null;
+        }
+      });
+      const s3Keys = (await Promise.all(uploadPromises)).filter((k): k is string => k !== null);
+      if (s3Keys.length > 0) {
+        await saveSelfieS3Keys(s3Keys);
+        setSelfieS3Keys(s3Keys);
       }
 
       setSavingStatus('');
       setOnboardingComplete(true);
     } catch (err) {
-      console.error('Error saving selfie:', err);
-      alert('Failed to save photo. Please try again.');
+      console.error('Error saving selfies:', err);
+      alert('Failed to save photos. Please try again.');
     } finally {
       setSaving(false);
     }
   };
+
+  const hasPhotos = imageUris.length > 0;
 
   return (
     <View style={styles.container}>
@@ -109,23 +140,52 @@ export default function OnboardingCamera() {
             </Text>
           </View>
 
-          {imageUri ? (
+          {hasPhotos ? (
             <View style={styles.previewContainer}>
-              <View style={styles.imageFrame}>
-                <View style={styles.imageBorder}>
-                  <Image source={{ uri: imageUri }} style={[styles.preview, { width: W * 0.55, height: W * 0.55 * 1.33 }]} />
-                </View>
+              {/* Thumbnail grid */}
+              <View style={styles.thumbRow}>
+                {imageUris.map((uri, index) => (
+                  <View key={uri + index} style={[styles.thumbWrapper, { width: thumbSize, height: thumbSize * 1.33 }]}>
+                    <View style={styles.thumbBorder}>
+                      <Image source={{ uri }} style={[styles.thumbImage, { width: thumbSize - 4, height: thumbSize * 1.33 - 4 }]} />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.removeBtn}
+                      onPress={() => removePhoto(index)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <View style={styles.removeBtnInner}>
+                        <Text style={styles.removeBtnText}>{'\u00D7'}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {index === 0 && (
+                      <View style={styles.primaryBadge}>
+                        <Text style={styles.primaryBadgeText}>PRIMARY</Text>
+                      </View>
+                    )}
+                  </View>
+                ))}
+                {imageUris.length < MAX_PHOTOS && (
+                  <TouchableOpacity
+                    style={[styles.addSlot, { width: thumbSize, height: thumbSize * 1.33 }]}
+                    onPress={addAnotherPhoto}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.addSlotPlus}>+</Text>
+                    <Text style={styles.addSlotLabel}>Add</Text>
+                  </TouchableOpacity>
+                )}
               </View>
+
+              <Text style={styles.photoCount}>
+                {imageUris.length} of {MAX_PHOTOS} photos{imageUris.length < MAX_PHOTOS ? ' (optional)' : ''}
+              </Text>
+
+              {/* Action buttons */}
               <View style={styles.previewActions}>
                 <TouchableOpacity
-                  style={styles.btnSecondary}
-                  onPress={() => setImageUri(null)}
-                >
-                  <Text style={styles.btnSecondaryText}>Retake</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
                   style={styles.btnPrimary}
-                  onPress={confirmPhoto}
+                  onPress={confirmPhotos}
                   disabled={saving}
                   activeOpacity={0.8}
                 >
@@ -208,20 +268,89 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
   },
-  imageFrame: {
-    marginBottom: 32,
+  thumbRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 12,
   },
-  imageBorder: {
-    borderRadius: 20,
+  thumbWrapper: {
+    position: 'relative',
+  },
+  thumbBorder: {
+    flex: 1,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: 'rgba(232,200,160,0.3)',
   },
-  preview: {
-    borderRadius: 18,
+  thumbImage: {
+    flex: 1,
+    borderRadius: 12,
+  },
+  removeBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 10,
+  },
+  removeBtnInner: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,60,60,0.9)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  removeBtnText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  primaryBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  primaryBadgeText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#E8C8A0',
+    letterSpacing: 1,
+    backgroundColor: 'rgba(13,13,13,0.8)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  addSlot: {
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.12)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addSlotPlus: {
+    fontSize: 28,
+    color: 'rgba(255,255,255,0.3)',
+    fontWeight: '300',
+    lineHeight: 32,
+  },
+  addSlotLabel: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.25)',
+    marginTop: 2,
+  },
+  photoCount: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.35)',
+    marginBottom: 24,
   },
   previewActions: {
-    flexDirection: 'row',
+    width: '100%',
     gap: 14,
   },
   actions: {

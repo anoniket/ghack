@@ -49,11 +49,23 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   }
 
   const startTime = Date.now();
-  const { selfieBase64, productImageUrl, sourceUrl, selfieDescription } = req.body;
+  const { productImageUrl, sourceUrl, selfieDescription } = req.body;
   const tag = `[${req.deviceId}]`;
 
-  if (!selfieBase64) {
-    res.status(400).json({ error: 'selfieBase64 is required' });
+  // Accept selfieBase64s (array) or selfieBase64 (string, backward compat for old clients)
+  let selfieBase64s: string[];
+  if (Array.isArray(req.body.selfieBase64s) && req.body.selfieBase64s.length > 0) {
+    selfieBase64s = req.body.selfieBase64s;
+  } else if (typeof req.body.selfieBase64 === 'string' && req.body.selfieBase64.length > 0) {
+    selfieBase64s = [req.body.selfieBase64];
+  } else {
+    res.status(400).json({ error: 'selfieBase64 or selfieBase64s is required' });
+    return;
+  }
+
+  // Validate: at least 1, max 3
+  if (selfieBase64s.length > 3) {
+    res.status(400).json({ error: 'Maximum 3 selfie images allowed' });
     return;
   }
 
@@ -62,9 +74,12 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     return;
   }
 
-  if (typeof selfieBase64 === 'string' && selfieBase64.length > MAX_SELFIE_BASE64_LEN) {
-    res.status(400).json({ error: 'Selfie too large' });
-    return;
+  // Validate each selfie size
+  for (const selfie of selfieBase64s) {
+    if (typeof selfie !== 'string' || selfie.length > MAX_SELFIE_BASE64_LEN) {
+      res.status(400).json({ error: 'Selfie too large' });
+      return;
+    }
   }
 
   try {
@@ -77,13 +92,13 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     const classStart = Date.now();
     const { category, description: productDesc } = await classifyProduct(productBase64);
     console.log(`${tag} V2 → category: ${category}, product: ${productDesc}, in ${Date.now() - classStart}ms`);
-    const prompt = getPromptForCategory(category, selfieDescription, productDesc);
+    const prompt = getPromptForCategory(category, selfieDescription, productDesc, selfieBase64s.length);
 
     // Generate with NB1 + category-specific prompt
     const genStart = Date.now();
     console.log(`${tag} V2 → productImageUrl=${productImageUrl}`);
-    console.log(`${tag} V2 → generating with nb1, category=${category}`);
-    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64, productBase64, false, prompt));
+    console.log(`${tag} V2 → generating with nb1, category=${category}, selfies=${selfieBase64s.length}`);
+    const resultBase64 = await withGeminiLimit(() => generateTryOnV2(selfieBase64s, productBase64, false, prompt));
     const genMs = Date.now() - genStart;
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 

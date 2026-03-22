@@ -348,7 +348,7 @@ export async function describeSelfie(selfieBase64: string): Promise<string> {
 }
 
 export async function tryOnV2(params: {
-  selfieBase64: string;
+  selfieBase64s: string[];
   productImageUrl: string;
   sourceUrl?: string;
   retry?: boolean;
