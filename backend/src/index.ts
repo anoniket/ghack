@@ -54,19 +54,19 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, slow down' },
 });
 
-// Generation limit — reasonable for production use
+// Generation limit — 30 requests per minute per IP
 const generationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 60 * 1000,
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Generation rate limit reached, try again later' },
 });
 
-// Per-device generation limit
+// Per-device generation limit — 10 requests per minute
 const deviceGenerationLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 60,
+  windowMs: 60 * 1000,
+  max: 10,
   keyGenerator: (req: express.Request) => (req as any).deviceId || 'unknown',
   validate: { ip: false },
   standardHeaders: false,
