@@ -499,6 +499,7 @@ export async function generateTryOnV2(
     config: {
       responseModalities: ['Text', 'Image'],
       personGeneration: 'ALLOW_ADULT',
+      thinkingConfig: { thinkingLevel: 'low' },
       safetySettings: [
         { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
         { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
