@@ -306,9 +306,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         ];
         const blockedText = blockedQuips[Math.floor(Math.random() * blockedQuips.length)];
         if (webViewRef.current) {
-          const escaped = JSON.stringify(blockedText);
           webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowError) { window.__tryonShowError(${escaped}); }
+            if (window.__tryonHideLoading) { window.__tryonHideLoading(); }
             true;
           `);
         }
