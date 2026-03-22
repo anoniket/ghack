@@ -297,12 +297,12 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       } else if (err.message === 'IMAGE_BLOCKED') {
         // Safety filter — retrying won't help, pick a random fun message
         const blockedQuips = [
-          'The AI got shy looking at this outfit. Try something it can handle without blushing.',
-          'Our AI said "too hot to handle" and ran away. Try another product?',
-          'Even robots have boundaries. This one made our AI need a moment.',
-          'The AI\'s mom said no. Try a different outfit.',
-          'This outfit broke the AI\'s confidence. Maybe try something less iconic?',
-          'Our AI just filed for emotional support. Pick something gentler.',
+          'Grandma AI says this outfit is too spicy. She needs a minute and a glass of water.',
+          'The AI is clutching its pearls right now. Maybe try something that won\'t give it a heart attack?',
+          'Our AI was raised by strict parents. It thinks this outfit is scandalous.',
+          'The AI fainted. Apparently this outfit was too much for its innocent circuits.',
+          'AI aunty disapproves of this outfit. "Log kya kahenge?!" Try something she\'d approve of.',
+          'The AI went full sanskaari mode. This outfit didn\'t pass the family WhatsApp group test.',
         ];
         const blockedText = blockedQuips[Math.floor(Math.random() * blockedQuips.length)];
         if (webViewRef.current) {
