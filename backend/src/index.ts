@@ -54,19 +54,19 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, slow down' },
 });
 
-// Stricter limit for expensive endpoints (try-on generation)
+// Generation limit — reasonable for production use
 const generationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Generation rate limit reached, try again later' },
 });
 
-// M10: Per-device rate limit — prevents one device from hogging shared carrier NAT IP
+// Per-device generation limit
 const deviceGenerationLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 15,
+  max: 60,
   keyGenerator: (req: express.Request) => (req as any).deviceId || 'unknown',
   validate: { ip: false },
   standardHeaders: false,
