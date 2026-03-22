@@ -35,8 +35,8 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
-// POST /selfie-cache — phone sends selfie base64s once, backend caches
-tryonRouter.post('/selfie-cache', async (req: Request, res: Response) => {
+// POST /tryon/selfie-cache — phone sends selfie base64s once, backend caches
+tryonRouter.post('/tryon/selfie-cache', async (req: Request, res: Response) => {
   const { selfieBase64s } = req.body;
   const deviceId = req.deviceId;
 
@@ -55,8 +55,8 @@ tryonRouter.post('/selfie-cache', async (req: Request, res: Response) => {
   res.json({ cached: true, count: selfieBase64s.length });
 });
 
-// GET /selfie-cache/status — phone checks if backend has cached selfies
-tryonRouter.get('/selfie-cache/status', (req: Request, res: Response) => {
+// GET /tryon/selfie-cache/status — phone checks if backend has cached selfies
+tryonRouter.get('/tryon/selfie-cache/status', (req: Request, res: Response) => {
   const entry = selfieCache.get(req.deviceId);
   if (entry) {
     entry.updatedAt = Date.now(); // refresh TTL on check
