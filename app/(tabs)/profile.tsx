@@ -76,6 +76,7 @@ export default function ProfileScreen() {
       const newUris = [...selfieUris, savedUri];
       await saveSelfieUris(newUris);
       setSelfieUris(newUris);
+      setOnboardingComplete(true);
 
       // If this is the first photo (slot 0), run describeSelfie
       if (newUris.length === 1) {
