@@ -85,11 +85,15 @@ export default function OnboardingCamera() {
       await saveSelfieUris(savedUris);
       setSelfieUris(savedUris);
 
+      // Convert all photos to base64 once — reused for description, cache, and S3
+      setSavingStatus('Processing photos...');
+      const allBase64s = await Promise.all(savedUris.map(uri => imageUriToBase64(uri)));
+      console.log(`[Onboarding] Converted ${allBase64s.length} photos to base64, sizes=[${allBase64s.map(b => (b.length / 1024).toFixed(0) + 'KB').join(', ')}]`);
+
       // Get selfie description from Gemini on FIRST photo -- must succeed before proceeding
       setSavingStatus('Analyzing your photo...');
       try {
-        const b64 = await imageUriToBase64(savedUris[0]);
-        const desc = await api.describeSelfie(b64);
+        const desc = await api.describeSelfie(allBase64s[0]);
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem('selfie_description', desc);
       } catch (descErr: any) {
@@ -100,9 +104,8 @@ export default function OnboardingCamera() {
         return;
       }
 
-      // Upload to S3 + cache on backend — all in parallel, don't block onboarding
+      // Upload to S3 + cache on backend
       setSavingStatus('Uploading...');
-      const allBase64s = await Promise.all(savedUris.map(uri => imageUriToBase64(uri)));
 
       // Fire all 3 in parallel: S3 uploads + backend cache
       const [s3Results] = await Promise.all([
