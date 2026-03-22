@@ -47,3 +47,17 @@ SYSTEM_ARCHITECTURE.md
 # build artifacts
 *.apk
 *.aab
+
+# test artifacts
+backend/test-*.png
+backend/test-*.webp
+backend/test-*.jpg
+backend/test-result-*.png
+
+# GCP credentials
+vertex-test-*.json
+
+# misc
+npm/
+LAUNCH_AUDIT.md
+TEST_PLAN.md
