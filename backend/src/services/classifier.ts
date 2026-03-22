@@ -461,9 +461,16 @@ DO NOT: Change the fabric type, swap colors, alter the border/print design, modi
 
 // ── Public API ───────────────────────────────────────────────────────
 
-const IDENTITY_SUFFIX_SINGLE = `. Take this person from the first image and make them wear the product from the second image. Ensure the person's face and features remain completely unchanged. The product should look naturally worn, following the body's shape. If the second image shows a model wearing the product, ignore that model — only use the product design. Generate a realistic, well-lit photo.
+function buildIdentitySuffix(selfieCount: number): string {
+  const imageRef = selfieCount > 1
+    ? `. The first ${selfieCount} images show the same person from different angles. Study all of them to understand their exact appearance. The next image is the product.`
+    : `. Take this person from the first image and make them wear the product from the second image.`;
+
+  return `${imageRef} Ensure the person's face, features, body weight, and proportions remain completely unchanged. The product should look naturally worn, following the body's shape. If the product image shows a model wearing the product, ignore that model — only use the product design. Generate a realistic, well-lit photo.
 
 `;
+}
+
 
 const CONTENT_POLICY = `
 IMPORTANT CONTEXT:
@@ -506,14 +513,7 @@ export function getPromptForCategory(category: ProductCategory, selfieDescriptio
   const userDesc = selfieDescription || 'The user is the person in the first image';
   const productDesc = productDescription ? `\nThe product is ${productDescription}.` : '';
 
-  let identitySuffix: string;
-  if (selfieCount > 1) {
-    identitySuffix = `. The first ${selfieCount} images show the same person from different angles. Study all of them to understand their exact appearance. The next image is the product. Make this person wear the product. Ensure the person's face and features remain completely unchanged. The product should look naturally worn, following the body's shape. If the product image shows a model wearing the product, ignore that model — only use the product design. Generate a realistic, well-lit photo.
-
-`;
-  } else {
-    identitySuffix = IDENTITY_SUFFIX_SINGLE;
-  }
+  const identitySuffix = buildIdentitySuffix(selfieCount);
 
   const prefix = userDesc + productDesc + identitySuffix;
   if (!prompt) {

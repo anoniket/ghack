@@ -1,4 +1,14 @@
 import 'dotenv/config';
+
+// Override console.log with millisecond timestamps for Railway debugging
+const _log = console.log;
+const _err = console.error;
+const _warn = console.warn;
+const ts = () => new Date().toISOString().slice(11, 23);
+console.log = (...args: any[]) => _log(`[${ts()}]`, ...args);
+console.error = (...args: any[]) => _err(`[${ts()}]`, ...args);
+console.warn = (...args: any[]) => _warn(`[${ts()}]`, ...args);
+
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
