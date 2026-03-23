@@ -8,6 +8,7 @@ import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import { DEMO_MODE } from '@/utils/constants';
 
 export {
   ErrorBoundary,
@@ -53,18 +54,26 @@ export default function RootLayout() {
     return null;
   }
 
+  const appContent = (
+    <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+      <ThemeProvider value={customDarkTheme}>
+        <StatusBar style="light" />
+        <Stack>
+          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </ThemeProvider>
+    </KeyboardProvider>
+  );
+
+  if (DEMO_MODE) {
+    return appContent;
+  }
+
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ClerkLoaded>
-        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-          <ThemeProvider value={customDarkTheme}>
-            <StatusBar style="light" />
-            <Stack>
-              <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            </Stack>
-          </ThemeProvider>
-        </KeyboardProvider>
+        {appContent}
       </ClerkLoaded>
     </ClerkProvider>
   );

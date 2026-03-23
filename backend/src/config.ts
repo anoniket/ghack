@@ -3,6 +3,7 @@ export const config = {
   geminiApiKeys: (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
   clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
   clerkSecretKey: process.env.CLERK_SECRET_KEY || '',
+  demoMode: process.env.DEMO_MODE === 'true',
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',

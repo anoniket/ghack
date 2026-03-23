@@ -1,4 +1,4 @@
-import { API_URL } from '@/utils/constants';
+import { API_URL, DEMO_MODE } from '@/utils/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getClerkInstance } from '@clerk/clerk-expo';
 
@@ -45,18 +45,22 @@ async function apiFetch(
   const { timeout = 30000, ...fetchOptions } = options;
   const url = `${API_URL}${path}`;
 
-  const token = await getClerkToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
   };
 
-  // Send deviceId for logging (optional, non-blocking)
-  try {
+  if (DEMO_MODE) {
+    // Demo mode: identify by device ID only (no auth token)
     const deviceId = await getDeviceId();
     headers['x-device-id'] = deviceId;
-  } catch {
-    // Non-critical
+  } else {
+    // Production: Clerk session token
+    const token = await getClerkToken();
+    headers['Authorization'] = `Bearer ${token}`;
+    try {
+      const deviceId = await getDeviceId();
+      headers['x-device-id'] = deviceId;
+    } catch {}
   }
 
   // Timeout via AbortController
