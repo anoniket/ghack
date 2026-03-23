@@ -5,7 +5,7 @@ import { config } from '../config';
 declare global {
   namespace Express {
     interface Request {
-      userId: string;      // Clerk userId
+      userId: string;      // Clerk userId or deviceId in demo mode
       deviceId?: string;   // Logging/debugging only
     }
   }
@@ -20,7 +20,7 @@ export const clerkAuth = clerkMiddleware();
 
 /**
  * Auth middleware — reads Clerk auth and sets req.userId.
- * Rejects unauthenticated requests with 401.
+ * In demo mode (DEMO_MODE=true), allows unauthenticated requests with just x-device-id.
  */
 export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   // Extract deviceId for logging (optional header)
@@ -29,6 +29,7 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     req.deviceId = rawDeviceId;
   }
 
+  // Try Clerk auth first
   try {
     const auth = getAuth(req);
     if (auth && auth.userId) {
@@ -37,6 +38,12 @@ export async function authMiddleware(req: Request, res: Response, next: NextFunc
     }
   } catch {
     // Clerk auth not available
+  }
+
+  // Demo mode: allow requests with just a device ID (for App Store reviews)
+  if (config.demoMode && req.deviceId) {
+    req.userId = req.deviceId;
+    return next();
   }
 
   res.status(401).json({ error: 'Unauthorized' });

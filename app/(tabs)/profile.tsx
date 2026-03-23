@@ -16,6 +16,7 @@ import { saveSelfie, deleteSelfie, saveSelfieUris, saveSelfieS3Keys, uploadSelfi
 import { resetChat } from '@/services/gemini';
 import * as api from '@/services/api';
 import { useAuth, useUser } from '@clerk/clerk-expo';
+import { DEMO_MODE } from '@/utils/constants';
 
 const MAX_PHOTOS = 3;
 const SLOT_WIDTH = 100;
@@ -374,7 +375,7 @@ export default function ProfileScreen() {
               <Text style={styles.settingLabel}>Clear Chat History</Text>
               <Text style={styles.settingArrow}>{'\u2192'}</Text>
             </TouchableOpacity>
-            <AccountSection />
+            {!DEMO_MODE && <AccountSection />}
           </View>
 
           {/* About */}
