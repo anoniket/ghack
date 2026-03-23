@@ -13,7 +13,7 @@ mediaRouter.post('/log', (req: Request, res: Response) => {
     for (const entry of entries) {
       const tag = typeof entry.tag === 'string' ? entry.tag.slice(0, 50) : '';
       const msg = typeof entry.msg === 'string' ? entry.msg.slice(0, 500) : '';
-      console.log(`[${req.deviceId}] [CLIENT] ${tag} ${msg}`);
+      console.log(`[${req.userId}] [CLIENT] ${tag} ${msg}`);
     }
     res.json({ ok: true });
   } catch {
@@ -38,14 +38,14 @@ mediaRouter.post('/upload-url', async (req: Request, res: Response) => {
     return;
   }
   const ext = ct === 'image/png' ? 'png' : 'jpg';
-  const s3Key = `${req.deviceId}/selfies/${uuid()}.${ext}`;
+  const s3Key = `${req.userId}/selfies/${uuid()}.${ext}`;
 
   try {
     const uploadUrl = await getPresignedUploadUrl(s3Key, ct, 300);
-    console.log(`[${req.deviceId}] UploadURL → generated for ${s3Key}`);
+    console.log(`[${req.userId}] UploadURL → generated for ${s3Key}`);
     res.json({ uploadUrl, s3Key, expiresIn: 300 });
   } catch (err: any) {
-    console.error(`[${req.deviceId}] UploadURL ERROR:`, err.message);
+    console.error(`[${req.userId}] UploadURL ERROR:`, err.message);
     // SEC-7: Generic error to client, details logged server-side only
     res.status(500).json({ error: 'Failed to generate upload URL' });
   }

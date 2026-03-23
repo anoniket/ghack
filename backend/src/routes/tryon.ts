@@ -38,7 +38,7 @@ setInterval(() => {
 // POST /tryon/selfie-cache — phone sends selfie base64s once, backend caches
 tryonRouter.post('/tryon/selfie-cache', async (req: Request, res: Response) => {
   const { selfieBase64s } = req.body;
-  const deviceId = req.deviceId;
+  const deviceId = req.userId;
 
   if (!Array.isArray(selfieBase64s)) {
     res.status(400).json({ error: 'selfieBase64s array required' });
@@ -65,13 +65,13 @@ tryonRouter.post('/tryon/selfie-cache', async (req: Request, res: Response) => {
 
 // GET /tryon/selfie-cache/status — phone checks if backend has cached selfies
 tryonRouter.get('/tryon/selfie-cache/status', (req: Request, res: Response) => {
-  const entry = selfieCache.get(req.deviceId);
+  const entry = selfieCache.get(req.userId);
   if (entry) {
     entry.updatedAt = Date.now(); // refresh TTL on check
-    console.log(`[${req.deviceId}] SelfieCache → HIT (${entry.base64s.length} selfies cached)`);
+    console.log(`[${req.userId}] SelfieCache → HIT (${entry.base64s.length} selfies cached)`);
     res.json({ cached: true, count: entry.base64s.length });
   } else {
-    console.log(`[${req.deviceId}] SelfieCache → MISS (no cached selfies)`);
+    console.log(`[${req.userId}] SelfieCache → MISS (no cached selfies)`);
     res.json({ cached: false, count: 0 });
   }
 });
@@ -81,7 +81,7 @@ tryonRouter.get('/tryon/selfie-cache/status', (req: Request, res: Response) => {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
   const { selfieBase64 } = req.body;
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
   if (!selfieBase64) {
     res.status(400).json({ error: 'selfieBase64 is required' });
     return;
@@ -110,11 +110,11 @@ tryonRouter.post('/selfie-describe', async (req: Request, res: Response) => {
 tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   const startTime = Date.now();
   const { productImageUrl, sourceUrl, selfieDescription, model: requestedModel } = req.body;
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
 
   // Resolve selfies: cache first, then body, then backward compat
   let selfieBase64s: string[];
-  const cacheEntry = selfieCache.get(req.deviceId);
+  const cacheEntry = selfieCache.get(req.userId);
 
   if (cacheEntry) {
     // Use cached selfies — zero upload overhead
@@ -124,11 +124,11 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   } else if (Array.isArray(req.body.selfieBase64s) && req.body.selfieBase64s.length > 0) {
     selfieBase64s = req.body.selfieBase64s;
     // Cache them for next time
-    selfieCache.set(req.deviceId, { base64s: selfieBase64s, updatedAt: Date.now() });
+    selfieCache.set(req.userId, { base64s: selfieBase64s, updatedAt: Date.now() });
     console.log(`${tag} V2 → selfies from body, now cached (${selfieBase64s.length} images)`);
   } else if (typeof req.body.selfieBase64 === 'string' && req.body.selfieBase64.length > 0) {
     selfieBase64s = [req.body.selfieBase64];
-    selfieCache.set(req.deviceId, { base64s: selfieBase64s, updatedAt: Date.now() });
+    selfieCache.set(req.userId, { base64s: selfieBase64s, updatedAt: Date.now() });
     console.log(`${tag} V2 → single selfie from body (backward compat), now cached`);
   } else {
     res.status(400).json({ error: 'No selfies available. Upload selfies first.' });
@@ -178,7 +178,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
     console.log(`${tag} V2 → done: ${genMs}ms, base64 length=${resultBase64.length}`);
 
     const sessionId = `ses_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
-    const tryonS3Key = `${req.deviceId}/tryons/${sessionId}.jpg`;
+    const tryonS3Key = `${req.userId}/tryons/${sessionId}.jpg`;
     const durationMs = Date.now() - startTime;
 
     res.json({
@@ -199,7 +199,7 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
         console.log(`${tag} V2 → S3 upload (bg): done, jpg=${resultBuffer.length} → ${cdnUrl(tryonS3Key)}`);
 
         await putSession({
-          deviceId: req.deviceId,
+          deviceId: req.userId,
           sessionId,
           sourceUrl: sourceUrl || undefined,
           tryonS3Key,

@@ -1,11 +1,12 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { Tabs } from 'expo-router';
+import { Tabs, Redirect } from 'expo-router';
 import { BlurView } from 'expo-blur';
 import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
 import { TAB_BAR_BASE_HEIGHT } from '@/utils/constants';
+import { useAuth } from '@clerk/clerk-expo';
 
 // PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
 if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
@@ -20,7 +21,14 @@ function TabBarIcon(props: {
   return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
 }
 
-export default function TabLayout() {
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { isSignedIn, isLoaded } = useAuth();
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <Redirect href="/sign-in" />;
+  return <>{children}</>;
+}
+
+function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const isGenerating = useAppStore((s) => s.tryOnLoading || s.videoLoading);
 
@@ -90,5 +98,13 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+  );
+}
+
+export default function TabLayout() {
+  return (
+    <AuthGate>
+      <TabsNavigator />
+    </AuthGate>
   );
 }

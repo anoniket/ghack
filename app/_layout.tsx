@@ -6,6 +6,8 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
+import { tokenCache } from '@clerk/clerk-expo/token-cache';
 
 export {
   ErrorBoundary,
@@ -16,6 +18,8 @@ export const unstable_settings = {
 };
 
 SplashScreen.preventAutoHideAsync();
+
+const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
 
 const customDarkTheme = {
   ...DarkTheme,
@@ -50,13 +54,18 @@ export default function RootLayout() {
   }
 
   return (
-    <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
-      <ThemeProvider value={customDarkTheme}>
-        <StatusBar style="light" />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
-      </ThemeProvider>
-    </KeyboardProvider>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
+      <ClerkLoaded>
+        <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
+          <ThemeProvider value={customDarkTheme}>
+            <StatusBar style="light" />
+            <Stack>
+              <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            </Stack>
+          </ThemeProvider>
+        </KeyboardProvider>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

@@ -139,16 +139,16 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
-export function resetChat(deviceId: string) {
-  chatHistories.delete(deviceId);
+export function resetChat(userId: string) {
+  chatHistories.delete(userId);
 }
 
 export async function sendChatMessage(
-  deviceId: string,
+  userId: string,
   userMessage: string,
   history?: Array<{ role: string; text: string }>
 ): Promise<string> {
-  const entry = chatHistories.get(deviceId);
+  const entry = chatHistories.get(userId);
   let chatHistory = entry ? entry.history : [];
 
   // If client sends history, rebuild from that
@@ -189,7 +189,7 @@ export async function sendChatMessage(
     }
 
     // Evict oldest device if at capacity
-    if (!chatHistories.has(deviceId) && chatHistories.size >= MAX_CHAT_DEVICES) {
+    if (!chatHistories.has(userId) && chatHistories.size >= MAX_CHAT_DEVICES) {
       let oldestKey: string | null = null;
       let oldestTime = Infinity;
       for (const [key, e] of chatHistories) {
@@ -198,12 +198,12 @@ export async function sendChatMessage(
       if (oldestKey) chatHistories.delete(oldestKey);
     }
 
-    chatHistories.set(deviceId, { history: chatHistory, lastAccess: Date.now() });
+    chatHistories.set(userId, { history: chatHistory, lastAccess: Date.now() });
     return text;
   } catch (err) {
     // Rollback the user message so history stays consistent
     chatHistory.pop();
-    chatHistories.set(deviceId, { history: chatHistory, lastAccess: Date.now() });
+    chatHistories.set(userId, { history: chatHistory, lastAccess: Date.now() });
     throw err;
   }
 }
@@ -531,10 +531,10 @@ export async function generateTryOnV2(
 }
 
 // In-memory video job storage
-// SEC-9: deviceId stored per job for ownership verification on poll
+// SEC-9: userId stored per job for ownership verification on poll
 interface VideoJob {
   status: 'pending' | 'complete' | 'failed';
-  deviceId: string;
+  userId: string;
   videoUrl?: string;
   videoS3Key?: string;
   error?: string;
@@ -563,7 +563,7 @@ export async function startVideoGeneration(
   _label: string,
   onComplete: (videoBuffer: Buffer) => Promise<{ s3Key: string; cdnUrl: string }>,
   tag: string = '',
-  deviceId: string = ''
+  userId: string = ''
 ): Promise<void> {
   // SEC-11/M12: Evict oldest non-pending job if at capacity
   if (videoJobs.size >= MAX_VIDEO_JOBS) {
@@ -582,7 +582,7 @@ export async function startVideoGeneration(
     }
     if (oldestKey) videoJobs.delete(oldestKey);
   }
-  videoJobs.set(jobId, { status: 'pending', deviceId, createdAt: Date.now() });
+  videoJobs.set(jobId, { status: 'pending', userId, createdAt: Date.now() });
 
   try {
     console.log(`${tag} Video → job=${jobId} submitting to Gemini`);
@@ -645,7 +645,7 @@ export async function startVideoGeneration(
     const existing = videoJobs.get(jobId);
     videoJobs.set(jobId, {
       status: 'complete',
-      deviceId: existing?.deviceId || deviceId,
+      userId: existing?.userId || userId,
       createdAt: existing?.createdAt || Date.now(),
       videoUrl: cdnUrl,
       videoS3Key: s3Key,
@@ -657,7 +657,7 @@ export async function startVideoGeneration(
     const existing = videoJobs.get(jobId);
     videoJobs.set(jobId, {
       status: 'failed',
-      deviceId: existing?.deviceId || deviceId,
+      userId: existing?.userId || userId,
       createdAt: existing?.createdAt || Date.now(),
       error: 'Video generation failed', // M13: Sanitized — raw error logged above
     });

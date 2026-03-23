@@ -22,8 +22,9 @@ const ddb = DynamoDBDocumentClient.from(client);
 const TABLE = config.dynamoTable;
 
 export interface TryOnSession {
-  deviceId: string;
-  sessionId: string;
+  deviceId: string;       // DynamoDB PK (legacy: actual deviceId, new: Clerk userId)
+  sessionId: string;      // DynamoDB SK
+  userId?: string;        // Clerk userId (for future GSI queries)
   sourceUrl?: string;
   selfieS3Key?: string;
   tryonS3Key: string;
@@ -38,7 +39,10 @@ export async function putSession(session: TryOnSession): Promise<void> {
   await ddb.send(
     new PutCommand({
       TableName: TABLE,
-      Item: session,
+      Item: {
+        ...session,
+        userId: session.userId || session.deviceId, // Ensure userId is always written for future GSI
+      },
     })
   );
 }

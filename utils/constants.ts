@@ -1,5 +1,4 @@
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-export const APP_SECRET = process.env.EXPO_PUBLIC_APP_SECRET || '';
 
 // C11: Warn loudly if production build has no API URL configured
 if (!__DEV__ && API_URL.includes('localhost')) {

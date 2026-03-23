@@ -27,7 +27,7 @@ export default function HomeScreen() {
   const loadInitialData = async () => {
     // PERF-10: Run independent ops in parallel
     const [, selfies] = await Promise.all([
-      // Initialize device ID
+      // Initialize device ID (logging only — not used for auth)
       getDeviceId().then((id) => setDeviceId(id)).catch((err) => {
         console.error('Failed to get device ID:', err);
       }),
