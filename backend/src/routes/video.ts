@@ -15,12 +15,12 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
   }
 
   // SEC-1: Validate S3 key belongs to this device (prevent IDOR)
-  if (!tryonS3Key.startsWith(`${req.deviceId}/`)) {
+  if (!tryonS3Key.startsWith(`${req.userId}/`)) {
     res.status(403).json({ error: 'Access denied' });
     return;
   }
 
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
 
   try {
     // ERR-17: S3 upload from try-on is fire-and-forget — object may not exist yet.
@@ -52,13 +52,13 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
       'outfit',
       async (videoBuffer: Buffer) => {
         try {
-          const videoS3Key = `${req.deviceId}/videos/${jobId}.mp4`;
+          const videoS3Key = `${req.userId}/videos/${jobId}.mp4`;
           await uploadBuffer(videoS3Key, videoBuffer, 'video/mp4');
           const videoReadUrl = await getReadUrl(videoS3Key);
 
           if (sessionId) {
             try {
-              await updateSessionVideo(req.deviceId, sessionId, videoS3Key, videoS3Key);
+              await updateSessionVideo(req.userId, sessionId, videoS3Key, videoS3Key);
             } catch (e) {
               console.error(`${tag} Video → job=${jobId} failed to update session: ${(e as any).message}`);
             }
@@ -72,7 +72,7 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
         }
       },
       tag,
-      req.deviceId
+      req.userId
     ).catch((err) => {
       // This catches any unhandled rejection from the async fire-and-forget
       console.error(`${tag} Video → job=${jobId} unhandled error: ${err.message}`);
@@ -90,20 +90,20 @@ videoRouter.get('/video/:jobId', async (req: Request, res: Response) => {
   const jobId = req.params.jobId as string;
   const job = getVideoJob(jobId);
   if (!job) {
-    console.log(`[${req.deviceId}] Video → poll job=${jobId} not found`);
+    console.log(`[${req.userId}] Video → poll job=${jobId} not found`);
     res.status(404).json({ error: 'Job not found' });
     return;
   }
 
-  // SEC-9: Verify device owns this job
-  if (job.deviceId && job.deviceId !== req.deviceId) {
-    console.log(`[${req.deviceId}] Video → poll job=${jobId} access denied (owner=${job.deviceId})`);
+  // SEC-9: Verify user owns this job
+  if (job.userId && job.userId !== req.userId) {
+    console.log(`[${req.userId}] Video → poll job=${jobId} access denied (owner=${job.userId})`);
     res.status(403).json({ error: 'Access denied' });
     return;
   }
 
   if (job.status === 'failed') {
-    console.log(`[${req.deviceId}] Video → poll job=${jobId} status=failed error=${job.error}`);
+    console.log(`[${req.userId}] Video → poll job=${jobId} status=failed error=${job.error}`);
   }
 
   res.json({

@@ -1,8 +1,8 @@
 export const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   geminiApiKeys: (process.env.GEMINI_API_KEYS || process.env.GEMINI_API_KEY || '').split(',').map(k => k.trim()).filter(Boolean),
-  appSecret: process.env.APP_SECRET || '',
-  jwtSecret: process.env.JWT_SECRET || '',
+  clerkPublishableKey: process.env.CLERK_PUBLISHABLE_KEY || '',
+  clerkSecretKey: process.env.CLERK_SECRET_KEY || '',
   aws: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',

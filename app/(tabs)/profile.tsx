@@ -15,10 +15,66 @@ import { useAppStore } from '@/services/store';
 import { saveSelfie, deleteSelfie, saveSelfieUris, saveSelfieS3Keys, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
 import { resetChat } from '@/services/gemini';
 import * as api from '@/services/api';
+import { useAuth, useUser } from '@clerk/clerk-expo';
 
 const MAX_PHOTOS = 3;
 const SLOT_WIDTH = 100;
 const SLOT_HEIGHT = 133; // ~3:4 ratio
+
+function AccountSection() {
+  const { signOut } = useAuth();
+  const { user } = useUser();
+
+  const handleSignOut = () => {
+    Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Sign Out',
+        style: 'destructive',
+        onPress: async () => {
+          // Clear all user-specific local data before signing out
+          const { setSelfieUris, setSelfieS3Keys, setOnboardingComplete, clearMessages, setSavedTryOns, setHistoryLoaded } = useAppStore.getState();
+          await deleteSelfie(); // Clears AsyncStorage keys + local files
+          setSelfieUris([]);
+          setSelfieS3Keys([]);
+          setOnboardingComplete(false);
+          clearMessages();
+          setSavedTryOns([]);
+          setHistoryLoaded(false);
+          await signOut();
+        },
+      },
+    ]);
+  };
+
+  return (
+    <>
+      {user && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>ACCOUNT</Text>
+          <View style={styles.accountCard}>
+            {user.imageUrl && (
+              <Image source={{ uri: user.imageUrl }} style={styles.accountAvatar} />
+            )}
+            <View style={styles.accountInfo}>
+              <Text style={styles.accountName}>{user.fullName || 'User'}</Text>
+              <Text style={styles.accountEmail}>
+                {user.primaryEmailAddress?.emailAddress || ''}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+      <TouchableOpacity
+        style={[styles.settingItem, { marginTop: 10 }]}
+        onPress={handleSignOut}
+      >
+        <Text style={[styles.settingLabel, { color: '#F87171' }]}>Sign Out</Text>
+        <Text style={styles.settingArrow}>{'\u2192'}</Text>
+      </TouchableOpacity>
+    </>
+  );
+}
 
 export default function ProfileScreen() {
   const {
@@ -318,6 +374,7 @@ export default function ProfileScreen() {
               <Text style={styles.settingLabel}>Clear Chat History</Text>
               <Text style={styles.settingArrow}>{'\u2192'}</Text>
             </TouchableOpacity>
+            <AccountSection />
           </View>
 
           {/* About */}
@@ -563,5 +620,33 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#E8C8A0',
     fontWeight: '600',
+  },
+  accountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A',
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 0.5,
+    borderColor: 'rgba(255,255,255,0.06)',
+    gap: 14,
+  },
+  accountAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  accountInfo: {
+    flex: 1,
+  },
+  accountName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#F5F5F5',
+    marginBottom: 2,
+  },
+  accountEmail: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.4)',
   },
 });

@@ -11,9 +11,9 @@ import { deleteObject, deleteObjects, deletePrefix, getReadUrl } from '../servic
 export const historyRouter = Router();
 
 historyRouter.get('/history', async (req: Request, res: Response) => {
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
   try {
-    const sessions = await queryByDevice(req.deviceId);
+    const sessions = await queryByDevice(req.userId);
     console.log(`${tag} History → fetched ${sessions.length} sessions`);
     const items = await Promise.all(sessions.map(async (s) => ({
       sessionId: s.sessionId,
@@ -25,19 +25,17 @@ historyRouter.get('/history', async (req: Request, res: Response) => {
     })));
     res.json({ items });
   } catch (err: any) {
-    console.error(`[${req.deviceId}] History ERROR:`, err.message);
-    // SEC-7: Generic error to client, details logged server-side only
+    console.error(`[${req.userId}] History ERROR:`, err.message);
     res.status(500).json({ error: 'Failed to fetch history' });
   }
 });
 
 historyRouter.delete('/history', async (req: Request, res: Response) => {
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
   try {
     console.log(`${tag} DeleteAll → starting`);
 
-    // Step 1: fetch the session list (need the S3 keys before we can delete anything)
-    const sessions = await queryByDevice(req.deviceId);
+    const sessions = await queryByDevice(req.userId);
     if (sessions.length === 0) {
       res.json({ ok: true, deleted: 0 });
       return;
@@ -47,10 +45,9 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
       [s.tryonS3Key, s.videoS3Key].filter(Boolean) as string[]
     );
 
-    // Step 2: DynamoDB batch-delete + S3 bulk-delete (keep selfies)
     const [failedS3Keys] = await Promise.all([
-      deleteObjects(allKeys),                        // tryons + videos only
-      deleteAllFromDb(req.deviceId),                 // DynamoDB rows
+      deleteObjects(allKeys),
+      deleteAllFromDb(req.userId),
     ]);
 
     if (failedS3Keys.length > 0) {
@@ -62,24 +59,22 @@ historyRouter.delete('/history', async (req: Request, res: Response) => {
     );
     res.json({ ok: true, deleted: sessions.length });
   } catch (err: any) {
-    console.error(`[${req.deviceId}] DeleteAll ERROR:`, err.message);
-    // SEC-7: Generic error to client, details logged server-side only
+    console.error(`[${req.userId}] DeleteAll ERROR:`, err.message);
     res.status(500).json({ error: 'Failed to delete all sessions' });
   }
 });
 
 historyRouter.delete('/history/:id', async (req: Request, res: Response) => {
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
   try {
     console.log(`${tag} Delete → session=${req.params.id}`);
-    const session = await deleteSessionFromDb(req.deviceId, req.params.id as string);
+    const session = await deleteSessionFromDb(req.userId, req.params.id as string);
     if (!session) {
       console.log(`${tag} Delete → session not found`);
       res.status(404).json({ error: 'Session not found' });
       return;
     }
 
-    // Clean up S3 objects
     const keysToDelete = [session.tryonS3Key, session.videoS3Key].filter(Boolean) as string[];
     for (const key of keysToDelete) {
       try {
@@ -92,8 +87,7 @@ historyRouter.delete('/history/:id', async (req: Request, res: Response) => {
 
     res.json({ ok: true });
   } catch (err: any) {
-    console.error(`[${req.deviceId}] Delete ERROR:`, err.message);
-    // SEC-7: Generic error to client, details logged server-side only
+    console.error(`[${req.userId}] Delete ERROR:`, err.message);
     res.status(500).json({ error: 'Failed to delete session' });
   }
 });
@@ -105,9 +99,9 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
     return;
   }
 
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
   try {
-    const session = await queryBySourceUrl(req.deviceId, sourceUrl);
+    const session = await queryBySourceUrl(req.userId, sourceUrl);
     console.log(`${tag} ProductTryOn → query sourceUrl=${sourceUrl}`);
     console.log(`${tag} ProductTryOn → ${session ? 'found session=' + session.sessionId : 'not found'}`);
     if (session) {
@@ -122,8 +116,7 @@ historyRouter.get('/product-tryon', async (req: Request, res: Response) => {
       res.json({ found: false });
     }
   } catch (err: any) {
-    console.error(`[${req.deviceId}] ProductTryOn ERROR:`, err.message);
-    // SEC-7: Generic error to client, details logged server-side only
+    console.error(`[${req.userId}] ProductTryOn ERROR:`, err.message);
     res.status(500).json({ error: 'Failed to check product try-on' });
   }
 });

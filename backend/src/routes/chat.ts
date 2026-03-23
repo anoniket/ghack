@@ -18,11 +18,11 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
       )
     : [];
 
-  const tag = `[${req.deviceId}]`;
+  const tag = `[${req.userId}]`;
 
   try {
     console.log(`${tag} Chat → message received`);
-    const rawText = await sendChatMessage(req.deviceId, message, validHistory);
+    const rawText = await sendChatMessage(req.userId, message, validHistory);
     console.log(`${tag} Chat → response generated, length=${rawText.length}`);
 
     // Extract URL from OPEN: line and strip it from text
@@ -53,7 +53,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
 });
 
 chatRouter.post('/chat/reset', async (req: Request, res: Response) => {
-  console.log(`[${req.deviceId}] Chat → history reset`);
-  resetChat(req.deviceId);
+  console.log(`[${req.userId}] Chat → history reset`);
+  resetChat(req.userId);
   res.json({ ok: true });
 });

@@ -15,7 +15,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
-import { deviceIdMiddleware } from './middleware/deviceId';
+import { clerkAuth, authMiddleware } from './middleware/auth';
 import { playgroundRouter } from './routes/playground';
 import { pipelineRouter } from './routes/pipeline';
 import { tryonRouter } from './routes/tryon';
@@ -23,7 +23,6 @@ import { chatRouter } from './routes/chat';
 import { videoRouter } from './routes/video';
 import { mediaRouter } from './routes/media';
 import { historyRouter } from './routes/history';
-import { authRouter } from './routes/auth';
 import { geminiConcurrency } from './services/gemini';
 
 const app = express();
@@ -38,8 +37,7 @@ app.use('/pipeline', (_req, res, next) => {
 }, express.json({ limit: '20mb' }), pipelineRouter);
 
 app.use(helmet());
-app.use(compression()); // M8: Compress all responses
-// SEC-8: Disable CORS headers — mobile app uses x-device-id auth, not browser cookies
+app.use(compression());
 app.use(cors({ origin: false }));
 
 // Debug playground (no auth, no helmet CSP) — mount before global body parser
@@ -64,15 +62,15 @@ const limiter = rateLimit({
   message: { error: 'Too many requests, slow down' },
 });
 
-// Per-device generation limit — 200 RPM
-const deviceGenerationLimiter = rateLimit({
+// Per-user generation limit — 200 RPM
+const userGenerationLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 200,
-  keyGenerator: (req: express.Request) => (req as any).deviceId || 'unknown',
+  keyGenerator: (req: express.Request) => (req as any).userId || 'unknown',
   validate: { ip: false },
   standardHeaders: false,
   legacyHeaders: false,
-  message: { error: 'Too many requests from this device, slow down' },
+  message: { error: 'Too many requests, slow down' },
 });
 
 // Health check (no auth)
@@ -80,13 +78,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
 
-
-
-// Auth routes — rate limited but NO deviceIdMiddleware (they handle their own validation)
-app.use('/api/auth', limiter, authRouter);
-
-// All other API routes require device ID + JWT/HMAC auth + rate limiting
-app.use('/api', limiter, deviceIdMiddleware);
+// Clerk middleware — attaches auth state to req (must run before authMiddleware)
+app.use('/api', clerkAuth);
+// All API routes require Clerk authentication + rate limiting
+app.use('/api', limiter, authMiddleware);
 
 // SEC-6: Stricter limit for chat (Gemini API abuse prevention)
 const chatLimiter = rateLimit({
@@ -97,11 +92,10 @@ const chatLimiter = rateLimit({
   message: { error: 'Too many chat requests, slow down' },
 });
 
-// Stricter limits on generation endpoints (IP + device)
-app.use('/api/tryon', deviceGenerationLimiter);
-app.use('/api/video', deviceGenerationLimiter);
+// Stricter limits on generation endpoints
+app.use('/api/tryon', userGenerationLimiter);
+app.use('/api/video', userGenerationLimiter);
 app.use('/api/chat', chatLimiter);
-
 
 app.use('/api', tryonRouter);
 app.use('/api', chatRouter);
@@ -109,19 +103,16 @@ app.use('/api', videoRouter);
 app.use('/api', mediaRouter);
 app.use('/api', historyRouter);
 
-// SEC-3: Refuse to start in production without JWT_SECRET
-if (process.env.NODE_ENV === 'production' && !config.jwtSecret) {
-  console.error('FATAL: JWT_SECRET is not set. Refusing to start in production.');
+// SEC-3: Refuse to start in production without CLERK_SECRET_KEY
+if (process.env.NODE_ENV === 'production' && !config.clerkSecretKey) {
+  console.error('FATAL: CLERK_SECRET_KEY is not set. Refusing to start in production.');
   process.exit(1);
 }
 
 const server = app.listen(config.port, () => {
   console.log(`mrigAI backend listening on port ${config.port}`);
-  if (!config.appSecret) {
-    console.warn('⚠️  APP_SECRET not set — HMAC verification disabled (dev mode)');
-  }
-  if (!config.jwtSecret) {
-    console.warn('⚠️  JWT_SECRET not set — JWT verification disabled (dev mode)');
+  if (!config.clerkSecretKey) {
+    console.warn('⚠️  CLERK_SECRET_KEY not set — Clerk auth disabled (dev mode)');
   }
 });
 
@@ -132,7 +123,6 @@ function gracefulShutdown(signal: string) {
     console.log('All connections closed, exiting');
     process.exit(0);
   });
-  // Force exit after 15s if connections don't close
   setTimeout(() => {
     console.error('Forced exit after 15s timeout');
     process.exit(1);
