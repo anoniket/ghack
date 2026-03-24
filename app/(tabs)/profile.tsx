@@ -17,6 +17,8 @@ import { resetChat } from '@/services/gemini';
 import * as api from '@/services/api';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { isDemoMode } from '@/utils/constants';
+import { usePostHog } from 'posthog-react-native';
+import { ANALYTICS_EVENTS } from '@/utils/analytics';
 
 const MAX_PHOTOS = 3;
 const SLOT_WIDTH = 100;
@@ -25,6 +27,7 @@ const SLOT_HEIGHT = 133; // ~3:4 ratio
 function AccountSection() {
   const { signOut } = useAuth();
   const { user } = useUser();
+  const posthog = usePostHog();
 
   const handleSignOut = () => {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
@@ -33,6 +36,7 @@ function AccountSection() {
         text: 'Sign Out',
         style: 'destructive',
         onPress: async () => {
+          posthog?.capture(ANALYTICS_EVENTS.SIGN_OUT);
           // Clear all user-specific local data before signing out
           const { setSelfieUris, setSelfieS3Keys, setOnboardingComplete, clearMessages, setSavedTryOns, setHistoryLoaded } = useAppStore.getState();
           await deleteSelfie(); // Clears AsyncStorage keys + local files
@@ -90,6 +94,7 @@ export default function ProfileScreen() {
     preferredModel,
     setPreferredModel,
   } = useAppStore();
+  const posthog = usePostHog();
   const [updating, setUpdating] = useState(false);
   const [statusText, setStatusText] = useState('');
 
@@ -136,6 +141,7 @@ export default function ProfileScreen() {
       const newUris = [...currentUris, savedUri];
       await saveSelfieUris(newUris);
       setSelfieUris(newUris);
+      posthog?.capture(ANALYTICS_EVENTS.SELFIE_ADDED);
 
       // If this is the first photo, run describeSelfie — must succeed
       if (newUris.length === 1) {
@@ -358,7 +364,10 @@ export default function ProfileScreen() {
                 <TouchableOpacity
                   key={key}
                   style={[styles.modelOption, preferredModel === key && styles.modelOptionActive]}
-                  onPress={() => setPreferredModel(key)}
+                  onPress={() => {
+                    setPreferredModel(key);
+                    posthog?.capture(ANALYTICS_EVENTS.MODEL_CHANGED, { model_type: key });
+                  }}
                   activeOpacity={0.7}
                 >
                   <Text style={[styles.modelLabel, preferredModel === key && styles.modelLabelActive]}>{label}</Text>

@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import './instrument';
 
 // Override console.log with millisecond timestamps for Railway debugging
 const _log = console.log;
@@ -24,6 +24,7 @@ import { videoRouter } from './routes/video';
 import { mediaRouter } from './routes/media';
 import { historyRouter } from './routes/history';
 import { geminiConcurrency } from './services/gemini';
+import { shutdownAnalytics } from './services/analytics';
 
 const app = express();
 
@@ -78,6 +79,7 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
 
+
 // App config (no auth) — frontend checks this on startup
 app.get('/api/config', (_req, res) => {
   res.json({ demoMode: config.demoMode });
@@ -108,6 +110,10 @@ app.use('/api', videoRouter);
 app.use('/api', mediaRouter);
 app.use('/api', historyRouter);
 
+// Sentry error handler — must be after all routes
+import * as Sentry from '@sentry/node';
+Sentry.setupExpressErrorHandler(app);
+
 // SEC-3: Refuse to start in production without CLERK_SECRET_KEY
 if (process.env.NODE_ENV === 'production' && !config.clerkSecretKey) {
   console.error('FATAL: CLERK_SECRET_KEY is not set. Refusing to start in production.');
@@ -124,7 +130,8 @@ const server = app.listen(config.port, () => {
 // H1: Graceful shutdown — finish in-flight requests before exiting
 function gracefulShutdown(signal: string) {
   console.log(`${signal} received — shutting down gracefully`);
-  server.close(() => {
+  server.close(async () => {
+    await shutdownAnalytics();
     console.log('All connections closed, exiting');
     process.exit(0);
   });

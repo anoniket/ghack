@@ -5,6 +5,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { usePostHog } from 'posthog-react-native';
+import { ANALYTICS_EVENTS } from '@/utils/analytics';
 
 // Required for OAuth redirect handling on web
 WebBrowser.maybeCompleteAuthSession();
@@ -13,49 +15,58 @@ export default function SignInScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { startSSOFlow } = useSSO();
+  const posthog = usePostHog();
   const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleGoogleSignIn = useCallback(async () => {
     setLoading('google');
     setError(null);
+    posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_STARTED, { provider: 'google' });
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_google',
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_COMPLETED, { provider: 'google' });
         router.replace('/(tabs)');
       }
     } catch (err: any) {
       // User cancelled is not an error
       if (err?.errors?.[0]?.code !== 'session_exists') {
-        setError(err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed');
+        const errorMsg = err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed';
+        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_FAILED, { provider: 'google', error: errorMsg });
+        setError(errorMsg);
       }
     } finally {
       setLoading(null);
     }
-  }, [startSSOFlow, router]);
+  }, [startSSOFlow, router, posthog]);
 
   const handleAppleSignIn = useCallback(async () => {
     setLoading('apple');
     setError(null);
+    posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_STARTED, { provider: 'apple' });
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy: 'oauth_apple',
       });
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_COMPLETED, { provider: 'apple' });
         router.replace('/(tabs)');
       }
     } catch (err: any) {
       if (err?.errors?.[0]?.code !== 'session_exists') {
-        setError(err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed');
+        const errorMsg = err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed';
+        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_FAILED, { provider: 'apple', error: errorMsg });
+        setError(errorMsg);
       }
     } finally {
       setLoading(null);
     }
-  }, [startSSOFlow, router]);
+  }, [startSSOFlow, router, posthog]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>

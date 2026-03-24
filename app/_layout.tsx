@@ -1,14 +1,23 @@
+import * as Sentry from '@sentry/react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
+import { PostHogProvider } from 'posthog-react-native';
 import { API_URL, isDemoMode, setDemoMode } from '@/utils/constants';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+  tracesSampleRate: 1.0,
+  sendDefaultPii: true,
+  enabled: !__DEV__,
+});
 
 export {
   ErrorBoundary,
@@ -21,6 +30,8 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 const CLERK_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || '';
+const POSTHOG_API_KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY || '';
+const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
 
 const customDarkTheme = {
   ...DarkTheme,
@@ -34,7 +45,7 @@ const customDarkTheme = {
   },
 };
 
-export default function RootLayout() {
+function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
@@ -81,15 +92,32 @@ export default function RootLayout() {
     </KeyboardProvider>
   );
 
+  const wrapWithPostHog = (children: React.ReactNode) => {
+    if (!POSTHOG_API_KEY) return <>{children}</>;
+    return (
+      <PostHogProvider
+        apiKey={POSTHOG_API_KEY}
+        options={{
+          host: POSTHOG_HOST,
+          enableSessionReplay: true,
+        }}
+      >
+        {children}
+      </PostHogProvider>
+    );
+  };
+
   if (isDemoMode()) {
-    return appContent;
+    return wrapWithPostHog(appContent);
   }
 
   return (
     <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} tokenCache={tokenCache}>
       <ClerkLoaded>
-        {appContent}
+        {wrapWithPostHog(appContent)}
       </ClerkLoaded>
     </ClerkProvider>
   );
 }
+
+export default Sentry.wrap(RootLayout);

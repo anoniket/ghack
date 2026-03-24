@@ -3,6 +3,7 @@ import { v4 as uuid } from 'uuid';
 import { startVideoGeneration, getVideoJob } from '../services/gemini';
 import { downloadToBuffer, uploadBuffer, getReadUrl } from '../services/s3';
 import { updateSessionVideo } from '../services/dynamo';
+import { trackEvent } from '../services/analytics';
 
 export const videoRouter = Router();
 
@@ -43,7 +44,10 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     const tryonBase64 = tryonBuffer.toString('base64');
 
     const jobId = uuid();
+    const videoStartTime = Date.now();
     console.log(`${tag} Video → job=${jobId} started`);
+
+    trackEvent(req.userId, 'api_video_started', { job_id: jobId });
 
     // Fire and forget — but catch errors so they don't become unhandled rejections
     startVideoGeneration(
@@ -65,6 +69,7 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
           }
 
           console.log(`${tag} Video → job=${jobId} uploaded to S3`);
+          trackEvent(req.userId, 'api_video_completed', { job_id: jobId, duration_ms: Date.now() - videoStartTime });
           return { s3Key: videoS3Key, cdnUrl: videoReadUrl };
         } catch (uploadErr: any) {
           console.error(`${tag} Video → job=${jobId} S3 upload FAILED: ${uploadErr.message}`);
@@ -76,11 +81,13 @@ videoRouter.post('/video', async (req: Request, res: Response) => {
     ).catch((err) => {
       // This catches any unhandled rejection from the async fire-and-forget
       console.error(`${tag} Video → job=${jobId} unhandled error: ${err.message}`);
+      trackEvent(req.userId, 'api_video_failed', { job_id: jobId, error_type: 'GENERATION_FAILED', duration_ms: Date.now() - videoStartTime });
     });
 
     res.json({ jobId });
   } catch (err: any) {
     console.error(`${tag} Video ERROR:`, err.message);
+    trackEvent(req.userId, 'api_video_failed', { error_type: 'START_FAILED' });
     // SEC-7: Generic error to client, details logged server-side only
     res.status(500).json({ error: 'Failed to start video generation' });
   }

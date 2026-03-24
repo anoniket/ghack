@@ -15,6 +15,8 @@ import { useAppStore } from '@/services/store';
 import { ChatMessage } from '@/services/store';
 import { nextMsgId as nextId } from '@/utils/ids';
 import { useSendChat } from '@/hooks/useSendChat';
+import { usePostHog } from 'posthog-react-native';
+import { ANALYTICS_EVENTS } from '@/utils/analytics';
 
 // M28: Memoized message bubble — only re-renders when its own item changes
 const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: number }) => {
@@ -52,6 +54,7 @@ export default function ChatInterface() {
   const isTyping = useAppStore((s) => s.isTyping);
   const addMessage = useAppStore.getState().addMessage;
   const { setCurrentUrl, setMode, setChatBubbleExpanded } = useAppStore.getState();
+  const posthog = usePostHog();
   const sendChat = useSendChat();
 
   // PERF-17: Show hardcoded greeting immediately — no Gemini API wait on cold start
@@ -75,6 +78,7 @@ export default function ChatInterface() {
     const text = inputText.trim();
     if (!text || isTyping) return;
     setInputText('');
+    posthog?.capture(ANALYTICS_EVENTS.CHAT_MESSAGE_SENT);
     sendChat(text);
   };
 
@@ -126,6 +130,7 @@ export default function ChatInterface() {
                     key={b.label}
                     style={styles.chip}
                     onPress={() => {
+                      posthog?.capture(ANALYTICS_EVENTS.CHAT_STORE_SUGGESTION_TAPPED, { store_name: b.label });
                       setCurrentUrl(b.url);
                       setMode('webview');
                       setChatBubbleExpanded(false);

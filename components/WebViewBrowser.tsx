@@ -19,6 +19,8 @@ import { PRODUCT_DETECTOR_JS } from '@/services/productDetector';
 import * as api from '@/services/api';
 import { imageUriToBase64 } from '@/utils/imageUtils';
 import { rlog } from '@/services/logger';
+import { usePostHog } from 'posthog-react-native';
+import { ANALYTICS_EVENTS, getStoreName } from '@/utils/analytics';
 
 
 interface WebViewMessage {
@@ -39,7 +41,11 @@ interface Props {
 
 export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const { width: W, height: H } = useWindowDimensions();
+  const posthog = usePostHog();
   const webViewRef = useRef<WebView>(null);
+  const tryOnStartTimeRef = useRef<number>(0);
+  const videoStartTimeRef = useRef<number>(0);
+  const lastBrowsedDomainRef = useRef<string>('');
 
   // PERF-1: Individual selectors — only re-render when the specific field changes
   const currentUrl = useAppStore((s) => s.currentUrl);
@@ -152,6 +158,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setTryOnLoading(true);
     // SS-12: Clear old video so it doesn't play for wrong product
     setVideoDataUri(null);
+    tryOnStartTimeRef.current = Date.now();
+    const storeName = currentProduct.pageUrl ? getStoreName(currentProduct.pageUrl) : 'unknown';
+    posthog?.capture(ANALYTICS_EVENTS.TRYON_STARTED, { store_name: storeName });
     rlog('TryOn', 'GENERATION STARTED');
 
     // Show loading overlay immediately via direct call (postMessage can be unreliable on some sites)
@@ -241,6 +250,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       if (!result) throw new Error('SERVER_BUSY'); // all retries failed
 
       rlog('TryOn', `SUCCESS model=${result.model} session=${result.sessionId}`);
+      posthog?.capture(ANALYTICS_EVENTS.TRYON_COMPLETED, {
+        store_name: storeName,
+        duration_ms: Date.now() - tryOnStartTimeRef.current,
+      });
 
       // Store for video generation
       setLastSessionId(result.sessionId);
@@ -266,6 +279,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       ]);
     } catch (err: any) {
       rlog('TryOn', `FAILED: ${err.message || err}`);
+      posthog?.capture(ANALYTICS_EVENTS.TRYON_FAILED, {
+        store_name: storeName,
+        error_type: err.message || 'unknown',
+      });
 
       if (err.message === 'SERVER_BUSY') {
         // All retry attempts got 503
@@ -380,6 +397,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     if (videoLoadingRef.current) return;
     videoLoadingRef.current = true;
     setVideoLoading(true);
+    videoStartTimeRef.current = Date.now();
+    const videoStoreName = currentUrl ? getStoreName(currentUrl) : 'unknown';
+    posthog?.capture(ANALYTICS_EVENTS.VIDEO_STARTED, { store_name: videoStoreName });
     rlog('Video', 'GENERATION STARTED');
 
     // Tell WebView to show loading overlay
@@ -448,6 +468,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
 
       rlog('Video', 'SUCCESS');
+      posthog?.capture(ANALYTICS_EVENTS.VIDEO_COMPLETED, {
+        store_name: videoStoreName,
+        duration_ms: Date.now() - videoStartTimeRef.current,
+      });
       setVideoDataUri(videoUrl);
 
       // Update savedTryOns with video URL so Saved tab has it without refetching
@@ -467,6 +491,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       }
     } catch (err: any) {
       rlog('Video', `FAILED: ${err.message || err}`);
+      posthog?.capture(ANALYTICS_EVENTS.VIDEO_FAILED, {
+        store_name: videoStoreName,
+        error_type: err.message || 'unknown',
+      });
       const videoErrorQuips = [
         'video said nah, retry?',
         'director walked off set, again?',
@@ -497,6 +525,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           rlog('WebView', `detector injected on ${data.url}`);
         } else if (data.type === 'tryon_request' && data.imageUrl) {
           rlog('WebView', `tryon request from ${data.pageUrl}`);
+          if (data.retry) {
+            posthog?.capture(ANALYTICS_EVENTS.RETRY_AFTER_ERROR, { error_type: 'tryon' });
+          }
           onTryOnRequest({
             imageUrl: data.imageUrl,
             pageUrl: data.pageUrl,
@@ -506,6 +537,10 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           rlog('WebView', 'video request');
           startVideoGeneration();
         } else if (data.type === 'product_detected' && data.pageUrl) {
+          posthog?.capture(ANALYTICS_EVENTS.PRODUCT_DETECTED, {
+            store_name: getStoreName(data.pageUrl),
+            product_url: data.pageUrl,
+          });
           // Check if this product was already tried on
           checkPreviousTryOn(data.pageUrl);
         }
@@ -543,6 +578,17 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     setCanGoBack(navState.canGoBack);
     setPageTitle(navState.title || '');
     if (navState.url !== currentUrl) {
+      // Track store browsed when navigating to a new domain
+      try {
+        const newDomain = new URL(navState.url).hostname;
+        if (newDomain !== lastBrowsedDomainRef.current) {
+          lastBrowsedDomainRef.current = newDomain;
+          posthog?.capture(ANALYTICS_EVENTS.STORE_BROWSED, {
+            store_name: getStoreName(navState.url),
+            url: navState.url,
+          });
+        }
+      } catch {}
       initialLoadDone.current = false;
       if (navState.loading) {
         setLoading(true);

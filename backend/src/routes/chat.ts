@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { sendChatMessage, resetChat } from '../services/gemini';
+import { trackEvent } from '../services/analytics';
 
 export const chatRouter = Router();
 
@@ -24,6 +25,7 @@ chatRouter.post('/chat', async (req: Request, res: Response) => {
     console.log(`${tag} Chat → message received`);
     const rawText = await sendChatMessage(req.userId, message, validHistory);
     console.log(`${tag} Chat → response generated, length=${rawText.length}`);
+    trackEvent(req.userId, 'api_chat_message');
 
     // Extract URL from OPEN: line and strip it from text
     let url: string | null = null;

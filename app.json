@@ -6,7 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
-    "scheme": "tryonai",
+    "scheme": "mrig",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
@@ -44,7 +44,15 @@
       "expo-splash-screen",
       "expo-router",
       "expo-video",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "mrigai",
+          "project": "mrigai"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

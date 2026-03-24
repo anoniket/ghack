@@ -3,6 +3,7 @@ import { generateTryOnV2, downloadImageToBase64, ImageBlockedError, TimeoutError
 import { classifyProduct, getPromptForCategory, describeSelfie } from '../services/classifier';
 import { uploadBuffer, cdnUrl } from '../services/s3';
 import { putSession } from '../services/dynamo';
+import { trackEvent } from '../services/analytics';
 import sharp from 'sharp';
 import crypto from 'crypto';
 
@@ -112,6 +113,8 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
   const { productImageUrl, sourceUrl, selfieDescription, model: requestedModel } = req.body;
   const tag = `[${req.userId}]`;
 
+  trackEvent(req.userId, 'api_tryon_started', { model: requestedModel || 'default' });
+
   // Resolve selfies: cache first, then body, then backward compat
   let selfieBase64s: string[];
   const cacheEntry = selfieCache.get(req.userId);
@@ -190,6 +193,8 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       durationMs,
     });
 
+    trackEvent(req.userId, 'api_tryon_completed', { duration_ms: durationMs, model: modelLabel });
+
     // Background: S3 + DynamoDB
     (async () => {
       try {
@@ -213,18 +218,23 @@ tryonRouter.post('/tryon/v2', async (req: Request, res: Response) => {
       }
     })();
   } catch (err: any) {
+    const durationMs = Date.now() - startTime;
     const is503 = err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand');
     if (is503) {
       console.error(`${tag} V2 SERVER_BUSY:`, err.message);
+      trackEvent(req.userId, 'api_tryon_failed', { error_type: 'SERVER_BUSY', duration_ms: durationMs });
       res.status(503).json({ error: 'SERVER_BUSY' });
     } else if (err instanceof TimeoutError) {
       console.error(`${tag} V2 TIMEOUT:`, err.message);
+      trackEvent(req.userId, 'api_tryon_failed', { error_type: 'TIMEOUT', duration_ms: durationMs });
       res.status(504).json({ error: 'TIMEOUT' });
     } else if (err instanceof ImageBlockedError) {
       console.error(`${tag} V2 BLOCKED:`, err.reason);
+      trackEvent(req.userId, 'api_tryon_failed', { error_type: 'IMAGE_BLOCKED', duration_ms: durationMs });
       res.status(422).json({ error: 'IMAGE_BLOCKED' });
     } else {
       console.error(`${tag} V2 ERROR:`, err.message);
+      trackEvent(req.userId, 'api_tryon_failed', { error_type: 'INTERNAL_ERROR', duration_ms: durationMs });
       res.status(500).json({ error: 'Try-on generation failed' });
     }
   }

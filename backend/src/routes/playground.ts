@@ -16,7 +16,7 @@ const MODELS = [
 const DEFAULT_PROMPT = `Make the person in Image 1 wear the product from Image 2. Keep their exact face, body, and background. Show the product clearly.`;
 
 // Serve the playground HTML
-router.get('/playground', (_req: Request, res: Response) => {
+router.get('/', (_req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -63,22 +63,22 @@ router.get('/playground', (_req: Request, res: Response) => {
 <div class="grid">
   <div class="panel">
     <label>Selfie (Image 1)</label>
-    <div class="drop-zone" id="selfie-zone" onclick="document.getElementById('selfie-input').click()">
+    <div class="drop-zone" id="selfie-zone">
       <div id="selfie-placeholder">Drop image here or click to upload</div>
       <img id="selfie-preview" style="display:none">
       <input type="file" id="selfie-input" accept="image/*">
       <div class="or">— or paste URL —</div>
-      <input type="text" class="url-input" id="selfie-url" placeholder="https://..." onchange="loadFromUrl('selfie')">
+      <input type="text" class="url-input" id="selfie-url" placeholder="https://...">
     </div>
   </div>
   <div class="panel">
     <label>Product (Image 2)</label>
-    <div class="drop-zone" id="product-zone" onclick="document.getElementById('product-input').click()">
+    <div class="drop-zone" id="product-zone">
       <div id="product-placeholder">Drop image here or click to upload</div>
       <img id="product-preview" style="display:none">
       <input type="file" id="product-input" accept="image/*">
       <div class="or">— or paste URL —</div>
-      <input type="text" class="url-input" id="product-url" placeholder="https://..." onchange="loadFromUrl('product')">
+      <input type="text" class="url-input" id="product-url" placeholder="https://...">
     </div>
   </div>
   <div class="panel" style="grid-column: 1 / -1;">
@@ -98,7 +98,7 @@ router.get('/playground', (_req: Request, res: Response) => {
     </div>
     <label>Prompt</label>
     <textarea id="prompt" rows="4">${DEFAULT_PROMPT}</textarea>
-    <button class="generate" id="gen-btn" onclick="generate()">Generate Try-On</button>
+    <button class="generate" id="gen-btn">Generate Try-On</button>
     <div class="status" id="status"></div>
   </div>
   <div class="panel result-panel">
@@ -134,6 +134,12 @@ function setStatus(msg, cls) {
     if (e.target.files[0]) loadFile(e.target.files[0], type);
   });
 
+  const urlInput = document.getElementById(type + '-url');
+  zone.addEventListener('click', e => {
+    if (e.target === urlInput) return;
+    input.click();
+  });
+  urlInput.addEventListener('change', () => loadFromUrl(type));
   zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
   zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
   zone.addEventListener('drop', e => {
@@ -228,13 +234,14 @@ async function generate() {
   btn.disabled = false;
   btn.textContent = 'Generate Try-On';
 }
+document.getElementById('gen-btn').addEventListener('click', generate);
 </script>
 </body>
 </html>`);
 });
 
 // Proxy image download (for URL input)
-router.get('/playground/proxy-image', async (req: Request, res: Response) => {
+router.get('/proxy-image', async (req: Request, res: Response) => {
   const url = req.query.url as string;
   if (!url) { res.status(400).json({ error: 'url required' }); return; }
   try {
@@ -253,7 +260,7 @@ router.get('/playground/proxy-image', async (req: Request, res: Response) => {
 });
 
 // Generate endpoint — no timeout, full error logging
-router.post('/playground/generate', async (req: Request, res: Response) => {
+router.post('/generate', async (req: Request, res: Response) => {
   const { selfieBase64, productBase64, model, keyIndex, prompt } = req.body;
   if (!selfieBase64 || !productBase64) {
     res.status(400).json({ error: 'Both images required' });
@@ -276,45 +283,28 @@ router.post('/playground/generate', async (req: Request, res: Response) => {
   const productMime = detectMime(productBase64);
 
   try {
-    // Upload to File API
-    const uploadStart = Date.now();
-    const [selfieFile, productFile] = await Promise.all([
-      client.files.upload({ file: new Blob([Buffer.from(selfieBase64, 'base64')], { type: selfieMime }), config: { mimeType: selfieMime } }),
-      client.files.upload({ file: new Blob([Buffer.from(productBase64, 'base64')], { type: productMime }), config: { mimeType: productMime } }),
-    ]);
-    const uploadMs = Date.now() - uploadStart;
-    console.log(`[Playground] Upload: ${uploadMs}ms, selfie=${selfieFile.uri}, product=${productFile.uri}`);
-
-    // Generate — NO timeout
+    // Minimal config — matching Google's official example exactly
+    // Just model + contents with inlineData, no extra config bloat
     const genStart = Date.now();
     const response = await client.models.generateContent({
       model,
       contents: [
         {
-          role: 'user',
-          parts: [
-            { fileData: { fileUri: selfieFile.uri!, mimeType: selfieMime } },
-            { fileData: { fileUri: productFile.uri!, mimeType: productMime } },
-            { text: prompt },
-          ],
+          text: prompt,
+        },
+        {
+          inlineData: { mimeType: selfieMime, data: selfieBase64 },
+        },
+        {
+          inlineData: { mimeType: productMime, data: productBase64 },
         },
       ],
       config: {
-        responseModalities: ['TEXT', 'IMAGE'] as any,
-        personGeneration: 'ALLOW_ADULT',
-        safetySettings: [
-          { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' },
-          { category: 'HARM_CATEGORY_CIVIC_INTEGRITY', threshold: 'BLOCK_NONE' },
-        ],
-        imageConfig: {
-          aspectRatio: '3:4',
-        },
+        responseModalities: ['TEXT', 'IMAGE'],
       } as any,
     });
     const genMs = Date.now() - genStart;
+    const uploadMs = 0;
 
     const parts = response.candidates?.[0]?.content?.parts;
     if (parts) {

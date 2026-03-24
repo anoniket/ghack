@@ -14,11 +14,14 @@ import ImageCropPicker from 'react-native-image-crop-picker';
 import { saveSelfie, saveSelfieUris, saveSelfieS3Keys, uploadSelfieAndSaveKey, imageUriToBase64 } from '@/utils/imageUtils';
 import { useAppStore } from '@/services/store';
 import * as api from '@/services/api';
+import { usePostHog } from 'posthog-react-native';
+import { ANALYTICS_EVENTS } from '@/utils/analytics';
 
 const MAX_PHOTOS = 3;
 
 export default function OnboardingCamera() {
   const { width: W } = useWindowDimensions();
+  const posthog = usePostHog();
   const [imageUris, setImageUris] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [savingStatus, setSavingStatus] = useState('');
@@ -37,6 +40,7 @@ export default function OnboardingCamera() {
         compressImageQuality: 1,
       });
       console.log(`[Picker] width=${image.width}, height=${image.height}, size=${image.size}`);
+      posthog?.capture(ANALYTICS_EVENTS.ONBOARDING_SELFIE_CAPTURED);
       setImageUris((prev) => [...prev, image.path]);
     } catch (err: any) {
       if (err.code !== 'E_PICKER_CANCELLED') console.warn('Pick failed:', err);
@@ -53,6 +57,7 @@ export default function OnboardingCamera() {
         compressImageQuality: 1,
       });
       console.log(`[Camera] width=${image.width}, height=${image.height}, size=${image.size}`);
+      posthog?.capture(ANALYTICS_EVENTS.ONBOARDING_SELFIE_CAPTURED);
       setImageUris((prev) => [...prev, image.path]);
     } catch (err: any) {
       if (err.code !== 'E_PICKER_CANCELLED') console.warn('Camera failed:', err);
@@ -97,6 +102,7 @@ export default function OnboardingCamera() {
         const AsyncStorage = require('@react-native-async-storage/async-storage').default;
         await AsyncStorage.setItem('selfie_description', desc);
       } catch (descErr: any) {
+        posthog?.capture(ANALYTICS_EVENTS.SELFIE_UPLOAD_FAILED);
         api.sendLogs([{ tag: 'Onboarding', msg: `Selfie description failed: ${descErr.message}` }]).catch(() => {});
         Alert.alert('Error', 'Could not process your selfie. Please try again.');
         setSaving(false);
@@ -131,6 +137,7 @@ export default function OnboardingCamera() {
       }
 
       setSavingStatus('');
+      posthog?.capture(ANALYTICS_EVENTS.ONBOARDING_COMPLETED);
       setOnboardingComplete(true);
     } catch (err) {
       console.error('Error saving selfies:', err);

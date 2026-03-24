@@ -18,6 +18,8 @@ import VideoModal from '@/components/VideoModal';
 import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
 import { mapHistoryItem } from '@/utils/imageUtils';
+import { usePostHog } from 'posthog-react-native';
+import { ANALYTICS_EVENTS, getStoreName as getStoreNameFromUrl } from '@/utils/analytics';
 
 
 interface TimelineSection {
@@ -110,6 +112,7 @@ const TryOnCard = memo(function TryOnCard({ item, width, height, onPress }: {
 
 export default function SavedScreen() {
   const { width: W, height: H } = useWindowDimensions();
+  const posthog = usePostHog();
   const CARD_WIDTH = (W - 48) / 2;
   // M27: Individual selectors for read state, getState() for setters
   const savedTryOns = useAppStore((s) => s.savedTryOns);
@@ -131,6 +134,7 @@ export default function SavedScreen() {
   const hasFetched = useRef(false);
   useFocusEffect(
     useCallback(() => {
+      posthog?.capture(ANALYTICS_EVENTS.SAVED_TAB_OPENED);
       if (!hasFetched.current) {
         hasFetched.current = true;
         if (!historyLoaded) loadSaved();
@@ -181,6 +185,7 @@ export default function SavedScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
+          posthog?.capture(ANALYTICS_EVENTS.TRYON_DELETED);
           setDeleting(true);
           try {
             await api.deleteSession(item.sessionId || item.id);
@@ -198,6 +203,10 @@ export default function SavedScreen() {
 
   const handleVisitStore = (url?: string) => {
     if (url) {
+      posthog?.capture(ANALYTICS_EVENTS.VISIT_STORE_TAPPED, {
+        store_name: getStoreNameFromUrl(url),
+        product_url: url,
+      });
       setCurrentUrl(url);
       setMode('webview');
       setSelectedItem(null);
