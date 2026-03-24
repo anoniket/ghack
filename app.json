@@ -5,38 +5,34 @@
     "owner": "anoniket",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/images/app-icon.png",
     "scheme": "tryonai",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#0f0f1a"
+      "image": "./assets/images/mrigAI-splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#FBF8F3"
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.mrigai.app",
+      "bundleIdentifier": "com.mrig.app",
       "buildNumber": "1",
+      "entitlements": {
+        "com.apple.developer.applesignin": ["Default"]
+      },
       "infoPlist": {
         "NSCameraUsageDescription": "mrigAI needs camera access to take your selfie for virtual try-on.",
         "NSPhotoLibraryUsageDescription": "mrigAI needs photo library access to select your photo for virtual try-on."
       }
     },
     "android": {
-      "package": "com.mrigai.app",
+      "package": "com.mrig.app",
       "versionCode": 1,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#0f0f1a"
-      },
       "edgeToEdgeEnabled": true,
       "softwareKeyboardLayoutMode": "resize",
       "permissions": [
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ]
     },
     "web": {
