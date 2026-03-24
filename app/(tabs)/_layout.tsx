@@ -6,7 +6,8 @@ import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
 import { TAB_BAR_BASE_HEIGHT, isDemoMode } from '@/utils/constants';
-import { useAuth } from '@clerk/clerk-expo';
+import { useAuth, useUser } from '@clerk/clerk-expo';
+import { usePostHog } from 'posthog-react-native';
 
 // PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
 if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
@@ -22,7 +23,19 @@ function TabBarIcon(props: {
 }
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded, userId } = useAuth();
+  const { user } = useUser();
+  const posthog = usePostHog();
+
+  React.useEffect(() => {
+    if (isSignedIn && userId && posthog) {
+      posthog.identify(userId, {
+        email: user?.primaryEmailAddress?.emailAddress,
+        name: user?.fullName,
+      });
+    }
+  }, [isSignedIn, userId, user, posthog]);
+
   if (!isLoaded) return null;
   if (!isSignedIn) return <Redirect href="/sign-in" />;
   return <>{children}</>;
