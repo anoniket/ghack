@@ -1,4 +1,4 @@
-import { API_URL, DEMO_MODE } from '@/utils/constants';
+import { API_URL, isDemoMode } from '@/utils/constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getClerkInstance } from '@clerk/clerk-expo';
 
@@ -49,7 +49,7 @@ async function apiFetch(
     'Content-Type': 'application/json',
   };
 
-  if (DEMO_MODE) {
+  if (isDemoMode()) {
     // Demo mode: identify by device ID only (no auth token)
     const deviceId = await getDeviceId();
     headers['x-device-id'] = deviceId;

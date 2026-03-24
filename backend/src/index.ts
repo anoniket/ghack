@@ -78,6 +78,11 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', gemini: geminiConcurrency() });
 });
 
+// App config (no auth) — frontend checks this on startup
+app.get('/api/config', (_req, res) => {
+  res.json({ demoMode: config.demoMode });
+});
+
 // Clerk middleware — attaches auth state to req (must run before authMiddleware)
 app.use('/api', clerkAuth);
 // All API routes require Clerk authentication + rate limiting

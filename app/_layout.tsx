@@ -3,12 +3,12 @@ import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
 import { tokenCache } from '@clerk/clerk-expo/token-cache';
-import { DEMO_MODE } from '@/utils/constants';
+import { API_URL, isDemoMode, setDemoMode } from '@/utils/constants';
 
 export {
   ErrorBoundary,
@@ -39,18 +39,33 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  // Fetch demo mode config from backend before rendering
+  useEffect(() => {
+    fetch(`${API_URL}/api/config`)
+      .then((res) => res.json())
+      .then((data) => {
+        setDemoMode(data.demoMode === true);
+      })
+      .catch(() => {
+        // If backend unreachable, default to normal auth mode
+        setDemoMode(false);
+      })
+      .finally(() => setConfigLoaded(true));
+  }, []);
 
   useEffect(() => {
     if (error) throw error;
   }, [error]);
 
   useEffect(() => {
-    if (loaded) {
+    if (loaded && configLoaded) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [loaded, configLoaded]);
 
-  if (!loaded) {
+  if (!loaded || !configLoaded) {
     return null;
   }
 
@@ -66,7 +81,7 @@ export default function RootLayout() {
     </KeyboardProvider>
   );
 
-  if (DEMO_MODE) {
+  if (isDemoMode()) {
     return appContent;
   }
 

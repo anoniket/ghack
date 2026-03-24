@@ -1,5 +1,9 @@
 export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000';
-export const DEMO_MODE = process.env.EXPO_PUBLIC_DEMO_MODE === 'true';
+
+// Demo mode — fetched from backend at startup, stored here
+let _demoMode = false;
+export function setDemoMode(value: boolean) { _demoMode = value; }
+export function isDemoMode() { return _demoMode; }
 
 // C11: Warn loudly if production build has no API URL configured
 if (!__DEV__ && API_URL.includes('localhost')) {

@@ -5,7 +5,7 @@ import { BlurView } from 'expo-blur';
 import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
-import { TAB_BAR_BASE_HEIGHT, DEMO_MODE } from '@/utils/constants';
+import { TAB_BAR_BASE_HEIGHT, isDemoMode } from '@/utils/constants';
 import { useAuth } from '@clerk/clerk-expo';
 
 // PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
@@ -102,7 +102,7 @@ function TabsNavigator() {
 }
 
 export default function TabLayout() {
-  if (DEMO_MODE) {
+  if (isDemoMode()) {
     return <TabsNavigator />;
   }
 
