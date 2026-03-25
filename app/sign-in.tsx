@@ -20,6 +20,8 @@ import { usePostHog } from 'posthog-react-native';
 import { ANALYTICS_EVENTS } from '@/utils/analytics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, FONTS, SHADOWS, BORDER_RADIUS, BORDERS, SPACING } from '@/theme';
+import AIConsentOverlay, { getAiConsent } from '@/components/AIConsentScreen';
+import { useAppStore } from '@/services/store';
 
 // Required for OAuth redirect handling on web
 WebBrowser.maybeCompleteAuthSession();
@@ -266,57 +268,70 @@ export default function SignInScreen() {
   const posthog = usePostHog();
   const [loading, setLoading] = useState<'google' | 'apple' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showConsent, setShowConsent] = useState(false);
+  const [pendingProvider, setPendingProvider] = useState<'google' | 'apple' | null>(null);
+  const aiConsentGiven = useAppStore((s) => s.aiConsentGiven);
 
-  // -- Auth handlers (preserved exactly) ------------------------------------
+  // -- SSO flow (called after consent) --------------------------------------
+
+  const startSSO = useCallback(async (provider: 'google' | 'apple') => {
+    setLoading(provider);
+    setError(null);
+    posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_STARTED, { provider });
+    try {
+      const { createdSessionId, setActive } = await startSSOFlow({
+        strategy: provider === 'google' ? 'oauth_google' : 'oauth_apple',
+      });
+      if (createdSessionId && setActive) {
+        await setActive({ session: createdSessionId });
+        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_COMPLETED, { provider });
+        router.replace('/(tabs)');
+      }
+    } catch (err: any) {
+      if (err?.errors?.[0]?.code !== 'session_exists') {
+        const errorMsg = err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed';
+        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_FAILED, { provider, error: errorMsg });
+        setError(errorMsg);
+      }
+    } finally {
+      setLoading(null);
+    }
+  }, [startSSOFlow, router, posthog]);
+
+  // -- Button handlers: check consent first ---------------------------------
 
   const handleGoogleSignIn = useCallback(async () => {
-    setLoading('google');
-    setError(null);
-    posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_STARTED, { provider: 'google' });
-    try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_google',
-      });
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_COMPLETED, { provider: 'google' });
-        router.replace('/(tabs)');
-      }
-    } catch (err: any) {
-      // User cancelled is not an error
-      if (err?.errors?.[0]?.code !== 'session_exists') {
-        const errorMsg = err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed';
-        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_FAILED, { provider: 'google', error: errorMsg });
-        setError(errorMsg);
-      }
-    } finally {
-      setLoading(null);
+    if (aiConsentGiven) {
+      startSSO('google');
+    } else {
+      setPendingProvider('google');
+      setShowConsent(true);
     }
-  }, [startSSOFlow, router, posthog]);
+  }, [aiConsentGiven, startSSO]);
 
   const handleAppleSignIn = useCallback(async () => {
-    setLoading('apple');
-    setError(null);
-    posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_STARTED, { provider: 'apple' });
-    try {
-      const { createdSessionId, setActive } = await startSSOFlow({
-        strategy: 'oauth_apple',
-      });
-      if (createdSessionId && setActive) {
-        await setActive({ session: createdSessionId });
-        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_COMPLETED, { provider: 'apple' });
-        router.replace('/(tabs)');
-      }
-    } catch (err: any) {
-      if (err?.errors?.[0]?.code !== 'session_exists') {
-        const errorMsg = err?.errors?.[0]?.longMessage || err?.message || 'Sign in failed';
-        posthog?.capture(ANALYTICS_EVENTS.SIGN_IN_FAILED, { provider: 'apple', error: errorMsg });
-        setError(errorMsg);
-      }
-    } finally {
-      setLoading(null);
+    if (aiConsentGiven) {
+      startSSO('apple');
+    } else {
+      setPendingProvider('apple');
+      setShowConsent(true);
     }
-  }, [startSSOFlow, router, posthog]);
+  }, [aiConsentGiven, startSSO]);
+
+  // -- Consent callbacks ----------------------------------------------------
+
+  const handleConsentAgree = useCallback(() => {
+    setShowConsent(false);
+    if (pendingProvider) {
+      startSSO(pendingProvider);
+      setPendingProvider(null);
+    }
+  }, [pendingProvider, startSSO]);
+
+  const handleConsentDecline = useCallback(() => {
+    setShowConsent(false);
+    setPendingProvider(null);
+  }, []);
 
   const handleOpenTerms = useCallback(() => {
     Linking.openURL('https://mrigai.com/terms-of-service');
@@ -432,6 +447,14 @@ export default function SignInScreen() {
           </Text>
         </Text>
       </View>
+
+      {/* AI Consent Overlay */}
+      {showConsent && (
+        <AIConsentOverlay
+          onAgree={handleConsentAgree}
+          onDecline={handleConsentDecline}
+        />
+      )}
     </View>
   );
 }

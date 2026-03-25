@@ -3,15 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   Linking,
   Alert,
   Platform,
+  Pressable,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppStore } from '@/services/store';
+import { COLORS, FONTS, BORDERS, BORDER_RADIUS, SHADOWS } from '@/theme';
 
 const AI_CONSENT_KEY = '@ai_consent_given';
 
@@ -20,30 +20,43 @@ export async function getAiConsent(): Promise<boolean> {
   return val === 'true';
 }
 
-export default function AIConsentOverlay() {
-  const insets = useSafeAreaInsets();
+export async function saveAiConsent(): Promise<void> {
+  await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+}
+
+interface Props {
+  onAgree: () => void;
+  onDecline?: () => void;
+}
+
+export default function AIConsentOverlay({ onAgree, onDecline }: Props) {
   const setAiConsentGiven = useAppStore((s) => s.setAiConsentGiven);
 
   const handleAgree = async () => {
-    await AsyncStorage.setItem(AI_CONSENT_KEY, 'true');
+    await saveAiConsent();
     setAiConsentGiven(true);
+    onAgree();
   };
 
   const handleDecline = () => {
+    if (onDecline) {
+      onDecline();
+      return;
+    }
     Alert.alert(
-      'AI Processing Required',
-      'mrigAI uses AI to generate virtual try-ons. The app cannot function without processing your photos through our AI service.',
+      'ai processing required',
+      'mrigAI uses AI to generate virtual try-ons. the app cannot function without processing your photos through our AI service.',
       [
-        { text: 'Go Back', style: 'cancel' },
-        { text: 'I Agree', onPress: handleAgree },
+        { text: 'go back', style: 'cancel' },
+        { text: 'i agree', onPress: handleAgree },
       ],
     );
   };
 
   const background = Platform.OS === 'ios' ? (
-    <BlurView tint="dark" intensity={60} style={StyleSheet.absoluteFill} />
+    <BlurView tint="light" intensity={40} style={StyleSheet.absoluteFill} />
   ) : (
-    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.85)' }]} />
+    <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(250,248,245,0.92)' }]} />
   );
 
   return (
@@ -51,46 +64,59 @@ export default function AIConsentOverlay() {
       {background}
       <View style={styles.card}>
         <View style={styles.content}>
-          <Text style={styles.title}>How mrigAI Works</Text>
-
-          <Text style={styles.body}>
-            To generate virtual try-ons, mrigAI sends your selfie photos and
-            product images to{' '}
-            <Text style={styles.bold}>Google's AI service (Gemini)</Text> for
-            processing.
+          <Text style={styles.title}>
+            before we start.
           </Text>
 
           <Text style={styles.body}>
-            We do not use your photos for any purpose other than generating
-            try-on results.
+            mrigAI sends your selfie photos and product images to{' '}
+            <Text style={styles.bold}>google's AI (gemini)</Text> to generate
+            virtual try-on results.
+          </Text>
+
+          <Text style={styles.body}>
+            we do not use your photos for any other purpose.
+          </Text>
+
+          <Text style={styles.summary}>
+            by tapping "i agree", you consent to your photos being sent to
+            google's AI service for virtual try-on generation.
           </Text>
         </View>
 
         <View style={styles.footer}>
-          <Text style={styles.summary}>
-            By tapping "I Agree & Continue", you consent to your photos being
-            sent to Google's AI service for virtual try-on generation.
-          </Text>
-          <TouchableOpacity style={styles.agreeBtn} onPress={handleAgree}>
-            <Text style={styles.agreeBtnText}>I Agree & Continue</Text>
-          </TouchableOpacity>
+          <Pressable
+            style={({ pressed }) => [
+              styles.agreeBtn,
+              pressed && styles.agreeBtnPressed,
+            ]}
+            onPress={handleAgree}
+          >
+            <Text style={styles.agreeBtnText}>i agree & continue</Text>
+          </Pressable>
 
-          <TouchableOpacity style={styles.declineBtn} onPress={handleDecline}>
-            <Text style={styles.declineBtnText}>Decline</Text>
-          </TouchableOpacity>
+          <Pressable
+            style={styles.declineBtn}
+            onPress={handleDecline}
+            hitSlop={8}
+          >
+            <Text style={styles.declineBtnText}>decline</Text>
+          </Pressable>
 
           <View style={styles.links}>
-            <TouchableOpacity
+            <Pressable
               onPress={() => Linking.openURL('https://mrigai.com/privacy-policy')}
+              hitSlop={8}
             >
-              <Text style={styles.linkText}>Privacy Policy</Text>
-            </TouchableOpacity>
+              <Text style={styles.linkText}>privacy policy</Text>
+            </Pressable>
             <Text style={styles.linkSeparator}>|</Text>
-            <TouchableOpacity
+            <Pressable
               onPress={() => Linking.openURL('https://mrigai.com/terms-of-service')}
+              hitSlop={8}
             >
-              <Text style={styles.linkText}>Terms & Conditions</Text>
-            </TouchableOpacity>
+              <Text style={styles.linkText}>terms & conditions</Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -106,63 +132,82 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
-    marginHorizontal: 20,
-    backgroundColor: 'rgba(26,26,26,0.95)',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    marginHorizontal: 24,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: BORDERS.color,
     overflow: 'hidden',
+    ...SHADOWS.hard,
+    ...Platform.select({ android: { elevation: 8 } }),
   },
   content: {
     padding: 24,
     paddingTop: 28,
   },
   title: {
-    color: '#F5F5F5',
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 20,
+    fontFamily: FONTS.headline,
+    fontSize: 28,
+    color: COLORS.onSurface,
+    letterSpacing: -1,
+    marginBottom: 18,
+    textTransform: 'lowercase',
   },
   body: {
-    color: 'rgba(255,255,255,0.75)',
+    fontFamily: FONTS.body,
     fontSize: 15,
     lineHeight: 23,
-    marginBottom: 14,
+    color: COLORS.onSurfaceVariant,
+    marginBottom: 12,
   },
   bold: {
-    color: '#F5F5F5',
-    fontWeight: '600',
+    fontFamily: FONTS.bodySemiBold,
+    color: COLORS.onSurface,
   },
   summary: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 13,
-    lineHeight: 19,
-    marginBottom: 14,
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    lineHeight: 18,
+    color: COLORS.onSurfaceVariant,
+    opacity: 0.6,
+    marginTop: 4,
   },
   footer: {
     padding: 20,
     paddingTop: 16,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
+    borderTopWidth: 2,
+    borderTopColor: COLORS.surfaceContainerHigh,
   },
   agreeBtn: {
-    backgroundColor: '#E8C8A0',
-    paddingVertical: 15,
-    borderRadius: 14,
+    backgroundColor: COLORS.primaryContainer,
+    paddingVertical: 14,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: BORDERS.color,
     alignItems: 'center',
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
+  },
+  agreeBtnPressed: {
+    transform: [{ translateX: 4 }, { translateY: 4 }],
+    ...SHADOWS.none,
   },
   agreeBtnText: {
-    color: '#0D0D0D',
+    fontFamily: FONTS.headline,
     fontSize: 16,
-    fontWeight: '700',
+    color: COLORS.onPrimary,
+    textTransform: 'lowercase',
   },
   declineBtn: {
     paddingVertical: 12,
     alignItems: 'center',
   },
   declineBtnText: {
-    color: 'rgba(255,255,255,0.4)',
+    fontFamily: FONTS.body,
     fontSize: 14,
+    color: COLORS.onSurfaceVariant,
+    opacity: 0.5,
+    textTransform: 'lowercase',
   },
   links: {
     flexDirection: 'row',
@@ -171,13 +216,16 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   linkText: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 12,
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    color: COLORS.onSurfaceVariant,
+    opacity: 0.4,
     textDecorationLine: 'underline',
   },
   linkSeparator: {
-    color: 'rgba(255,255,255,0.15)',
-    fontSize: 12,
+    fontSize: 11,
+    color: COLORS.onSurfaceVariant,
+    opacity: 0.2,
     marginHorizontal: 8,
   },
 });
