@@ -2,6 +2,8 @@ import * as Sentry from '@sentry/react-native';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { DarkTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
+import { SpaceGrotesk_500Medium, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
+import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import React, { useEffect, useState } from 'react';
@@ -49,6 +51,13 @@ function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
   });
   const [configLoaded, setConfigLoaded] = useState(false);
 
@@ -57,7 +66,7 @@ function RootLayout() {
     fetch(`${API_URL}/api/config`)
       .then((res) => res.json())
       .then((data) => {
-        setDemoMode(data.demoMode === true);
+        setDemoMode(__DEV__ ? false : data.demoMode === true);
       })
       .catch(() => {
         // If backend unreachable, default to normal auth mode
