@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Redirect } from 'expo-router';
 import { BlurView } from 'expo-blur';
-import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
 import { TAB_BAR_BASE_HEIGHT, isDemoMode } from '@/utils/constants';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { usePostHog } from 'posthog-react-native';
+import AIConsentOverlay, { getAiConsent } from '@/components/AIConsentScreen';
 
 // PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
 if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
@@ -115,13 +116,27 @@ function TabsNavigator() {
 }
 
 export default function TabLayout() {
-  if (isDemoMode()) {
-    return <TabsNavigator />;
-  }
+  const aiConsentGiven = useAppStore((s) => s.aiConsentGiven);
+  const setAiConsentGiven = useAppStore((s) => s.setAiConsentGiven);
 
-  return (
+  useEffect(() => {
+    getAiConsent().then((given) => {
+      if (given) setAiConsentGiven(true);
+    });
+  }, []);
+
+  const content = isDemoMode() ? (
+    <TabsNavigator />
+  ) : (
     <AuthGate>
       <TabsNavigator />
     </AuthGate>
+  );
+
+  return (
+    <View style={{ flex: 1 }}>
+      {content}
+      {!aiConsentGiven && <AIConsentOverlay />}
+    </View>
   );
 }

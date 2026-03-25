@@ -23,6 +23,10 @@ interface AppState {
   deviceId: string | null;
   setDeviceId: (id: string) => void;
 
+  // AI consent
+  aiConsentGiven: boolean;
+  setAiConsentGiven: (given: boolean) => void;
+
   // Onboarding (multi-selfie)
   selfieUris: string[];
   setSelfieUris: (uris: string[]) => void;
@@ -86,6 +90,9 @@ interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   deviceId: null,
   setDeviceId: (id) => set({ deviceId: id }),
+
+  aiConsentGiven: false,
+  setAiConsentGiven: (given) => set({ aiConsentGiven: given }),
 
   selfieUris: [],
   setSelfieUris: (uris) => set({ selfieUris: uris }),
