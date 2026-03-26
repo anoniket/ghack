@@ -44,6 +44,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const isGenerating = useAppStore((s) => s.tryOnLoading || s.videoLoading);
+  const onboardingComplete = useAppStore((s) => s.onboardingComplete);
 
   return (
     <Tabs
@@ -54,7 +55,7 @@ function TabsNavigator() {
           : undefined,
         tabBarActiveTintColor: '#E8C8A0',
         tabBarInactiveTintColor: 'rgba(255,255,255,0.3)',
-        tabBarStyle: {
+        tabBarStyle: onboardingComplete ? {
           position: 'absolute',
           backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(13,13,13,0.95)',
           borderTopColor: 'rgba(255,255,255,0.06)',
@@ -63,7 +64,7 @@ function TabsNavigator() {
           paddingBottom: insets.bottom,
           paddingTop: 10,
           elevation: 0,
-        },
+        } : { display: 'none' },
         tabBarBackground: () =>
           Platform.OS === 'ios' ? (
             <BlurView

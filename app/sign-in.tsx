@@ -10,6 +10,7 @@ import {
   Linking,
   Pressable,
   Image,
+  ScrollView,
 } from 'react-native';
 import { useSSO } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
@@ -271,6 +272,14 @@ export default function SignInScreen() {
   const [showConsent, setShowConsent] = useState(false);
   const [pendingProvider, setPendingProvider] = useState<'google' | 'apple' | null>(null);
   const aiConsentGiven = useAppStore((s) => s.aiConsentGiven);
+  const setAiConsentGiven = useAppStore((s) => s.setAiConsentGiven);
+
+  // Load persisted consent status on mount
+  useEffect(() => {
+    getAiConsent().then((given) => {
+      if (given) setAiConsentGiven(true);
+    });
+  }, []);
 
   // -- SSO flow (called after consent) --------------------------------------
 
@@ -344,11 +353,11 @@ export default function SignInScreen() {
   // -- Render ---------------------------------------------------------------
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 8 },
-      ]}
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 8 }]}
+      bounces={false}
+      showsVerticalScrollIndicator={false}
     >
       {/* 1. Try-on Gallery */}
       <HeroGallery />
@@ -455,7 +464,7 @@ export default function SignInScreen() {
           onDecline={handleConsentDecline}
         />
       )}
-    </View>
+    </ScrollView>
   );
 }
 
@@ -468,6 +477,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  scrollContent: {
+    flexGrow: 1,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
   },

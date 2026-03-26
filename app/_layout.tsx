@@ -39,11 +39,11 @@ const customDarkTheme = {
   ...DarkTheme,
   colors: {
     ...DarkTheme.colors,
-    background: '#0D0D0D',
-    card: '#1A1A1A',
-    text: '#F5F5F5',
-    border: 'rgba(255,255,255,0.08)',
-    primary: '#E8C8A0',
+    background: '#FAF8F5',
+    card: '#FAF8F5',
+    text: '#1D1B19',
+    border: 'rgba(29,27,25,0.08)',
+    primary: '#DB313F',
   },
 };
 
@@ -92,7 +92,7 @@ function RootLayout() {
   const appContent = (
     <KeyboardProvider statusBarTranslucent navigationBarTranslucent>
       <ThemeProvider value={customDarkTheme}>
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
         <Stack>
           <Stack.Screen name="sign-in" options={{ headerShown: false }} />
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
