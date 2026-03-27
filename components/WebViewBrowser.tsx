@@ -308,9 +308,9 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
           });
           break; // success
         } catch (busyErr: any) {
-          const isRetryable = (busyErr.message === 'SERVER_BUSY' || busyErr.message === 'TIMEOUT') && attempt < MAX_BUSY_RETRIES;
+          const isRetryable = (busyErr.message === 'SERVER_BUSY' || busyErr.message === 'TIMEOUT' || busyErr.message === 'NETWORK_ERROR') && attempt < MAX_BUSY_RETRIES;
           if (isRetryable) {
-            const reason = busyErr.message === 'SERVER_BUSY' ? 'server busy' : 'timed out';
+            const reason = busyErr.message === 'SERVER_BUSY' ? 'server busy' : busyErr.message === 'NETWORK_ERROR' ? 'reconnecting' : 'timed out';
             rlog('TryOn', `${reason}, auto-retrying (${attempt + 1}/${MAX_BUSY_RETRIES})`);
             // Show "retrying" in native progress bar
             setTryOnQuip(`${reason}, retrying...`);
