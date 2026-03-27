@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { COLORS, FONTS, BORDERS, BORDER_RADIUS, SHADOWS, SPACING } from '@/theme';
 
 interface Props {
   children: ReactNode;
@@ -28,16 +29,16 @@ export default class CrashBoundary extends Component<Props, State> {
           <View style={styles.icon}>
             <Text style={styles.iconText}>!</Text>
           </View>
-          <Text style={styles.title}>Something went wrong</Text>
+          <Text style={styles.title}>something went wrong</Text>
           <Text style={styles.subtitle}>
-            {this.props.name ? `${this.props.name} crashed` : 'An error occurred'}
+            {this.props.name ? `${this.props.name} crashed` : 'an error occurred'}
           </Text>
-          <TouchableOpacity
+          <Pressable
             style={styles.btn}
             onPress={() => this.setState({ hasError: false })}
           >
-            <Text style={styles.btnText}>Tap to retry</Text>
-          </TouchableOpacity>
+            <Text style={styles.btnText}>tap to retry</Text>
+          </Pressable>
         </View>
       );
     }
@@ -48,45 +49,57 @@ export default class CrashBoundary extends Component<Props, State> {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 40,
-    gap: 12,
+    gap: SPACING.md,
   },
   icon: {
     width: 56,
     height: 56,
-    borderRadius: 28,
-    backgroundColor: '#1A1A1A',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
   },
   iconText: {
-    color: '#E8C8A0',
+    color: COLORS.primaryContainer,
     fontSize: 24,
     fontWeight: '800',
   },
   title: {
-    color: '#F5F5F5',
+    fontFamily: FONTS.headline,
+    color: COLORS.onSurface,
     fontSize: 18,
-    fontWeight: '700',
+    textTransform: 'lowercase',
   },
   subtitle: {
-    color: 'rgba(255,255,255,0.3)',
+    fontFamily: FONTS.body,
+    color: COLORS.onSurfaceVariant,
     fontSize: 13,
+    textTransform: 'lowercase',
   },
   btn: {
-    marginTop: 12,
+    marginTop: SPACING.md,
     paddingVertical: 12,
     paddingHorizontal: 28,
-    borderRadius: 14,
-    backgroundColor: '#E8C8A0',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.primaryContainer,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
   },
   btnText: {
-    color: '#0D0D0D',
+    fontFamily: FONTS.headline,
+    color: COLORS.onPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    textTransform: 'lowercase',
   },
 });

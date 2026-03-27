@@ -66,7 +66,6 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
   // PERF-1: Setters via getState() — stable references, no re-renders
   const {
     setCurrentUrl,
-    setMode,
     setCurrentProduct,
     setTryOnLoading,
     setTryOnResult,
@@ -721,7 +720,7 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
         {/* Left: close + back */}
         <View style={styles.navLeft}>
           <TouchableOpacity
-            onPress={() => !isLocked && (onClose ? onClose() : setMode('chat'))}
+            onPress={() => !isLocked && onClose?.()}
             style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
             disabled={isLocked}
             accessibilityLabel="Close browser"

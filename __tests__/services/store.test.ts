@@ -115,19 +115,6 @@ describe('useAppStore', () => {
     });
   });
 
-  describe('app mode', () => {
-    it('defaults to chat mode', () => {
-      expect(useAppStore.getState().mode).toBe('chat');
-    });
-
-    it('setMode switches between chat and webview', () => {
-      useAppStore.getState().setMode('webview');
-      expect(useAppStore.getState().mode).toBe('webview');
-      useAppStore.getState().setMode('chat');
-      expect(useAppStore.getState().mode).toBe('chat');
-    });
-  });
-
   describe('webview', () => {
     it('currentUrl defaults to null', () => {
       expect(useAppStore.getState().currentUrl).toBeNull();
