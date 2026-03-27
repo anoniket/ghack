@@ -4,38 +4,48 @@ import {
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   Alert,
-  useWindowDimensions,
+  Dimensions,
   RefreshControl,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useVideoPlayer } from 'expo-video';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { MaterialIcons } from '@expo/vector-icons';
 import VideoModal from '@/components/VideoModal';
 import { useAppStore, SavedTryOn } from '@/services/store';
 import * as api from '@/services/api';
 import { mapHistoryItem } from '@/utils/imageUtils';
 import { usePostHog } from 'posthog-react-native';
 import { ANALYTICS_EVENTS, getStoreName as getStoreNameFromUrl } from '@/utils/analytics';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
+import { COLORS, FONTS, SHADOWS, BORDER_RADIUS, BORDERS, SPACING, getStoreAccentColor, getStoreLogo } from '@/theme';
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const GRID_GAP = 12;
+const CARD_WIDTH = (SCREEN_WIDTH - SPACING.xl * 2 - GRID_GAP) / 2;
+const CARD_HEIGHT = CARD_WIDTH * 1.5;
+
+function getStoreName(url?: string): string {
+  if (!url) return 'try-on';
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '');
+    const name = host.split('.')[0];
+    return name;
+  } catch {
+    return 'try-on';
+  }
+}
 
 interface TimelineSection {
   title: string;
   data: SavedTryOn[];
-}
-
-function getStoreName(url?: string): string {
-  if (!url) return 'Try-On';
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, '');
-    const name = host.split('.')[0];
-    return name.charAt(0).toUpperCase() + name.slice(1);
-  } catch {
-    return 'Try-On';
-  }
 }
 
 function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
@@ -45,23 +55,18 @@ function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
   const thisWeek = today - 7 * 86400000;
 
   const groups: Record<string, SavedTryOn[]> = {
-    Today: [],
-    Yesterday: [],
-    'This Week': [],
-    Earlier: [],
+    today: [],
+    yesterday: [],
+    'this week': [],
+    earlier: [],
   };
 
   for (const item of items) {
     const ts = item.timestamp;
-    if (ts >= today) {
-      groups.Today.push(item);
-    } else if (ts >= yesterday) {
-      groups.Yesterday.push(item);
-    } else if (ts >= thisWeek) {
-      groups['This Week'].push(item);
-    } else {
-      groups.Earlier.push(item);
-    }
+    if (ts >= today) groups.today.push(item);
+    else if (ts >= yesterday) groups.yesterday.push(item);
+    else if (ts >= thisWeek) groups['this week'].push(item);
+    else groups.earlier.push(item);
   }
 
   return Object.entries(groups)
@@ -69,54 +74,61 @@ function groupByTimeline(items: SavedTryOn[]): TimelineSection[] {
     .map(([title, data]) => ({ title, data }));
 }
 
-// M27: Memoized card — only re-renders when its own props change
-const TryOnCard = memo(function TryOnCard({ item, width, height, onPress }: {
+// Card with neo-brutalist style — image + store name + delete
+const TryOnCard = memo(function TryOnCard({ item, onPress, onDelete }: {
   item: SavedTryOn;
-  width: number;
-  height: number;
   onPress: () => void;
+  onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  const storeName = getStoreName(item.sourceUrl);
+  const logo = getStoreLogo(storeName);
   return (
-    <TouchableOpacity
-      style={[styles.card, { width, height }]}
+    <Pressable
+      style={styles.card}
       onPress={onPress}
-      activeOpacity={0.85}
     >
-      {imgError ? (
-        <View style={styles.cardImagePlaceholder}>
-          <ActivityIndicator size="small" color="#E8C8A0" />
-          <Text style={styles.placeholderText}>Uploading...</Text>
-        </View>
-      ) : (
-        <Image
-          source={{ uri: item.imageUri }}
-          style={styles.cardImage}
-          cachePolicy="disk"
-          onError={() => setImgError(true)}
-        />
-      )}
-      <View style={styles.cardOverlay}>
-        <Text style={styles.cardName} numberOfLines={1}>
-          {getStoreName(item.sourceUrl)}
-        </Text>
-        <View style={styles.cardMeta}>
-          {item.videoUrl && (
-            <Text style={styles.videoIndicator}>🎬</Text>
-          )}
-        </View>
+      {/* Image area with bottom border */}
+      <View style={styles.cardImageWrap}>
+        {imgError ? (
+          <View style={styles.cardPlaceholder}>
+            <ActivityIndicator size="small" color={COLORS.primaryContainer} />
+            <Text style={styles.cardPlaceholderText}>uploading...</Text>
+          </View>
+        ) : (
+          <Image
+            source={{ uri: item.imageUri }}
+            style={styles.cardImage}
+            cachePolicy="disk"
+            onError={() => setImgError(true)}
+          />
+        )}
+        {/* Delete icon */}
+        <Pressable
+          style={styles.cardDeleteBtn}
+          onPress={onDelete}
+          hitSlop={8}
+        >
+          <FontAwesome name="times" size={12} color={COLORS.onSurface} />
+        </Pressable>
       </View>
-    </TouchableOpacity>
+      {/* Store logo below image */}
+      <View style={styles.cardTextArea}>
+        {logo ? (
+          <Image source={logo} style={styles.cardLogoImage} contentFit="contain" />
+        ) : (
+          <Text style={styles.cardStoreName} numberOfLines={1}>{storeName}</Text>
+        )}
+      </View>
+    </Pressable>
   );
 });
 
 export default function SavedScreen() {
-  const { width: W, height: H } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const posthog = usePostHog();
-  const CARD_WIDTH = (W - 48) / 2;
-  // M27: Individual selectors for read state, getState() for setters
   const savedTryOns = useAppStore((s) => s.savedTryOns);
-  const { setSavedTryOns, setCurrentUrl, setMode } = useAppStore.getState();
+  const { setSavedTryOns, setCurrentUrl } = useAppStore.getState();
   const router = useRouter();
   const [selectedItem, setSelectedItem] = useState<SavedTryOn | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -129,7 +141,6 @@ export default function SavedScreen() {
     player.play();
   });
 
-  // SS-10/PLAT-13: Skip fetch if index.tsx already loaded history
   const historyLoaded = useAppStore((s) => s.historyLoaded);
   const hasFetched = useRef(false);
   useFocusEffect(
@@ -147,7 +158,7 @@ export default function SavedScreen() {
       const { items } = await api.getHistory();
       setSavedTryOns(items.map(mapHistoryItem));
     } catch (err) {
-      // silent — non-critical
+      // silent
     }
   };
 
@@ -158,10 +169,10 @@ export default function SavedScreen() {
   }, []);
 
   const handleDeleteAll = () => {
-    Alert.alert('Delete All', 'Delete all saved try-ons? This cannot be undone.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('delete all', 'delete all saved try-ons? this cannot be undone.', [
+      { text: 'cancel', style: 'cancel' },
       {
-        text: 'Delete All',
+        text: 'delete all',
         style: 'destructive',
         onPress: async () => {
           setDeleting(true);
@@ -169,7 +180,7 @@ export default function SavedScreen() {
             await api.deleteAllSessions();
             setSavedTryOns([]);
           } catch (err) {
-            Alert.alert('Error', 'Failed to delete all try-ons.');
+            Alert.alert('error', 'failed to delete all try-ons.');
           } finally {
             setDeleting(false);
           }
@@ -179,10 +190,10 @@ export default function SavedScreen() {
   };
 
   const handleDelete = (item: SavedTryOn) => {
-    Alert.alert('Delete Try-On', 'Are you sure? This will remove it from the cloud.', [
-      { text: 'Cancel', style: 'cancel' },
+    Alert.alert('delete try-on', 'are you sure? this will remove it from the cloud.', [
+      { text: 'cancel', style: 'cancel' },
       {
-        text: 'Delete',
+        text: 'delete',
         style: 'destructive',
         onPress: async () => {
           posthog?.capture(ANALYTICS_EVENTS.TRYON_DELETED);
@@ -192,13 +203,33 @@ export default function SavedScreen() {
             await loadSaved();
             setSelectedItem(null);
           } catch (err) {
-            Alert.alert('Error', 'Failed to delete try-on.');
+            Alert.alert('error', 'failed to delete try-on.');
           } finally {
             setDeleting(false);
           }
         },
       },
     ]);
+  };
+
+  const handleDownload = async (imageUri: string) => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('permission needed', 'allow photo library access in settings to save images.');
+        return;
+      }
+      const fileUri = (FileSystem.cacheDirectory || '') + 'tryon-' + Date.now() + '.jpg';
+      console.log('[Download] from:', imageUri);
+      console.log('[Download] to:', fileUri);
+      const download = await FileSystem.downloadAsync(imageUri, fileUri);
+      console.log('[Download] result:', download.status, download.uri);
+      await MediaLibrary.saveToLibraryAsync(download.uri);
+      Alert.alert('saved', 'image saved to your photos.');
+    } catch (err: any) {
+      console.error('[Download] error:', err.message, err);
+      Alert.alert('error', err.message || 'failed to save image.');
+    }
   };
 
   const handleVisitStore = (url?: string) => {
@@ -208,17 +239,13 @@ export default function SavedScreen() {
         product_url: url,
       });
       setCurrentUrl(url);
-      setMode('webview');
-      setSelectedItem(null);
-      router.navigate('/');
+      router.navigate('/stores');
     }
   };
 
   const sections = groupByTimeline(savedTryOns);
-  const CARD_HEIGHT = CARD_WIDTH * 1.4;
 
-  // PERF-12: Flatten sections into a single virtualized list
-  // Each item is either a section header or a row of 2 cards
+  // Flatten into virtualized list
   type FlatItem = { type: 'header'; title: string } | { type: 'row'; items: SavedTryOn[] };
   const flatData: FlatItem[] = [];
   for (const section of sections) {
@@ -228,145 +255,157 @@ export default function SavedScreen() {
     }
   }
 
+  // Detail view
   if (selectedItem) {
     return (
       <View style={styles.container}>
-        <SafeAreaView style={{ flex: 1 }}>
+        <View style={[styles.detailScreen, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 80 }]}>
+          {/* Header */}
           <View style={styles.detailHeader}>
-            <TouchableOpacity
-              onPress={() => setSelectedItem(null)}
-              style={styles.detailBtn}
-            >
-              <Text style={styles.detailBtnText}>{'\u2190'} Back</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => handleDelete(selectedItem)}
-              style={styles.detailBtn}
-            >
-              <Text style={[styles.detailBtnText, { color: '#ef4444' }]}>
-                Delete
-              </Text>
-            </TouchableOpacity>
+            <Pressable onPress={() => setSelectedItem(null)} hitSlop={12}>
+              <Text style={styles.detailBackText}>{'\u2190'} back</Text>
+            </Pressable>
+            <Pressable onPress={() => handleDelete(selectedItem)} hitSlop={12}>
+              <Text style={styles.detailDeleteText}>delete</Text>
+            </Pressable>
           </View>
-          <View style={styles.detailContent}>
-            <View style={styles.detailBorder}>
-              <Image
-                source={{ uri: selectedItem.imageUri }}
-                style={[styles.detailImage, { width: W - 72, height: (W - 72) * 1.33 }]}
-                contentFit="contain"
-                cachePolicy="disk"
-              />
-            </View>
-            <Text style={styles.detailName}>{getStoreName(selectedItem.sourceUrl)}</Text>
-            <Text style={styles.detailDate}>
-              {new Date(selectedItem.timestamp).toLocaleDateString(undefined, {
-                weekday: 'short',
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-              })}
-            </Text>
 
-            <View style={styles.detailActions}>
-              {selectedItem.sourceUrl && (
-                <TouchableOpacity
-                  style={styles.actionBtn}
-                  onPress={() => handleVisitStore(selectedItem.sourceUrl)}
-                >
-                  <Text style={styles.actionBtnText}>Visit Store</Text>
-                </TouchableOpacity>
-              )}
-              {selectedItem.videoUrl && (
-                <TouchableOpacity
-                  style={[styles.actionBtn, styles.actionBtnSecondary]}
-                  onPress={() => setPlayingVideoUrl(selectedItem.videoUrl!)}
-                >
-                  <Text style={[styles.actionBtnText, styles.actionBtnSecondaryText]}>
-                    Watch Video
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+          {/* Image with store logo stamp */}
+          <View style={styles.detailImageContainer}>
+            <Image
+              source={{ uri: selectedItem.imageUri }}
+              style={styles.detailImage}
+              contentFit="cover"
+              cachePolicy="disk"
+            />
+            {/* Store logo stamp — diagonal */}
+            {(() => {
+              const name = getStoreName(selectedItem.sourceUrl);
+              const logo = getStoreLogo(name);
+              return (
+                <View style={styles.detailStoreStamp}>
+                  {logo ? (
+                    <Image source={logo} style={styles.detailStampLogo} contentFit="contain" />
+                  ) : (
+                    <Text style={styles.detailStoreStampText}>{name}</Text>
+                  )}
+                </View>
+              );
+            })()}
           </View>
-          <VideoModal
-            visible={playingVideoUrl !== null}
-            player={videoPlayer}
-            onClose={() => setPlayingVideoUrl(null)}
-          />
-        </SafeAreaView>
+
+          {/* Actions */}
+          <View style={styles.detailActions}>
+            {selectedItem.sourceUrl && (
+              <Pressable
+                style={({ pressed }) => [styles.detailBtn, pressed && styles.detailBtnPressed]}
+                onPress={() => handleVisitStore(selectedItem.sourceUrl)}
+              >
+                <Text style={styles.detailBtnText}>visit store</Text>
+              </Pressable>
+            )}
+            <Pressable
+              style={({ pressed }) => [styles.detailBtnSecondary, pressed && styles.detailBtnPressed]}
+              onPress={() => handleDownload(selectedItem.imageUri)}
+            >
+              <MaterialIcons name="download" size={20} color={COLORS.onSurface} />
+            </Pressable>
+            {selectedItem.videoUrl && (
+              <Pressable
+                style={({ pressed }) => [styles.detailBtnSecondary, pressed && styles.detailBtnPressed]}
+                onPress={() => setPlayingVideoUrl(selectedItem.videoUrl!)}
+              >
+                <Text style={styles.detailBtnSecondaryText}>watch video</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+        <VideoModal
+          visible={playingVideoUrl !== null}
+          player={videoPlayer}
+          onClose={() => setPlayingVideoUrl(null)}
+        />
       </View>
     );
   }
 
+  // Grid view
   return (
     <View style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.headerContainer}>
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.headerTitle}>Saved</Text>
-              <Text style={styles.headerCount}>{savedTryOns.length} try-ons</Text>
+      <FlatList
+        data={flatData}
+        keyExtractor={(item) => item.type === 'header' ? `h_${item.title}` : `r_${item.items.map(i => i.id).join('_')}`}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={COLORS.primaryContainer}
+          />
+        }
+        contentContainerStyle={[
+          styles.listContent,
+          { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 100 },
+        ]}
+        ListHeaderComponent={
+          <View style={styles.headerBlock}>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={styles.headline}>
+                  your virtual{'\n'}<Text style={styles.headlineAccent}>closet.</Text>
+                </Text>
+                <Text style={styles.subtitle}>
+                  {savedTryOns.length} saved try-on{savedTryOns.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+              {savedTryOns.length > 0 && (
+                <Pressable
+                  onPress={handleDeleteAll}
+                  disabled={deleting}
+                  style={styles.deleteAllBtn}
+                >
+                  <Text style={styles.deleteAllText}>delete all</Text>
+                </Pressable>
+              )}
             </View>
-            {savedTryOns.length > 0 && (
-              <TouchableOpacity onPress={handleDeleteAll} style={styles.deleteAllBtn} disabled={deleting} accessibilityLabel="Delete all try-ons" accessibilityRole="button">
-                <Text style={styles.deleteAllText}>Delete All</Text>
-              </TouchableOpacity>
-            )}
           </View>
-        </View>
-
-        {savedTryOns.length === 0 ? (
+        }
+        ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <View style={styles.emptyCircle}>
-              <Text style={styles.emptyIcon}>+</Text>
+            <View style={styles.emptyBox}>
+              <FontAwesome name="plus" size={24} color={COLORS.outlineVariant} />
             </View>
-            <Text style={styles.emptyTitle}>No saved try-ons</Text>
+            <Text style={styles.emptyTitle}>no saved try-ons yet</Text>
             <Text style={styles.emptyText}>
-              Browse products and tap "Try On" to see{'\n'}yourself wearing them
+              browse stores and try on clothes.{'\n'}they'll show up here.
             </Text>
           </View>
-        ) : (
-          <FlatList
-            data={flatData}
-            keyExtractor={(item) => item.type === 'header' ? `h_${item.title}` : `r_${item.items.map(i => i.id).join('_')}`}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#E8C8A0"
-              />
-            }
-            contentContainerStyle={styles.sectionList}
-            renderItem={({ item: flatItem }) => {
-              if (flatItem.type === 'header') {
-                return <Text style={styles.sectionTitle}>{flatItem.title}</Text>;
-              }
-              return (
-                <View style={styles.gridRow}>
-                  {flatItem.items.map((item) => (
-                    <TryOnCard
-                      key={item.id}
-                      item={item}
-                      width={CARD_WIDTH}
-                      height={CARD_HEIGHT}
-                      onPress={() => setSelectedItem(item)}
-                    />
-                  ))}
+        }
+        renderItem={({ item: flatItem }) => {
+          if (flatItem.type === 'header') {
+            return <Text style={styles.sectionTitle}>{flatItem.title}</Text>;
+          }
+          return (
+            <View style={styles.gridRow}>
+              {flatItem.items.map((item, i) => (
+                <View key={item.id} style={i === 1 ? styles.cardRightOffset : undefined}>
+                  <TryOnCard
+                    item={item}
+                    onPress={() => setSelectedItem(item)}
+                    onDelete={() => handleDelete(item)}
+                  />
                 </View>
-              );
-            }}
-          />
-        )}
+              ))}
+            </View>
+          );
+        }}
+      />
 
-        {deleting && (
-          <View style={styles.deletingOverlay}>
-            <ActivityIndicator size="large" color="#E8C8A0" />
-            <Text style={styles.deletingText}>Deleting...</Text>
-          </View>
-        )}
-      </SafeAreaView>
+      {deleting && (
+        <View style={styles.deletingOverlay}>
+          <ActivityIndicator size="large" color={COLORS.primaryContainer} />
+          <Text style={styles.deletingText}>deleting...</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -374,216 +413,301 @@ export default function SavedScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLORS.background,
   },
-  headerContainer: {
-    paddingHorizontal: 22,
-    paddingTop: 16,
-    paddingBottom: 20,
+  listContent: {
+    paddingHorizontal: SPACING.xl,
+  },
+
+  // Header
+  headerBlock: {
+    marginBottom: SPACING.xl,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  headline: {
+    fontFamily: FONTS.headline,
+    fontSize: 44,
+    color: COLORS.onSurface,
+    letterSpacing: -2,
+    lineHeight: 44,
+    textTransform: 'lowercase',
+  },
+  headlineAccent: {
+    color: COLORS.primary,
+  },
+  subtitle: {
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    color: COLORS.onSurfaceVariant,
+    marginTop: SPACING.sm,
   },
   deleteAllBtn: {
     paddingVertical: 8,
     paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: 'rgba(239,68,68,0.15)',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainer,
+    marginTop: 8,
   },
   deleteAllText: {
-    color: '#ef4444',
+    fontFamily: FONTS.bodySemiBold,
+    color: COLORS.error,
     fontSize: 13,
-    fontWeight: '600',
+    textTransform: 'lowercase',
   },
-  headerTitle: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: '#F5F5F5',
-  },
-  headerCount: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.3)',
-    marginTop: 4,
-  },
-  sectionList: {
-    paddingHorizontal: 16,
-    paddingBottom: 100,
-  },
-  section: {
-    marginBottom: 24,
-  },
+
+  // Section titles
   sectionTitle: {
+    fontFamily: FONTS.headline,
     fontSize: 13,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.4)',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    color: COLORS.onSurfaceVariant,
+    letterSpacing: 0.5,
+    textTransform: 'lowercase',
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.lg,
   },
+
+  // Grid
   gridRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+    gap: GRID_GAP,
+    marginBottom: GRID_GAP,
+    alignItems: 'flex-start',
   },
+  cardRightOffset: {
+    marginTop: 28,
+  },
+
+  // Card — Stitch zine style: white card, padded, image with border-bottom, text below
   card: {
-    borderRadius: 18,
+    width: CARD_WIDTH,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    padding: SPACING.sm,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
+  },
+  cardImageWrap: {
+    width: '100%',
+    aspectRatio: 3 / 4,
+    borderBottomWidth: BORDERS.medium,
+    borderBottomColor: COLORS.onSurface,
+    marginBottom: SPACING.md,
     overflow: 'hidden',
-    backgroundColor: '#1A1A1A',
+    position: 'relative',
   },
   cardImage: {
     width: '100%',
     height: '100%',
   },
-  cardImagePlaceholder: {
+  cardPlaceholder: {
     width: '100%',
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A1A1A',
+    backgroundColor: COLORS.surfaceContainer,
     gap: 8,
   },
-  placeholderText: {
-    color: 'rgba(255,255,255,0.3)',
+  cardPlaceholderText: {
+    fontFamily: FONTS.body,
+    color: COLORS.onSurfaceVariant,
     fontSize: 11,
+    textTransform: 'lowercase',
   },
-  cardOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 30,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  cardName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#F5F5F5',
-  },
-  cardMeta: {
+  cardTextArea: {
+    paddingHorizontal: SPACING.xs,
+    paddingBottom: SPACING.sm,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 2,
+    alignItems: 'flex-start',
   },
-  videoIndicator: {
-    fontSize: 14,
+  cardLogoImage: {
+    width: 56,
+    height: 20,
   },
+  cardStoreName: {
+    fontFamily: FONTS.headline,
+    fontSize: 16,
+    color: COLORS.onSurface,
+    textTransform: 'lowercase',
+    lineHeight: 18,
+    flex: 1,
+  },
+  cardVideoIcon: {
+    fontSize: 12,
+    marginTop: 4,
+  },
+  cardDeleteBtn: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    width: 28,
+    height: 28,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+  },
+
+  // Empty state
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 40,
+    paddingVertical: 80,
   },
-  emptyCircle: {
+  emptyBox: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-    backgroundColor: '#1A1A1A',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: COLORS.onSurface,
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  emptyIcon: {
-    fontSize: 24,
-    color: '#E8C8A0',
+    marginBottom: SPACING.xl,
   },
   emptyTitle: {
+    fontFamily: FONTS.headline,
     fontSize: 20,
-    fontWeight: '700',
-    color: '#F5F5F5',
-    marginBottom: 8,
+    color: COLORS.onSurface,
+    marginBottom: SPACING.sm,
+    textTransform: 'lowercase',
   },
   emptyText: {
+    fontFamily: FONTS.body,
     fontSize: 14,
-    color: 'rgba(255,255,255,0.3)',
+    color: COLORS.onSurfaceVariant,
     textAlign: 'center',
     lineHeight: 21,
+  },
+
+  // Detail view
+  detailScreen: {
+    flex: 1,
+    paddingHorizontal: SPACING.xl,
   },
   detailHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    marginBottom: SPACING.lg,
   },
-  detailBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  detailBtnText: {
-    color: '#E8C8A0',
+  detailBackText: {
+    fontFamily: FONTS.headline,
     fontSize: 15,
-    fontWeight: '600',
+    color: COLORS.onSurface,
+    textTransform: 'lowercase',
   },
-  detailContent: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
+  detailDeleteText: {
+    fontFamily: FONTS.headline,
+    fontSize: 14,
+    color: COLORS.error,
+    textTransform: 'lowercase',
   },
-  detailBorder: {
-    borderRadius: 20,
+  detailImageContainer: {
+    width: SCREEN_WIDTH - SPACING.xl * 2,
+    height: (SCREEN_WIDTH - SPACING.xl * 2) * 1.33,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: COLORS.onSurface,
     overflow: 'hidden',
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: 'rgba(232,200,160,0.2)',
+    marginBottom: SPACING.xl,
+    ...SHADOWS.hard,
+    ...Platform.select({ android: { elevation: 6 } }),
   },
   detailImage: {
-    borderRadius: 18,
+    width: '100%',
+    height: '100%',
   },
-  detailName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#F5F5F5',
-    textAlign: 'center',
+  detailStoreStamp: {
+    position: 'absolute',
+    top: -14,
+    right: -14,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    transform: [{ rotate: '8deg' }],
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
   },
-  detailDate: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.3)',
-    marginTop: 8,
+  detailStampLogo: {
+    width: 80,
+    height: 28,
+  },
+  detailStoreStampText: {
+    fontFamily: FONTS.headline,
+    fontSize: 14,
+    color: COLORS.onSurface,
+    textTransform: 'lowercase',
   },
   detailActions: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
+    gap: GRID_GAP,
+    marginTop: SPACING.xl,
+    justifyContent: 'center',
   },
-  actionBtn: {
+  detailBtn: {
     paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 14,
-    backgroundColor: '#E8C8A0',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.primaryContainer,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
   },
-  actionBtnText: {
-    color: '#0D0D0D',
+  detailBtnPressed: {
+    transform: [{ translateX: 4 }, { translateY: 4 }],
+    ...SHADOWS.none,
+  },
+  detailBtnText: {
+    fontFamily: FONTS.headline,
+    color: COLORS.onPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    textTransform: 'lowercase',
   },
-  actionBtnSecondary: {
-    backgroundColor: '#1A1A1A',
-    borderWidth: 1,
-    borderColor: 'rgba(232,200,160,0.3)',
+  detailBtnSecondary: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 4 } }),
   },
-  actionBtnSecondaryText: {
-    color: '#E8C8A0',
+  detailBtnSecondaryText: {
+    fontFamily: FONTS.headline,
+    color: COLORS.onSurface,
+    fontSize: 15,
+    textTransform: 'lowercase',
   },
+
+  // Deleting overlay
   deletingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(13,13,13,0.85)',
+    backgroundColor: `${COLORS.background}EB`,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 100,
   },
   deletingText: {
-    color: '#E8C8A0',
+    fontFamily: FONTS.headline,
+    color: COLORS.onSurface,
     fontSize: 15,
-    fontWeight: '600',
     marginTop: 14,
+    textTransform: 'lowercase',
   },
 });

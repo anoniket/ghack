@@ -1,26 +1,69 @@
 import React from 'react';
-import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs, Redirect } from 'expo-router';
-import { BlurView } from 'expo-blur';
-import { StyleSheet, Platform, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialIcons } from '@expo/vector-icons';
 import { useAppStore } from '@/services/store';
 import { TAB_BAR_BASE_HEIGHT, isDemoMode } from '@/utils/constants';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { usePostHog } from 'posthog-react-native';
+import { COLORS, FONTS, BORDERS, BORDER_RADIUS, SHADOWS } from '@/theme';
 
-// PLAT-11: Cap font scaling globally — prevents layout breakage with large accessibility fonts
+// PLAT-11: Cap font scaling globally
 if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
 (Text as any).defaultProps.maxFontSizeMultiplier = 1.4;
 if ((TextInput as any).defaultProps == null) (TextInput as any).defaultProps = {};
 (TextInput as any).defaultProps.maxFontSizeMultiplier = 1.4;
 
-function TabBarIcon(props: {
-  name: React.ComponentProps<typeof FontAwesome>['name'];
-  color: string;
-}) {
-  return <FontAwesome size={22} style={{ marginBottom: -3 }} {...props} />;
+function TabIcon({ name, label, focused }: { name: React.ComponentProps<typeof MaterialIcons>['name']; label: string; focused: boolean }) {
+  if (focused) {
+    return (
+      <View style={tabStyles.activeTab}>
+        <MaterialIcons name={name} size={24} color={COLORS.onPrimary} />
+        <Text style={tabStyles.activeLabel}>{label}</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={tabStyles.inactiveTab}>
+      <MaterialIcons name={name} size={24} color={COLORS.onSurface} />
+      <Text style={tabStyles.inactiveLabel}>{label}</Text>
+    </View>
+  );
 }
+
+const tabStyles = StyleSheet.create({
+  activeTab: {
+    backgroundColor: COLORS.primaryContainer,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 3 } }),
+  },
+  activeLabel: {
+    fontFamily: FONTS.headline,
+    fontSize: 12,
+    color: COLORS.onPrimary,
+  },
+  inactiveTab: {
+    width: 50,
+    height: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  inactiveLabel: {
+    fontFamily: FONTS.headline,
+    fontSize: 11,
+    color: COLORS.onSurface,
+  },
+});
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded, userId } = useAuth();
@@ -49,66 +92,67 @@ function TabsNavigator() {
   return (
     <Tabs
       screenOptions={{
-        // Block tab switches during image/video generation — WebView must stay mounted
         tabBarButton: isGenerating
           ? (props) => <TouchableOpacity {...(props as any)} activeOpacity={1} onPress={undefined} />
           : undefined,
-        tabBarActiveTintColor: '#E8C8A0',
-        tabBarInactiveTintColor: 'rgba(255,255,255,0.3)',
+        tabBarActiveTintColor: COLORS.onSurface,
+        tabBarInactiveTintColor: COLORS.onSurface,
         tabBarStyle: onboardingComplete ? {
           position: 'absolute',
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : 'rgba(13,13,13,0.95)',
-          borderTopColor: 'rgba(255,255,255,0.06)',
-          borderTopWidth: 0.5,
+          backgroundColor: COLORS.background,
+          borderTopColor: COLORS.onSurface,
+          borderTopWidth: 2,
           height: TAB_BAR_BASE_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom,
           paddingTop: 10,
+          paddingBottom: insets.bottom,
           elevation: 0,
         } : { display: 'none' },
-        tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
-            <BlurView
-              tint="dark"
-              intensity={80}
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null,
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
-          letterSpacing: 0.3,
-        },
+        tabBarShowLabel: false,
         headerStyle: {
-          backgroundColor: '#0D0D0D',
+          backgroundColor: COLORS.background,
         },
-        headerTintColor: '#F5F5F5',
+        headerTintColor: COLORS.onSurface,
         headerShadowVisible: false,
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Shop',
+          title: 'ai',
           headerShown: false,
-          tabBarIcon: ({ color }) => (
-            <TabBarIcon name="shopping-bag" color={color} />
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="auto-awesome" label="ai" focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="stores"
+        options={{
+          title: 'stores',
+          headerShown: false,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="storefront" label="stores" focused={focused} />
           ),
         }}
       />
       <Tabs.Screen
         name="saved"
         options={{
-          title: 'Saved',
+          title: 'closet',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="heart" color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="checkroom" label="closet" focused={focused} />
+          ),
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: 'Profile',
+          title: 'profile',
           headerShown: false,
-          tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name="person-outline" label="profile" focused={focused} />
+          ),
         }}
       />
     </Tabs>

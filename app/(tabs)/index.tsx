@@ -1,23 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Pressable } from 'react-native';
 import ChatInterface from '@/components/ChatInterface';
-import WebViewBrowser from '@/components/WebViewBrowser';
-import ChatBubble from '@/components/ChatBubble';
 import OnboardingCamera from '@/components/OnboardingCamera';
 import CrashBoundary from '@/components/CrashBoundary';
 import { useAppStore } from '@/services/store';
 import { getSelfieUris, getSelfieS3Keys, saveSelfieS3Keys, uploadSelfieAndSaveKey, mapHistoryItem } from '@/utils/imageUtils';
 import { getDeviceId, getHistory } from '@/services/api';
+import { COLORS, FONTS, SPACING } from '@/theme';
 
 export default function HomeScreen() {
-  // H16: Individual selectors for read-state, getState() for setters
   const onboardingComplete = useAppStore((s) => s.onboardingComplete);
-  const mode = useAppStore((s) => s.mode);
-  const { setOnboardingComplete, setSelfieUris, setSelfieS3Keys, setDeviceId, setSavedTryOns, setHistoryLoaded, setCurrentProduct } = useAppStore.getState();
+  const { setOnboardingComplete, setSelfieUris, setSelfieS3Keys, setDeviceId, setSavedTryOns, setHistoryLoaded } = useAppStore.getState();
 
-  // SS-8: Track loading state to prevent onboarding flash
   const [initialLoading, setInitialLoading] = useState(true);
-  // ERR-11: Offline detection on cold start
   const [offline, setOffline] = useState(false);
 
   useEffect(() => {
@@ -25,13 +20,10 @@ export default function HomeScreen() {
   }, []);
 
   const loadInitialData = async () => {
-    // PERF-10: Run independent ops in parallel
     const [, selfies] = await Promise.all([
-      // Initialize device ID (logging only — not used for auth)
       getDeviceId().then((id) => setDeviceId(id)).catch((err) => {
         console.error('Failed to get device ID:', err);
       }),
-      // Load selfie URIs (migrates from legacy single-key automatically)
       getSelfieUris(),
     ]);
 
@@ -39,12 +31,9 @@ export default function HomeScreen() {
       setSelfieUris(selfies);
       setOnboardingComplete(true);
 
-      // S3 keys + history can load in parallel
       await Promise.all([
-        // Load S3 keys (or upload selfies that don't have corresponding keys)
         (async () => {
           let s3Keys = await getSelfieS3Keys();
-          // Upload any selfie URIs that don't yet have a corresponding S3 key
           if (s3Keys.length < selfies.length) {
             const updated = [...s3Keys];
             for (let i = s3Keys.length; i < selfies.length; i++) {
@@ -62,18 +51,15 @@ export default function HomeScreen() {
             setSelfieS3Keys(s3Keys);
           }
         })(),
-        // Load saved try-ons from cloud
         getHistory().then(({ items }) => {
           setSavedTryOns(items.map(mapHistoryItem));
           setHistoryLoaded(true);
         }).catch((err: any) => {
           console.error('Failed to load history:', err);
-          // ERR-11: Detect offline on cold start
           if (err?.message === 'NETWORK_ERROR') setOffline(true);
         }),
       ]);
     } else {
-      // No selfie — still try loading history (device may have data)
       try {
         const { items } = await getHistory();
         setSavedTryOns(items.map((item) => ({
@@ -92,30 +78,20 @@ export default function HomeScreen() {
     }
   };
 
-  const handleTryOnRequest = (data: {
-    imageUrl: string;
-    pageUrl?: string;
-    retry?: boolean;
-  }) => {
-    setCurrentProduct(data);
-  };
-
-  // SS-8: Show loading state until initial data is loaded to prevent onboarding flash
   if (initialLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#DB313F" />
+        <ActivityIndicator size="large" color={COLORS.primaryContainer} />
       </View>
     );
   }
 
-  // ERR-11: Offline banner on cold start — let user retry
   if (offline) {
     return (
       <View style={styles.loadingContainer}>
-        <Text style={styles.offlineTitle}>No internet connection</Text>
-        <Text style={styles.offlineText}>Check your connection and try again</Text>
-        <TouchableOpacity
+        <Text style={styles.offlineTitle}>no internet connection</Text>
+        <Text style={styles.offlineText}>check your connection and try again</Text>
+        <Pressable
           style={styles.offlineBtn}
           onPress={() => {
             setOffline(false);
@@ -125,8 +101,8 @@ export default function HomeScreen() {
               .finally(() => setInitialLoading(false));
           }}
         >
-          <Text style={styles.offlineBtnText}>Retry</Text>
-        </TouchableOpacity>
+          <Text style={styles.offlineBtnText}>retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -137,18 +113,9 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      {mode === 'chat' ? (
-        <CrashBoundary name="Chat">
-          <ChatInterface />
-        </CrashBoundary>
-      ) : (
-        <CrashBoundary name="Browser">
-          <View style={styles.webviewContainer}>
-            <WebViewBrowser onTryOnRequest={handleTryOnRequest} />
-            <ChatBubble />
-          </View>
-        </CrashBoundary>
-      )}
+      <CrashBoundary name="Chat">
+        <ChatInterface />
+      </CrashBoundary>
     </View>
   );
 }
@@ -156,37 +123,40 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: COLORS.background,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  webviewContainer: {
-    flex: 1,
-  },
   offlineTitle: {
-    color: '#F5F5F5',
+    fontFamily: FONTS.headline,
+    color: COLORS.onSurface,
     fontSize: 18,
-    fontWeight: '700',
     marginBottom: 8,
+    textTransform: 'lowercase',
   },
   offlineText: {
-    color: 'rgba(255,255,255,0.4)',
+    fontFamily: FONTS.body,
+    color: COLORS.onSurfaceVariant,
     fontSize: 14,
-    marginBottom: 24,
+    marginBottom: SPACING.xl,
+    textTransform: 'lowercase',
   },
   offlineBtn: {
-    backgroundColor: '#E8C8A0',
+    backgroundColor: COLORS.primaryContainer,
     paddingHorizontal: 28,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 4,
+    borderWidth: 3,
+    borderColor: COLORS.onSurface,
   },
   offlineBtnText: {
-    color: '#0D0D0D',
+    fontFamily: FONTS.headline,
+    color: COLORS.onPrimary,
     fontSize: 15,
-    fontWeight: '700',
+    textTransform: 'lowercase',
   },
 });

@@ -137,6 +137,53 @@ export const SHADOWS = {
   },
 } as const;
 
+// Store accent colors — consistent across stores tab and closet
+export const STORE_COLORS: Record<string, string> = {
+  myntra: '#1D1B19',   // black
+  ajio: '#DB313F',     // red
+  zara: '#00685F',     // teal
+  hm: '#8136C4',       // purple
+  nike: '#B7102A',     // deep red
+  puma: '#70F8E8',     // mint
+  snitch: '#BA70FE',   // light purple
+  westside: '#1D1B19', // black
+  tatacliq: '#DB313F', // red
+  fabindia: '#00685F', // teal
+  shein: '#8136C4',    // purple
+  amazon: '#B7102A',   // deep red
+};
+
+export function getStoreAccentColor(storeName: string): string {
+  const key = storeName.toLowerCase().replace(/[^a-z]/g, '');
+  if (STORE_COLORS[key]) return STORE_COLORS[key];
+  // Fallback for unknown stores — hash to pick a color
+  const accents = [COLORS.primaryContainer, COLORS.tertiary, COLORS.secondary, COLORS.primary, COLORS.tertiaryFixed, COLORS.secondaryContainer];
+  let hash = 0;
+  for (let i = 0; i < storeName.length; i++) hash = storeName.charCodeAt(i) + ((hash << 5) - hash);
+  return accents[Math.abs(hash) % accents.length];
+}
+
+// Store logo map — for use in saved/closet cards
+export const STORE_LOGOS: Record<string, any> = {
+  myntra: require('@/assets/images/store-logos/myntra.png'),
+  ajio: require('@/assets/images/store-logos/ajio.png'),
+  zara: require('@/assets/images/store-logos/zara.png'),
+  hm: require('@/assets/images/store-logos/hm.png'),
+  nike: require('@/assets/images/store-logos/nike.png'),
+  puma: require('@/assets/images/store-logos/puma.png'),
+  snitch: require('@/assets/images/store-logos/snitch.png'),
+  westside: require('@/assets/images/store-logos/westside.png'),
+  tatacliq: require('@/assets/images/store-logos/tatacliq.png'),
+  fabindia: require('@/assets/images/store-logos/fabindia.png'),
+  shein: require('@/assets/images/store-logos/shein.png'),
+  amazon: require('@/assets/images/store-logos/amazon.png'),
+};
+
+export function getStoreLogo(storeName: string): any | null {
+  const key = storeName.toLowerCase().replace(/[^a-z]/g, '');
+  return STORE_LOGOS[key] || null;
+}
+
 export const BORDERS = {
   thick: 3,   // neo-brutalist standard
   medium: 2,

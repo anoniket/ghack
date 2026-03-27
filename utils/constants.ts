@@ -11,7 +11,7 @@ if (!__DEV__ && API_URL.includes('localhost')) {
 }
 
 // M25: Shared tab bar base height — used in _layout.tsx and ChatBubble.tsx
-export const TAB_BAR_BASE_HEIGHT = 58;
+export const TAB_BAR_BASE_HEIGHT = 56;
 
 // Prompts kept as reference — actual prompts live on the server
 export const CHAT_SYSTEM_PROMPT = ''; // Server-side only

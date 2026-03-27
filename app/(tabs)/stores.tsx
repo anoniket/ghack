@@ -15,28 +15,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import WebViewBrowser from '@/components/WebViewBrowser';
 import CrashBoundary from '@/components/CrashBoundary';
 import { useAppStore } from '@/services/store';
-import { COLORS, FONTS, BORDER_RADIUS, BORDERS, SPACING } from '@/theme';
+import { COLORS, FONTS, BORDER_RADIUS, BORDERS, SPACING, getStoreAccentColor } from '@/theme';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const GRID_GAP = 16;
 const GRID_COLS = 2;
 const CARD_SIZE = (SCREEN_WIDTH - SPACING.xl * 2 - GRID_GAP) / GRID_COLS;
 
-// Colored shadow backgrounds for each card (alternating, Stitch-style)
-const SHADOW_COLORS = [
-  COLORS.onSurface,        // black
-  COLORS.primaryContainer, // red
-  COLORS.tertiary,         // teal
-  COLORS.secondary,        // purple
-  COLORS.primary,          // deep red
-  COLORS.tertiaryFixed,    // mint
-  COLORS.secondaryContainer, // light purple
-  COLORS.onSurface,        // black
-  COLORS.primaryContainer, // red
-  COLORS.tertiary,         // teal
-  COLORS.secondary,        // purple
-  COLORS.primary,          // deep red
-];
+// Colors now come from shared getStoreAccentColor() in theme.ts
 
 // Slight rotation per card for sticker feel
 const CARD_ROTATIONS = [
@@ -67,7 +53,7 @@ function StoreCard({ store, index, onPress }: {
   index: number;
   onPress: (url: string) => void;
 }) {
-  const shadowColor = SHADOW_COLORS[index % SHADOW_COLORS.length];
+  const shadowColor = getStoreAccentColor(store.name);
   const rotation = CARD_ROTATIONS[index % CARD_ROTATIONS.length];
 
   return (
@@ -116,8 +102,16 @@ function ScrollDownArrow() {
 
 export default function StoresScreen() {
   const insets = useSafeAreaInsets();
+  const currentUrl = useAppStore((s) => s.currentUrl);
   const [activeUrl, setActiveUrl] = useState<string | null>(null);
   const { setCurrentUrl, setCurrentProduct } = useAppStore.getState();
+
+  // Open webview if navigated from another tab with a URL
+  useEffect(() => {
+    if (currentUrl && !activeUrl) {
+      setActiveUrl(currentUrl);
+    }
+  }, [currentUrl]);
 
   const handleStorePress = useCallback((url: string) => {
     setCurrentUrl(url);
