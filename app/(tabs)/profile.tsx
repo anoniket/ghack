@@ -333,7 +333,7 @@ export default function ProfileScreen() {
   const secondarySlots = [slots[1], slots[2]];
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 48 }]}>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}
         showsVerticalScrollIndicator={false}
@@ -342,17 +342,13 @@ export default function ProfileScreen() {
         {/* Header */}
         <View style={styles.headerBlock}>
           <Text style={styles.headline}>
-            {'your\n'}
-            <Text style={styles.headlineAccent}>profile.</Text>
+            {'all about\n'}
+            <Text style={styles.headlineAccent}>you.</Text>
+          </Text>
+          <Text style={styles.subtitle}>
+            your photos. your account. all here.
           </Text>
         </View>
-
-        {/* Account Section */}
-        {!isDemoMode() && (
-          <View style={styles.section}>
-            <AccountSection selfieUri={selfieUris[0] || null} />
-          </View>
-        )}
 
         {/* Selfie Photos */}
         <View style={styles.section}>
@@ -377,9 +373,6 @@ export default function ProfileScreen() {
                     <Text style={styles.removeBtnText}>{'\u00D7'}</Text>
                   </View>
                 </Pressable>
-                <View style={styles.primaryBadge}>
-                  <Text style={styles.primaryBadgeText}>primary</Text>
-                </View>
               </View>
             ) : (
               <TouchableOpacity
@@ -443,8 +436,16 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {/* Sign Out */}
-        {!isDemoMode() && <SignOutButton />}
+        {/* Account + Sign Out */}
+        {!isDemoMode() && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>your account</Text>
+            <AccountSection selfieUri={selfieUris[0] || null} />
+            <View style={{ marginTop: SPACING.md }}>
+              <SignOutButton />
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -462,12 +463,19 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: SPACING.xl,
-    paddingTop: SPACING.xl,
   },
 
   // Header
   headerBlock: {
     marginBottom: SPACING.xl,
+    gap: SPACING.sm,
+  },
+  subtitle: {
+    fontFamily: FONTS.body,
+    fontSize: 15,
+    color: COLORS.onSurfaceVariant,
+    lineHeight: 22,
+    textTransform: 'lowercase',
   },
   headline: {
     fontFamily: FONTS.headline,

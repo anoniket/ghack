@@ -172,7 +172,7 @@ function TabsNavigator() {
           title: 'profile',
           headerShown: false,
           tabBarIcon: ({ focused }) => (
-            <TabIcon name="person-outline" label="profile" focused={focused} />
+            <TabIcon name="person-outline" label="you" focused={focused} />
           ),
         }}
       />
