@@ -10,10 +10,12 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { useAppStore } from '@/services/store';
 import { ChatMessage } from '@/services/store';
 import { nextMsgId as nextId } from '@/utils/ids';
@@ -61,6 +63,13 @@ export default function ChatInterface() {
   const { setCurrentUrl, setMode, setChatBubbleExpanded } = useAppStore.getState();
   const posthog = usePostHog();
   const sendChat = useSendChat();
+
+  // Dismiss keyboard when leaving this tab
+  useFocusEffect(
+    useCallback(() => {
+      return () => Keyboard.dismiss();
+    }, [])
+  );
 
   // PERF-17: Show hardcoded greeting immediately — no Gemini API wait on cold start
   useEffect(() => {
