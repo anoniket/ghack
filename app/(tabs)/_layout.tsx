@@ -1,6 +1,6 @@
 import React from 'react';
 import { Tabs, Redirect } from 'expo-router';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAppStore } from '@/services/store';
@@ -14,6 +14,26 @@ if ((Text as any).defaultProps == null) (Text as any).defaultProps = {};
 (Text as any).defaultProps.maxFontSizeMultiplier = 1.4;
 if ((TextInput as any).defaultProps == null) (TextInput as any).defaultProps = {};
 (TextInput as any).defaultProps.maxFontSizeMultiplier = 1.4;
+
+const ANTLER_WHITE = require('@/assets/images/mm.png');
+const ANTLER_BLACK = require('@/assets/images/mm4.png');
+
+function AiTabIcon({ focused }: { focused: boolean }) {
+  if (focused) {
+    return (
+      <View style={tabStyles.activeTab}>
+        <Image source={ANTLER_WHITE} style={tabStyles.antlerIcon} resizeMode="contain" />
+        <Text style={tabStyles.activeLabel}>ai</Text>
+      </View>
+    );
+  }
+  return (
+    <View style={tabStyles.inactiveTab}>
+      <Image source={ANTLER_BLACK} style={tabStyles.antlerIcon} resizeMode="contain" />
+      <Text style={tabStyles.inactiveLabel}>ai</Text>
+    </View>
+  );
+}
 
 function TabIcon({ name, label, focused }: { name: React.ComponentProps<typeof MaterialIcons>['name']; label: string; focused: boolean }) {
   if (focused) {
@@ -63,6 +83,11 @@ const tabStyles = StyleSheet.create({
     fontSize: 11,
     color: COLORS.onSurface,
   },
+  antlerIcon: {
+    width: 28,
+    height: 28,
+    marginBottom: -4,
+  },
 });
 
 function AuthGate({ children }: { children: React.ReactNode }) {
@@ -86,15 +111,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
 function TabsNavigator() {
   const insets = useSafeAreaInsets();
-  const isGenerating = useAppStore((s) => s.tryOnLoading || s.videoLoading);
   const onboardingComplete = useAppStore((s) => s.onboardingComplete);
 
   return (
     <Tabs
       screenOptions={{
-        tabBarButton: isGenerating
-          ? (props) => <TouchableOpacity {...(props as any)} activeOpacity={1} onPress={undefined} />
-          : undefined,
         tabBarActiveTintColor: COLORS.onSurface,
         tabBarInactiveTintColor: COLORS.onSurface,
         tabBarStyle: onboardingComplete ? {

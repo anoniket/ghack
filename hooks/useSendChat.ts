@@ -3,10 +3,11 @@ import { extractUrlFromResponse, cleanResponseText } from '@/services/gemini';
 import { sendChat } from '@/services/api';
 import { rlog } from '@/services/logger';
 import { nextMsgId as nextId } from '@/utils/ids';
+import { router } from 'expo-router';
 
 // M31: Shared chat send logic — used by ChatInterface and ChatBubble
 export function useSendChat() {
-  const { addMessage, setIsTyping, setCurrentUrl, setMode, setChatBubbleExpanded } = useAppStore.getState();
+  const { addMessage, setIsTyping, setCurrentUrl } = useAppStore.getState();
 
   const send = async (text: string) => {
     const msg = text.trim();
@@ -42,8 +43,7 @@ export function useSendChat() {
         rlog('Chat', `navigating to ${url}`);
         setTimeout(() => {
           setCurrentUrl(url);
-          setMode('webview');
-          setChatBubbleExpanded(false);
+          router.navigate('/stores');
         }, 1500);
       }
     } catch (err) {

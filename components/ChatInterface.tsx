@@ -8,15 +8,19 @@ import {
   FlatList,
   useWindowDimensions,
   ActivityIndicator,
+  Image,
+  Platform,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppStore } from '@/services/store';
 import { ChatMessage } from '@/services/store';
 import { nextMsgId as nextId } from '@/utils/ids';
 import { useSendChat } from '@/hooks/useSendChat';
 import { usePostHog } from 'posthog-react-native';
 import { ANALYTICS_EVENTS } from '@/utils/analytics';
+import { COLORS, FONTS, SHADOWS, BORDER_RADIUS, BORDERS, SPACING } from '@/theme';
 
 // M28: Memoized message bubble — only re-renders when its own item changes
 const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: number }) => {
@@ -25,7 +29,7 @@ const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: n
     <View style={[styles.messageRow, isUser && styles.messageRowUser]}>
       {!isUser && (
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>AI</Text>
+          <Image source={require('@/assets/images/mm.png')} style={styles.avatarLogo} resizeMode="contain" />
         </View>
       )}
       <View
@@ -46,6 +50,7 @@ const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: n
 export default function ChatInterface() {
   const { width: W } = useWindowDimensions();
   const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState('');
   const flatListRef = useRef<FlatList>(null);
   // PLAT-17: Track scroll position — only auto-scroll when near bottom
@@ -110,60 +115,35 @@ export default function ChatInterface() {
             if (isNearBottom.current) flatListRef.current?.scrollToEnd({ animated: true });
           }}
           ListHeaderComponent={
-            <View style={styles.headerContainer}>
-              <View style={styles.headerIconBg}>
-                <Text style={styles.headerIcon}>AI</Text>
-              </View>
-              <Text style={styles.headerTitle}>mrigAI</Text>
-              <Text style={styles.headerText}>
-                Your universal shopping assistant
+            <View style={[styles.headerContainer, { paddingTop: insets.top + SPACING.xxl }]}>
+              <Text style={styles.headline}>
+                ask me{'\n'}<Text style={styles.headlineAccent}>anything.</Text>
               </Text>
-              <View style={styles.chipRow}>
-                {[
-                  { label: 'Nike', url: 'https://www.nike.com/in' },
-                  { label: 'H&M', url: 'https://www2.hm.com/en_in/index.html' },
-                  { label: 'Puma', url: 'https://in.puma.com/' },
-                  { label: 'Snitch', url: 'https://www.snitch.com/' },
-                  { label: 'Zara', url: 'https://www.zara.com/in/' },
-                ].map((b) => (
-                  <TouchableOpacity
-                    key={b.label}
-                    style={styles.chip}
-                    onPress={() => {
-                      posthog?.capture(ANALYTICS_EVENTS.CHAT_STORE_SUGGESTION_TAPPED, { store_name: b.label });
-                      setCurrentUrl(b.url);
-                      setMode('webview');
-                      setChatBubbleExpanded(false);
-                    }}
-                    accessibilityLabel={`Browse ${b.label}`}
-                    accessibilityRole="button"
-                  >
-                    <Text style={styles.chipText}>{b.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              <Text style={styles.subtitle}>
+                i can open any website or help you find what to wear.
+              </Text>
             </View>
           }
           ListFooterComponent={
             isTyping ? (
               <View style={[styles.messageRow]}>
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>AI</Text>
+                  <Image source={require('@/assets/images/mm.png')} style={styles.avatarLogo} resizeMode="contain" />
                 </View>
                 <View style={[styles.messageBubble, styles.aiBubble]}>
-                  <ActivityIndicator size="small" color="#E8C8A0" />
+                  <ActivityIndicator size="small" color={COLORS.primaryContainer} />
                 </View>
               </View>
             ) : null
           }
         />
 
-        <View style={[styles.inputWrapper, { paddingBottom: tabBarHeight + 8 }]}>
+        <View style={[styles.inputWrapper, { paddingBottom: tabBarHeight + SPACING.sm }]}>
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Ask AI to open any website..."
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholder="ask me anything..."
+              placeholderTextColor={COLORS.onSurfaceVariant + '80'}
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={handleSend}
@@ -207,157 +187,141 @@ export default function ChatInterface() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLORS.background,
   },
   flex: {
     flex: 1,
   },
   messagesList: {
-    padding: 16,
-    paddingBottom: 8,
+    padding: SPACING.lg,
+    paddingBottom: SPACING.sm,
     flexGrow: 1,
     justifyContent: 'flex-end',
   },
+
+  // Header
+  headerContainer: {
+    paddingBottom: SPACING.xl,
+    marginBottom: SPACING.sm,
+    gap: SPACING.sm,
+  },
+  headline: {
+    fontFamily: FONTS.headline,
+    fontSize: 44,
+    color: COLORS.onSurface,
+    letterSpacing: -2,
+    lineHeight: 44,
+    textTransform: 'lowercase',
+  },
+  headlineAccent: {
+    color: COLORS.primary,
+  },
+  subtitle: {
+    fontFamily: FONTS.body,
+    fontSize: 15,
+    color: COLORS.onSurfaceVariant,
+    lineHeight: 22,
+  },
+
+  // Message rows
   messageRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: SPACING.lg,
+    gap: SPACING.sm,
   },
   messageRowUser: {
     justifyContent: 'flex-end',
   },
+
+  // AI avatar — square neo-brutalist
   avatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
-    backgroundColor: '#E8C8A0',
+    backgroundColor: COLORS.primaryContainer,
   },
-  avatarText: {
-    color: '#0D0D0D',
-    fontSize: 10,
-    fontWeight: '800',
+  avatarLogo: {
+    width: 18,
+    height: 18,
   },
+
+  // Bubbles
   messageBubble: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
   },
   userBubble: {
-    backgroundColor: '#F5F5F5',
-    borderBottomRightRadius: 6,
+    backgroundColor: COLORS.primaryContainer,
     marginLeft: 'auto',
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 3 } }),
   },
   aiBubble: {
-    backgroundColor: '#1A1A1A',
-    borderBottomLeftRadius: 6,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: COLORS.surfaceContainerLowest,
+    ...SHADOWS.hardSmall,
+    ...Platform.select({ android: { elevation: 3 } }),
   },
   messageText: {
+    fontFamily: FONTS.body,
     fontSize: 15,
-    color: 'rgba(255,255,255,0.85)',
+    color: COLORS.onSurface,
     lineHeight: 22,
   },
   userText: {
-    color: '#0D0D0D',
+    color: COLORS.onPrimary,
   },
+
+  // Input area
   inputWrapper: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 28,
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
-    paddingLeft: 20,
-    paddingRight: 6,
-    paddingVertical: 6,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    paddingLeft: SPACING.lg,
+    paddingRight: SPACING.xs + 2,
+    paddingVertical: SPACING.xs + 2,
   },
   input: {
     flex: 1,
+    fontFamily: FONTS.body,
     fontSize: 15,
-    color: '#F5F5F5',
-    paddingVertical: 10,
+    color: COLORS.onSurface,
+    paddingVertical: SPACING.sm + 2,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendBtnActive: {
-    backgroundColor: '#E8C8A0',
+    backgroundColor: COLORS.primaryContainer,
   },
   sendBtnInactive: {
-    backgroundColor: '#242424',
+    backgroundColor: COLORS.surfaceContainerHigh,
   },
   sendBtnText: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.3)',
+    color: COLORS.onSurfaceVariant,
   },
   sendBtnTextActive: {
-    color: '#0D0D0D',
-  },
-  headerContainer: {
-    alignItems: 'center',
-    paddingTop: 32,
-    paddingBottom: 24,
-    marginBottom: 8,
-  },
-  headerIconBg: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-    backgroundColor: '#E8C8A0',
-  },
-  headerIcon: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0D0D0D',
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#F5F5F5',
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  headerText: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.35)',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 20,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    backgroundColor: '#1A1A1A',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  chipText: {
-    color: '#E8C8A0',
-    fontSize: 13,
-    fontWeight: '600',
+    color: COLORS.onPrimary,
   },
 });
