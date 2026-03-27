@@ -596,9 +596,10 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
               try {
                 var img = window.__tryonProductImg;
                 var visible = false;
-                if (img) {
+                if (img && img.isConnected) {
                   var rect = img.getBoundingClientRect();
-                  visible = rect.width > 0 && rect.height > 0;
+                  var vh = window.innerHeight || document.documentElement.clientHeight;
+                  visible = rect.height > 0 && rect.top < vh && rect.bottom > 0;
                 }
                 window.ReactNativeWebView.postMessage(JSON.stringify({
                   type: '__tryon_visibility_check',
