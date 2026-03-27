@@ -340,30 +340,10 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
       setTryOnProgress(100);
       setTryOnQuip('done!');
 
-      // Smart refresh: check if product image is visible in viewport
-      // If visible → inject result directly (smooth). If not → refresh page.
+      // Stop progress bar after a short delay, then the tryOnResult useEffect
+      // handles URL check → visibility check → inject or refresh
       setTimeout(() => {
         stopProgressBar();
-        if (!webViewRef.current || !mountedRef.current) return;
-        webViewRef.current.injectJavaScript(`
-          (function() {
-            var currentUrl = window.location.href;
-            var img = window.__tryonProductImg || null;
-            if (!img) { var el = document.querySelector('[data-tryon-detected]'); if (el) img = el; }
-            if (img && img.isConnected) {
-              var rect = img.getBoundingClientRect();
-              var inView = rect.top < window.innerHeight && rect.bottom > 0 && rect.height > 0;
-              if (inView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tryon_inject_direct', currentUrl: currentUrl }));
-              } else {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tryon_needs_refresh', currentUrl: currentUrl }));
-              }
-            } else {
-              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tryon_needs_refresh', currentUrl: currentUrl }));
-            }
-          })();
-          true;
-        `);
       }, 800);
 
       // Save with CDN URL (not base64) — avoids memory bloat
