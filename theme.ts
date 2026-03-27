@@ -18,6 +18,7 @@ export const COLORS = {
   // Primary (deep red)
   primary: '#B7102A',
   primaryContainer: '#DB313F',
+  primaryMuted: '#C62828',
   onPrimary: '#FFFFFF',
   onPrimaryContainer: '#FFFBFF',
 

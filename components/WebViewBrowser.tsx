@@ -2,9 +2,11 @@ import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
+  Image,
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
+  Animated,
   useWindowDimensions,
   Platform,
   Alert,
@@ -21,6 +23,9 @@ import { imageUriToBase64 } from '@/utils/imageUtils';
 import { rlog } from '@/services/logger';
 import { usePostHog } from 'posthog-react-native';
 import { ANALYTICS_EVENTS, getStoreName } from '@/utils/analytics';
+import { COLORS, FONTS, BORDER_RADIUS, BORDERS, SHADOWS } from '@/theme';
+import { TAB_BAR_BASE_HEIGHT } from '@/utils/constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
 interface WebViewMessage {
@@ -37,10 +42,12 @@ interface Props {
     pageUrl?: string;
     retry?: boolean;
   }) => void;
+  onClose?: () => void;
 }
 
-export default function WebViewBrowser({ onTryOnRequest }: Props) {
+export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
   const { width: W, height: H } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const posthog = usePostHog();
   const webViewRef = useRef<WebView>(null);
   const tryOnStartTimeRef = useRef<number>(0);
@@ -72,6 +79,19 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
   const [loading, setLoading] = useState(true);
   const [pageTitle, setPageTitle] = useState('');
   const [canGoBack, setCanGoBack] = useState(false);
+  const [detectedProduct, setDetectedProduct] = useState<{ imageUrl: string; pageUrl: string } | null>(null);
+  const [tryOnProgress, setTryOnProgress] = useState(0);
+  const [tryOnQuip, setTryOnQuip] = useState('');
+  const tryOnProgressRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tryOnQuipRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tryOnPageUrlRef = useRef<string | null>(null);
+  const [tryOnThumbUrl, setTryOnThumbUrl] = useState<string | null>(null);
+  const tryOnThumbAngle = useRef(0);
+  const [flyingImage, setFlyingImage] = useState<string | null>(null);
+  const flyAnim = useRef(new Animated.Value(0)).current;
+  const mountedRef = useRef(true);
+  const startVideoGenerationRef = useRef<(() => void) | null>(null);
+  const posthogRef = useRef(posthog);
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initialLoadDone = useRef(false);
   const videoLoadingRef = useRef(false);
@@ -105,9 +125,13 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 
   // SS-9/ERR-6: Reset transient state + timers on unmount
   useEffect(() => {
+    mountedRef.current = true;
     return () => {
+      mountedRef.current = false;
       if (loadTimerRef.current) clearTimeout(loadTimerRef.current);
       if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
+      if (tryOnProgressRef.current) clearInterval(tryOnProgressRef.current);
+      if (tryOnQuipRef.current) clearInterval(tryOnQuipRef.current);
       // Reset loading flags so ChatBubble isn't permanently hidden
       setTryOnLoading(false);
       setVideoLoading(false);
@@ -115,6 +139,9 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       videoLoadingRef.current = false;
     };
   }, []);
+
+  // Keep refs fresh for stable callbacks
+  posthogRef.current = posthog;
 
   // PLAT-3: Android hardware back button — go back in WebView history instead of exiting
   useEffect(() => {
@@ -150,6 +177,64 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
   }, [currentProduct, selfieUris]);
 
+  const TRYON_QUIPS = [
+    'its giving main character...',
+    'okay u kinda ate that...',
+    'the AI said wow btw...',
+    'fitting room but make it AI...',
+    'drip check in progress...',
+    'be honest u look expensive...',
+    'AI went feral for this one...',
+    'the fit is fitting...',
+    'no thoughts just drip...',
+    'downloading rizz...',
+    'hold my pixels...',
+    'outfit so fire calling 911...',
+    'the algorithm has a crush...',
+    'ur closet could never...',
+    'god tier fit incoming...',
+    'adding drip... please wait...',
+    'confidence.exe loading...',
+    'cooking up the look...',
+    'AI doing its thing rn...',
+    'fitting the drip...',
+  ];
+
+  const startProgressBar = (pageUrl: string) => {
+    tryOnPageUrlRef.current = pageUrl;
+    setTryOnProgress(0);
+    // Pick random starting quip
+    const shuffled = [...TRYON_QUIPS].sort(() => Math.random() - 0.5);
+    let idx = 0;
+    setTryOnQuip(shuffled[0]);
+
+    // Progress: 0→95% over 30s
+    const startTime = Date.now();
+    tryOnProgressRef.current = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const pct = Math.min(95, Math.round((elapsed / 30000) * 100));
+      setTryOnProgress(pct);
+      if (pct >= 95 && tryOnProgressRef.current) {
+        clearInterval(tryOnProgressRef.current);
+        tryOnProgressRef.current = null;
+      }
+    }, 500);
+
+    // Quips: cycle every 2s
+    tryOnQuipRef.current = setInterval(() => {
+      idx = (idx + 1) % shuffled.length;
+      setTryOnQuip(shuffled[idx]);
+    }, 2000);
+  };
+
+  const stopProgressBar = () => {
+    if (tryOnProgressRef.current) { clearInterval(tryOnProgressRef.current); tryOnProgressRef.current = null; }
+    if (tryOnQuipRef.current) { clearInterval(tryOnQuipRef.current); tryOnQuipRef.current = null; }
+    setTryOnProgress(0);
+    setTryOnQuip('');
+    setTryOnThumbUrl(null);
+  };
+
   const startTryOn = async () => {
     if (selfieUris.length === 0 || !currentProduct) return;
     // SS-16: Ref-based double-tap guard (same pattern as videoLoadingRef)
@@ -163,22 +248,25 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     posthog?.capture(ANALYTICS_EVENTS.TRYON_STARTED, { store_name: storeName });
     rlog('TryOn', 'GENERATION STARTED');
 
-    // Show loading overlay immediately via direct call (postMessage can be unreliable on some sites)
-    if (webViewRef.current) {
-      webViewRef.current.injectJavaScript(`
-        if (window.__tryonShowLoading) { window.__tryonShowLoading(); }
-        true;
-      `);
-    }
+    // Start native progress bar in the bottom CTA area
+    startProgressBar(currentProduct.pageUrl || '');
+
+    // OLD: Show loading overlay in WebView (commented out — using native progress bar now)
+    // if (webViewRef.current) {
+    //   webViewRef.current.injectJavaScript(`
+    //     if (window.__tryonShowLoading) { window.__tryonShowLoading(); }
+    //     true;
+    //   `);
+    // }
 
     try {
-      // On retry, keep same 30s duration
-      if (currentProduct.retry && webViewRef.current) {
-        webViewRef.current.injectJavaScript(`
-          if (window.__tryonSetDuration) { window.__tryonSetDuration(30000); }
-          true;
-        `);
-      }
+      // OLD: On retry, keep same 30s duration (commented out — using native progress bar)
+      // if (currentProduct.retry && webViewRef.current) {
+      //   webViewRef.current.injectJavaScript(`
+      //     if (window.__tryonSetDuration) { window.__tryonSetDuration(30000); }
+      //     true;
+      //   `);
+      // }
 
       // Get model preference
       const preferredModel = useAppStore.getState().preferredModel;
@@ -224,30 +312,16 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           if (isRetryable) {
             const reason = busyErr.message === 'SERVER_BUSY' ? 'server busy' : 'timed out';
             rlog('TryOn', `${reason}, auto-retrying (${attempt + 1}/${MAX_BUSY_RETRIES})`);
-            // Show "retrying" message in overlay for 3s, then reset loading
-            if (webViewRef.current) {
-              webViewRef.current.injectJavaScript(`
-                (function() {
-                  var status = document.querySelector('.__tryon-status-text');
-                  if (status) status.textContent = '${reason}, retrying...';
-                })();
-                true;
-              `);
-            }
+            // Show "retrying" in native progress bar
+            setTryOnQuip(`${reason}, retrying...`);
             await new Promise(r => setTimeout(r, 3000));
-            // Reset loading overlay fresh
-            if (webViewRef.current) {
-              webViewRef.current.injectJavaScript(`
-                if (window.__tryonShowLoading) { window.__tryonShowLoading(); }
-                true;
-              `);
-            }
             continue;
           }
           throw busyErr; // not SERVER_BUSY or out of retries
         }
       }
       if (!result) throw new Error('SERVER_BUSY'); // all retries failed
+      if (!mountedRef.current) return; // Component unmounted during API call
 
       rlog('TryOn', `SUCCESS model=${result.model} session=${result.sessionId}`);
       posthog?.capture(ANALYTICS_EVENTS.TRYON_COMPLETED, {
@@ -259,8 +333,38 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       setLastSessionId(result.sessionId);
       setLastTryonS3Key(result.tryonS3Key);
 
-      // Inject base64 immediately — S3 upload happens in background on server
+      // Store result for in-page injection (kept for fallback)
       setTryOnResult(result.resultBase64);
+
+      // Complete the progress bar
+      setTryOnProgress(100);
+      setTryOnQuip('done!');
+
+      // Smart refresh: check if product image is visible in viewport
+      // If visible → inject result directly (smooth). If not → refresh page.
+      setTimeout(() => {
+        stopProgressBar();
+        if (!webViewRef.current || !mountedRef.current) return;
+        webViewRef.current.injectJavaScript(`
+          (function() {
+            var currentUrl = window.location.href;
+            var img = window.__tryonProductImg || null;
+            if (!img) { var el = document.querySelector('[data-tryon-detected]'); if (el) img = el; }
+            if (img && img.isConnected) {
+              var rect = img.getBoundingClientRect();
+              var inView = rect.top < window.innerHeight && rect.bottom > 0 && rect.height > 0;
+              if (inView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tryon_inject_direct', currentUrl: currentUrl }));
+              } else {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tryon_needs_refresh', currentUrl: currentUrl }));
+              }
+            } else {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'tryon_needs_refresh', currentUrl: currentUrl }));
+            }
+          })();
+          true;
+        `);
+      }, 800);
 
       // Save with CDN URL (not base64) — avoids memory bloat
       // CDN URL may 404 for 1-2s while S3 upload finishes in background,
@@ -284,74 +388,28 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         error_type: err.message || 'unknown',
       });
 
+      // Stop native progress bar on error
+      if (mountedRef.current) stopProgressBar();
+
       if (err.message === 'SERVER_BUSY') {
-        // All retry attempts got 503
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowError) { window.__tryonShowError('servers are packed rn, try again in a bit'); }
-            true;
-          `);
-        }
         Alert.alert('Servers busy', 'AI servers are at capacity. Try again in a minute.');
       } else if (err.message === 'RATE_LIMITED') {
-        // AC-3: Show cooldown message
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowError) { window.__tryonShowError('chill, too many requests — try again in a min'); }
-            true;
-          `);
-        }
         Alert.alert('Slow down', 'Too many requests — try again in a minute.');
       } else if (err.message === 'NETWORK_ERROR') {
-        // ERR-22: Specific message for network failures
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowError) { window.__tryonShowError('no internet — check your connection'); }
-            true;
-          `);
-        }
         Alert.alert('No connection', 'Check your internet and try again.');
       } else if (err.message === 'IMAGE_BLOCKED') {
-        // Safety filter — retrying won't help, pick a random fun message
         const blockedQuips = [
-          'Grandma AI says this outfit is too spicy. She needs a minute and a glass of water.',
-          'The AI is clutching its pearls right now. Maybe try something that won\'t give it a heart attack?',
-          'Our AI was raised by strict parents. It thinks this outfit is scandalous.',
-          'The AI fainted. Apparently this outfit was too much for its innocent circuits.',
-          'AI aunty disapproves of this outfit. "Log kya kahenge?!" Try something she\'d approve of.',
-          'The AI went full sanskaari mode. This outfit didn\'t pass the family WhatsApp group test.',
+          'This outfit is a bit too revealing for our AI to process. Try something with a little more coverage!',
+          'Our AI got shy, this one shows a bit too much skin. Pick something less revealing and try again!',
+          'The AI safety filter flagged this outfit as too exposed. Try a different product!',
+          'Too much skin for our AI to handle right now. It works best with outfits that have more fabric!',
+          'Our AI needs outfits with a bit more going on. This one is too minimal for it to process!',
+          'The AI politely declined, this outfit is too revealing for it to work with. Try another one!',
         ];
-        const blockedText = blockedQuips[Math.floor(Math.random() * blockedQuips.length)];
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(`
-            if (window.__tryonHideLoading) { window.__tryonHideLoading(); }
-            true;
-          `);
-        }
-        Alert.alert('Oops!', blockedText);
+        Alert.alert('Can\'t try this one on', blockedQuips[Math.floor(Math.random() * blockedQuips.length)]);
       } else {
         const isTimeout = err.message === 'TIMEOUT';
-        const timeoutQuips = [
-          'took too long, retry?',
-          'AI froze up, again?',
-          'timed out, one more shot?',
-        ];
-        const errorQuips = [
-          'faah, retry? \u{1F972}',
-          'AI tripped lol, again?',
-          'oops, one more time?',
-          'servers ghosted us, retry?',
-          'bruh moment, try again?',
-        ];
-        const quips = isTimeout ? timeoutQuips : errorQuips;
-        const errorText = quips[Math.floor(Math.random() * quips.length)];
-        if (webViewRef.current) {
-          webViewRef.current.injectJavaScript(`
-            if (window.__tryonShowError) { window.__tryonShowError(${JSON.stringify(errorText)}); }
-            true;
-          `);
-        }
-        Alert.alert('Try-on failed', errorText);
+        Alert.alert('Try-on failed', isTimeout ? 'Took too long, try again?' : 'Something went wrong, try again?');
       }
     } finally {
       tryOnLoadingRef.current = false;
@@ -361,32 +419,21 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     }
   };
 
-  // Send try-on result back to WebView to replace the product image
+  // Send try-on result back to WebView
+  // Step 1: Check URL. If different → navigate back, done.
+  // Step 2: If same URL → check image visibility. Visible → inject. Not visible → refresh.
   useEffect(() => {
-    if (tryOnResult && webViewRef.current) {
-      rlog('TryOn', `sending result to WebView (base64 length=${tryOnResult.length})`);
-      // Call __tryonReplaceImage directly — avoids postMessage + JSON.stringify overhead
-      // which can silently fail on 3MB+ base64 strings in WKWebView
-      webViewRef.current.injectJavaScript(`
-        try {
-          if (window.__tryonReplaceImage) {
-            window.__tryonReplaceImage(${JSON.stringify(tryOnResult)});
-            console.log('[mrigAI] replaceImage called successfully');
-          } else {
-            console.log('[mrigAI] __tryonReplaceImage not found, removing overlay');
-            var ov = document.getElementById('__tryon-loading-overlay');
-            if (ov) ov.remove();
-          }
-        } catch(e) {
-          console.log('[mrigAI] inject error: ' + e.message);
-          var ov = document.getElementById('__tryon-loading-overlay');
-          if (ov) ov.remove();
-        }
-        true;
-      `);
-      // Clear immediately — WebView already has the data
-      setTryOnResult(null);
-    }
+    if (!tryOnResult || !webViewRef.current || !mountedRef.current) return;
+    rlog('TryOn', `try-on result ready (base64 length=${tryOnResult.length}), checking URL...`);
+
+    // Step 1: Ask WebView for current URL
+    webViewRef.current.injectJavaScript(`
+      window.ReactNativeWebView.postMessage(JSON.stringify({
+        type: '__tryon_url_check',
+        currentUrl: window.location.href,
+      }));
+      true;
+    `);
   }, [tryOnResult]);
 
   const startVideoGeneration = async () => {
@@ -516,6 +563,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
       rlog('Video', 'GENERATION ENDED');
     }
   };
+  startVideoGenerationRef.current = startVideoGeneration;
 
   const handleMessage = useCallback(
     (event: any) => {
@@ -526,7 +574,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         } else if (data.type === 'tryon_request' && data.imageUrl) {
           rlog('WebView', `tryon request from ${data.pageUrl}`);
           if (data.retry) {
-            posthog?.capture(ANALYTICS_EVENTS.RETRY_AFTER_ERROR, { error_type: 'tryon' });
+            posthogRef.current?.capture(ANALYTICS_EVENTS.RETRY_AFTER_ERROR, { error_type: 'tryon' });
           }
           onTryOnRequest({
             imageUrl: data.imageUrl,
@@ -535,20 +583,84 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           });
         } else if (data.type === 'video_request') {
           rlog('WebView', 'video request');
-          startVideoGeneration();
+          // Call via ref-like pattern to avoid stale closure
+          startVideoGenerationRef.current?.();
         } else if (data.type === 'product_detected' && data.pageUrl) {
-          posthog?.capture(ANALYTICS_EVENTS.PRODUCT_DETECTED, {
+          posthogRef.current?.capture(ANALYTICS_EVENTS.PRODUCT_DETECTED, {
             store_name: getStoreName(data.pageUrl),
             product_url: data.pageUrl,
           });
+          setDetectedProduct({ imageUrl: data.imageUrl || '', pageUrl: data.pageUrl });
           // Check if this product was already tried on
           checkPreviousTryOn(data.pageUrl);
+        } else if (data.type === 'product_cleared') {
+          setDetectedProduct(null);
+        } else if (data.type === '__tryon_url_check') {
+          // Step 1: URL check
+          const origUrl = tryOnPageUrlRef.current;
+          const webViewUrl = data.currentUrl || '';
+          let samePage = false;
+          try { samePage = !!(origUrl && webViewUrl && new URL(origUrl).pathname === new URL(webViewUrl).pathname); } catch { samePage = false; }
+
+          if (!samePage) {
+            // URL changed — navigate back to original, checkPreviousTryOn handles injection on load
+            rlog('TryOn', `URL changed (${webViewUrl} → ${origUrl}) — navigating back`);
+            setTryOnResult(null);
+            if (origUrl && webViewRef.current) setCurrentUrl(origUrl);
+            return;
+          }
+
+          // Step 2: Same URL — check if product image is visible
+          if (webViewRef.current) {
+            webViewRef.current.injectJavaScript(`
+              try {
+                var img = window.__tryonProductImg;
+                var visible = false;
+                if (img) {
+                  var rect = img.getBoundingClientRect();
+                  visible = rect.width > 0 && rect.height > 0;
+                }
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: '__tryon_visibility_check',
+                  visible: visible,
+                }));
+              } catch(e) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: '__tryon_visibility_check',
+                  visible: false,
+                }));
+              }
+              true;
+            `);
+          }
+        } else if (data.type === '__tryon_visibility_check') {
+          if (data.visible) {
+            // Image visible on same page — inject directly
+            rlog('TryOn', 'Same URL, image visible — injecting directly');
+            const result = useAppStore.getState().tryOnResult;
+            if (result && webViewRef.current && mountedRef.current) {
+              webViewRef.current.injectJavaScript(`
+                try {
+                  if (window.__tryonReplaceImage) {
+                    window.__tryonReplaceImage(${JSON.stringify(result)});
+                  }
+                } catch(e) {}
+                true;
+              `);
+              setTryOnResult(null);
+            }
+          } else {
+            // Same page but image not visible (scrolled/carousel) — refresh
+            rlog('TryOn', 'Same URL, image not visible — refreshing');
+            setTryOnResult(null);
+            if (webViewRef.current) webViewRef.current.reload();
+          }
         }
       } catch (err) {
         // ignore non-JSON messages
       }
     },
-    [onTryOnRequest]
+    [onTryOnRequest, setTryOnResult, setCurrentUrl]
   );
 
   const checkPreviousTryOn = async (pageUrl: string) => {
@@ -564,6 +676,8 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
           if (window.__tryonPreviousTryon) { window.__tryonPreviousTryon(${JSON.stringify(result.tryonImageUrl)}); }
           true;
         `);
+        // Hide native try-on CTA — WebView retry button handles retries
+        setDetectedProduct(null);
       }
     } catch (err) {
       // Non-critical, ignore
@@ -590,6 +704,7 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         }
       } catch {}
       initialLoadDone.current = false;
+      setDetectedProduct(null); // Clear until new page detects product
       if (navState.loading) {
         setLoading(true);
         if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
@@ -622,48 +737,57 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Navigation bar */}
       <View style={styles.navbar}>
-        <TouchableOpacity
-          onPress={() => !isLocked && setMode('chat')}
-          style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
-          disabled={isLocked}
-          accessibilityLabel="Close browser"
-          accessibilityRole="button"
-        >
-          <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u2715'}</Text>
-        </TouchableOpacity>
-
-        {canGoBack && (
+        {/* Left: close + back */}
+        <View style={styles.navLeft}>
           <TouchableOpacity
-            onPress={() => !isLocked && webViewRef.current?.goBack()}
+            onPress={() => !isLocked && (onClose ? onClose() : setMode('chat'))}
             style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
             disabled={isLocked}
-            accessibilityLabel="Go back"
+            accessibilityLabel="Close browser"
             accessibilityRole="button"
           >
-            <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u2039'}</Text>
+            <Text style={[styles.navBtnText, styles.navCloseText, isLocked && styles.navBtnTextDisabled]}>{'\u2715'}</Text>
           </TouchableOpacity>
-        )}
 
-        <View style={styles.urlBar}>
-          <View style={[styles.urlDot, isLocked && styles.urlDotLoading]} />
-          <Text style={styles.urlText} numberOfLines={1}>
-            {pageTitle || currentUrl}
+          {canGoBack && (
+            <TouchableOpacity
+              onPress={() => !isLocked && webViewRef.current?.goBack()}
+              style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
+              disabled={isLocked}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+            >
+              <Text style={[styles.navBtnText, styles.navBackText, isLocked && styles.navBtnTextDisabled]}>{'\u2190'}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Center: title + domain */}
+        <View style={styles.titleBlock}>
+          <Text style={styles.titleText} numberOfLines={1}>
+            {pageTitle || 'loading'}
+          </Text>
+          <Text style={styles.domainText} numberOfLines={1}>
+            {currentUrl ? new URL(currentUrl).hostname.replace(/^www\./, '') : ''}
           </Text>
         </View>
 
-        <TouchableOpacity
-          onPress={() => !isLocked && webViewRef.current?.reload()}
-          style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
-          disabled={isLocked}
-          accessibilityLabel="Reload page"
-          accessibilityRole="button"
-        >
-          <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u21BB'}</Text>
-        </TouchableOpacity>
+        {/* Right: reload */}
+        <View style={styles.navRight}>
+          <TouchableOpacity
+            onPress={() => !isLocked && webViewRef.current?.reload()}
+            style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
+            disabled={isLocked}
+            accessibilityLabel="Reload page"
+            accessibilityRole="button"
+          >
+            <Text style={[styles.navBtnText, isLocked && styles.navBtnTextDisabled]}>{'\u21BB'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* WebView */}
-      <View style={styles.webViewContainer}>
+      <View style={[styles.webViewContainer, { marginBottom: (detectedProduct || tryOnLoading) ? 0 : TAB_BAR_BASE_HEIGHT + insets.bottom }]}>
         <WebView
           ref={webViewRef}
           source={{ uri: currentUrl }}
@@ -775,12 +899,107 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
         {loading && (
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingSpinner}>
-              <ActivityIndicator size="small" color="#0D0D0D" />
+              <ActivityIndicator size="small" color={COLORS.primaryContainer} />
             </View>
-            <Text style={styles.loadingText}>Loading...</Text>
           </View>
         )}
       </View>
+
+      {/* Native try-on button OR progress bar — between WebView and tab bar */}
+      {tryOnLoading ? (
+        <View style={{ marginBottom: TAB_BAR_BASE_HEIGHT + insets.bottom, overflow: 'visible' }}>
+          {tryOnThumbUrl && (
+            <View
+              style={[
+                styles.tryOnThumb,
+                { transform: [{ rotate: `${tryOnThumbAngle.current}deg` }] },
+              ]}
+            >
+              <Image
+                source={{ uri: tryOnThumbUrl }}
+                style={{ width: '100%', height: '100%', borderRadius: BORDER_RADIUS.md }}
+                resizeMode="cover"
+              />
+            </View>
+          )}
+          <View style={styles.tryOnProgressBar}>
+            <View style={[styles.tryOnProgressFill, { width: `${tryOnProgress}%` }]} />
+            <Text style={styles.tryOnProgressText}>{tryOnQuip}</Text>
+          </View>
+        </View>
+      ) : detectedProduct ? (
+        <View style={{ marginBottom: TAB_BAR_BASE_HEIGHT + insets.bottom }}>
+          <TouchableOpacity
+            style={styles.tryOnBtn}
+            activeOpacity={0.85}
+            onPress={() => {
+              if (detectedProduct.imageUrl) {
+                const imgUrl = detectedProduct.imageUrl;
+                const pgUrl = detectedProduct.pageUrl;
+                // Set thumb for progress bar (stays visible throughout)
+                tryOnThumbAngle.current = -12 + Math.random() * 24; // random -12 to 12 degrees
+                setTryOnThumbUrl(imgUrl);
+                // Start fly-down animation
+                setFlyingImage(imgUrl);
+                flyAnim.setValue(0);
+                Animated.timing(flyAnim, {
+                  toValue: 1,
+                  duration: 1400,
+                  useNativeDriver: true,
+                  easing: (t: number) => t * (2 - t),
+                }).start(() => {
+                  setFlyingImage(null); // Remove overlay, thumb in bar takes over
+                });
+                // Fire try-on after animation is mostly visible
+                setTimeout(() => {
+                  setDetectedProduct(null);
+                  onTryOnRequest({ imageUrl: imgUrl, pageUrl: pgUrl });
+                }, 900);
+              }
+            }}
+          >
+            <Text style={styles.tryOnBtnText}>{'\u2728'} try this on</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Flying image animation — shrinks from center to bottom-left into progress bar */}
+      {flyingImage && (
+        <Animated.Image
+          source={{ uri: flyingImage }}
+          style={[
+            styles.flyingImage,
+            {
+              transform: [
+                {
+                  translateX: flyAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0, -(W * 0.15), -(W * 0.38)],
+                  }),
+                },
+                {
+                  translateY: flyAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [0, H * 0.3, H * 0.7],
+                  }),
+                },
+                {
+                  scale: flyAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [1, 0.5, 0.18],
+                  }),
+                },
+                {
+                  rotate: flyAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', `${tryOnThumbAngle.current}deg`],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      )}
 
       {/* Video Player Popup */}
       <VideoModal
@@ -795,84 +1014,159 @@ export default function WebViewBrowser({ onTryOnRequest }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLORS.background,
   },
   navbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    gap: 6,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderBottomWidth: BORDERS.medium,
+    borderBottomColor: COLORS.surfaceContainerHigh,
+    backgroundColor: COLORS.background,
+  },
+  navLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  navRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   navBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1A1A1A',
+    padding: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navBtnDisabled: {
-    opacity: 0.3,
+    opacity: 0.25,
   },
   navBtnText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 18,
+    color: COLORS.onSurface,
+    fontSize: 22,
     fontWeight: '500',
   },
+  navCloseText: {
+    fontWeight: '800',
+  },
+  navBackText: {
+    fontSize: 24,
+  },
   navBtnTextDisabled: {
-    color: 'rgba(255,255,255,0.25)',
+    color: COLORS.outline,
   },
-  urlBar: {
+  titleBlock: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1A1A1A',
-    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    gap: 8,
   },
-  urlDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#4ade80',
+  titleText: {
+    color: COLORS.onSurface,
+    fontSize: 15,
+    fontWeight: '700',
   },
-  urlDotLoading: {
-    backgroundColor: '#E8C8A0',
-  },
-  urlText: {
-    color: 'rgba(255,255,255,0.45)',
+  domainText: {
+    color: COLORS.onSurfaceVariant,
     fontSize: 12,
-    flex: 1,
+    fontWeight: '400',
   },
   webViewContainer: {
     flex: 1,
   },
   webView: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: COLORS.surfaceContainerLowest,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(13,13,13,0.85)',
+    backgroundColor: COLORS.surfaceContainerLow,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 16,
+    gap: 12,
   },
   loadingSpinner: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8C8A0',
   },
-  loadingText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
+  tryOnBtn: {
+    backgroundColor: COLORS.primaryContainer,
+    borderTopWidth: BORDERS.medium,
+    borderTopColor: COLORS.onSurface,
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+  },
+  tryOnBtnText: {
+    fontFamily: FONTS.headline,
+    fontSize: 16,
+    color: COLORS.onPrimary,
+    letterSpacing: -0.3,
+    textTransform: 'lowercase',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+  },
+  tryOnProgressBar: {
+    height: 52,
+    backgroundColor: COLORS.surfaceContainerHighest,
+    borderTopWidth: BORDERS.medium,
+    borderTopColor: COLORS.onSurface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'visible',
+  },
+  tryOnThumb: {
+    position: 'absolute',
+    left: 8,
+    bottom: 16,
+    width: 72,
+    height: 96,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    zIndex: 2,
+    ...SHADOWS.hard,
+    ...Platform.select({ android: { elevation: 8 } }),
+  },
+  tryOnProgressFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    backgroundColor: COLORS.primary,
+    borderRightWidth: BORDERS.medium,
+    borderRightColor: COLORS.onSurface,
+  },
+  flyingImage: {
+    position: 'absolute',
+    top: '30%',
+    left: '50%',
+    marginLeft: -70,
+    width: 140,
+    height: 185,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.thick,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    zIndex: 9999,
+    ...SHADOWS.hard,
+    ...Platform.select({ android: { elevation: 12 } }),
+  },
+  tryOnProgressText: {
+    fontFamily: FONTS.headline,
+    fontSize: 14,
+    color: COLORS.onSurface,
+    letterSpacing: -0.3,
+    textTransform: 'lowercase',
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    zIndex: 1,
   },
 });

@@ -27,98 +27,54 @@ export const PRODUCT_DETECTOR_JS = `
   var DETECTED_ATTR = 'data-tryon-detected';
   var productImg = null; // Reference to the detected product image
   var originalProductSrc = null; // Original product image URL before replacement
+  // Design tokens (hardcoded because this JS runs inside WebView DOM, not React Native)
+  // Maps to theme.ts: primaryContainer=#DB313F, onSurface=#1D1B19, background=#FAF8F5, onPrimary=#FFFFFF
   var __tryonBusy = false; // Guard against double-taps during generation
   var __tryonImageSrc = null; // The try-on result image URL for zoom
 
   // CSS for the floating Try On button + wave loading overlay
   var style = document.createElement('style');
   style.textContent =
-    '#' + TRYON_BTN_ID + ' {' +
-    '  position: fixed !important;' +
-    '  bottom: 100px !important;' +
-    '  left: 50% !important;' +
-    '  transform: translateX(-50%) !important;' +
-    '  background: #E8C8A0 !important;' +
-    '  color: #0D0D0D !important;' +
-    '  border: none !important;' +
-    '  border-radius: 28px !important;' +
-    '  padding: 14px 32px !important;' +
-    '  font-size: 16px !important;' +
-    '  font-weight: 700 !important;' +
-    '  cursor: pointer !important;' +
-    '  z-index: 2147483647 !important;' +
-    '  box-shadow: 0 6px 24px rgba(232,200,160,0.4), 0 2px 8px rgba(0,0,0,0.3) !important;' +
-    '  display: flex !important;' +
-    '  align-items: center !important;' +
-    '  justify-content: center !important;' +
-    '  gap: 8px !important;' +
-    '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
-    '  transition: transform 0.2s ease, box-shadow 0.2s ease !important;' +
-    '  line-height: 1 !important;' +
-    '  letter-spacing: 0.5px !important;' +
-    '  white-space: nowrap !important;' +
-    '  animation: __tryon-slide-up 0.4s ease-out !important;' +
-    '}' +
-    '#' + TRYON_BTN_ID + ':active {' +
-    '  transform: translateX(-50%) scale(0.95) !important;' +
-    '  box-shadow: 0 3px 12px rgba(232,200,160,0.35), 0 1px 4px rgba(0,0,0,0.2) !important;' +
-    '}' +
-    '@keyframes __tryon-slide-up {' +
-    '  from { transform: translateX(-50%) translateY(80px); opacity: 0; }' +
-    '  to { transform: translateX(-50%) translateY(0); opacity: 1; }' +
-    '}' +
-    /* Container for icon buttons — bottom left */
+    /* Retry button row — fixed, top right of viewport */
     '.__tryon-btn-row {' +
     '  position: fixed !important;' +
-    '  bottom: 100px !important;' +
-    '  left: 16px !important;' +
+    '  z-index: 2147483647 !important;' +
     '  display: flex !important;' +
     '  flex-direction: row !important;' +
     '  gap: 10px !important;' +
-    '  z-index: 2147483647 !important;' +
     '  animation: __tryon-fade-in 0.3s ease-out !important;' +
     '}' +
     '@keyframes __tryon-fade-in {' +
     '  from { opacity: 0; transform: translateY(10px); }' +
     '  to { opacity: 1; transform: translateY(0); }' +
     '}' +
-    /* Icon-only circular buttons inside row */
-    '.__tryon-btn-row #' + TRYON_BTN_ID + ' {' +
-    '  position: static !important;' +
-    '  bottom: auto !important;' +
-    '  left: auto !important;' +
-    '  transform: none !important;' +
-    '  animation: none !important;' +
-    '  width: auto !important;' +
-    '  height: 52px !important;' +
-    '  border-radius: 26px !important;' +
-    '  padding: 0 16px !important;' +
-    '  font-size: 15px !important;' +
-    '}' +
-    '.__tryon-btn-row #' + TRYON_BTN_ID + ':active {' +
-    '  transform: scale(0.9) !important;' +
-    '}' +
-    '#' + VIDEO_BTN_ID + ' {' +
-    '  width: auto !important;' +
-    '  height: 52px !important;' +
-    '  background: #1A1A1A !important;' +
-    '  color: #E8C8A0 !important;' +
-    '  border: 1.5px solid rgba(232,200,160,0.35) !important;' +
-    '  border-radius: 26px !important;' +
-    '  padding: 0 16px !important;' +
-    '  font-size: 15px !important;' +
+    '#' + TRYON_BTN_ID + ' {' +
+    '  background: #DB313F !important;' +
+    '  color: #FFFFFF !important;' +
+    '  border: 3px solid #1D1B19 !important;' +
+    '  border-radius: 4px !important;' +
+    '  padding: 10px 18px !important;' +
+    '  font-size: 14px !important;' +
     '  font-weight: 700 !important;' +
     '  cursor: pointer !important;' +
-    '  display: flex !important;' +
+    '  box-shadow: 6px 6px 0px 0px #1D1B19 !important;' +
+    '  display: inline-flex !important;' +
     '  align-items: center !important;' +
     '  justify-content: center !important;' +
+    '  gap: 8px !important;' +
     '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
-    '  transition: transform 0.2s ease !important;' +
     '  line-height: 1 !important;' +
-    '  box-shadow: 0 4px 16px rgba(0,0,0,0.4) !important;' +
+    '  letter-spacing: -0.3px !important;' +
+    '  white-space: nowrap !important;' +
+    '  text-transform: lowercase !important;' +
+    '  transition: transform 0.1s ease, box-shadow 0.1s ease !important;' +
     '}' +
-    '#' + VIDEO_BTN_ID + ':active {' +
-    '  transform: scale(0.9) !important;' +
+    '#' + TRYON_BTN_ID + ':active {' +
+    '  transform: translate(6px, 6px) !important;' +
+    '  box-shadow: 0px 0px 0px 0px #1D1B19 !important;' +
+    '}' +
+    '#' + VIDEO_BTN_ID + ' {' +
+    '  display: none !important;' +
     '}' +
     /* Wave loading overlay styles */
     /* Overlay base styles removed — all styling is now inline via showLoadingOverlay() */
@@ -129,7 +85,7 @@ export const PRODUCT_DETECTOR_JS = `
     '  left: 0 !important;' +
     '  width: 100% !important;' +
     '  height: 100% !important;' +
-    '  background: linear-gradient(90deg, transparent 0%, rgba(232,200,160,0.15) 50%, transparent 100%) !important;' +
+    '  background: linear-gradient(90deg, transparent 0%, rgba(219,49,63,0.12) 50%, transparent 100%) !important;' +
     '  animation: __tryon-wave-sweep 2s ease-in-out infinite !important;' +
     '}' +
     '@keyframes __tryon-wave-sweep {' +
@@ -139,42 +95,53 @@ export const PRODUCT_DETECTOR_JS = `
     '#' + TRYON_OVERLAY_ID + ' .__tryon-progress-wrap {' +
     '  position: relative !important;' +
     '  z-index: 2 !important;' +
+    '  background: #FAF8F5 !important;' +
+    '  border: 2px solid #000000 !important;' +
+    '  border-radius: 4px !important;' +
+    '  padding: 20px 24px !important;' +
+    '  box-shadow: 6px 6px 0px 0px rgba(0,0,0,1) !important;' +
     '  display: flex !important;' +
     '  flex-direction: column !important;' +
     '  align-items: center !important;' +
-    '  gap: 12px !important;' +
+    '  gap: 16px !important;' +
+    '  width: 85% !important;' +
+    '  max-width: 320px !important;' +
     '}' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-status-text {' +
-    '  color: #E8C8A0 !important;' +
-    '  font-size: 15px !important;' +
+    '  color: #1D1B19 !important;' +
+    '  font-size: 16px !important;' +
     '  font-weight: 700 !important;' +
     '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
-    '  text-shadow: 0 1px 4px rgba(0,0,0,0.5) !important;' +
+    '  text-shadow: none !important;' +
+    '  text-transform: lowercase !important;' +
+    '  letter-spacing: -0.3px !important;' +
+    '  white-space: nowrap !important;' +
+    '  overflow: hidden !important;' +
+    '  text-overflow: ellipsis !important;' +
+    '  width: 100% !important;' +
+    '  text-align: center !important;' +
     '}' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-progress-bar {' +
-    '  width: 160px !important;' +
-    '  height: 4px !important;' +
-    '  border-radius: 2px !important;' +
-    '  background: rgba(255,255,255,0.15) !important;' +
+    '  width: 100% !important;' +
+    '  height: 12px !important;' +
+    '  border-radius: 0px !important;' +
+    '  background: rgba(0,0,0,0.05) !important;' +
     '  overflow: hidden !important;' +
+    '  border: 1px solid #000000 !important;' +
+    '  padding: 2px !important;' +
     '}' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-progress-fill {' +
     '  width: 0%;' +
     '  height: 100% !important;' +
-    '  border-radius: 2px !important;' +
-    '  background: #E8C8A0 !important;' +
+    '  border-radius: 0px !important;' +
+    '  background: #C62828 !important;' +
     '  transition: width 0.5s linear !important;' +
     '}' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-percent {' +
-    '  color: rgba(255,255,255,0.5) !important;' +
-    '  font-size: 12px !important;' +
-    '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
+    '  display: none !important;' +
     '}' +
     '#' + TRYON_OVERLAY_ID + ' .__tryon-countdown {' +
-    '  color: rgba(255,255,255,0.35) !important;' +
-    '  font-size: 11px !important;' +
-    '  font-family: -apple-system, BlinkMacSystemFont, sans-serif !important;' +
-    '  margin-top: -4px !important;' +
+    '  display: none !important;' +
     '}' +
     /* Fullscreen zoom overlay */
     '#' + ZOOM_OVERLAY_ID + ' {' +
@@ -244,7 +211,7 @@ export const PRODUCT_DETECTOR_JS = `
 
     if (validImg) {
       var rect = validImg.getBoundingClientRect();
-      overlay.style.cssText = 'position:fixed!important;top:' + rect.top + 'px!important;left:' + rect.left + 'px!important;width:' + rect.width + 'px!important;height:' + rect.height + 'px!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(13,13,13,0.75)!important;overflow:hidden!important;border-radius:inherit!important;';
+      overlay.style.cssText = 'position:fixed!important;top:' + rect.top + 'px!important;left:' + rect.left + 'px!important;width:' + rect.width + 'px!important;height:' + rect.height + 'px!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(250,248,245,0.88)!important;overflow:hidden!important;border-radius:inherit!important;';
       // Update position on scroll so overlay stays over the image
       var scrollHandler = function() {
         var r = validImg.getBoundingClientRect();
@@ -256,7 +223,7 @@ export const PRODUCT_DETECTOR_JS = `
       window.addEventListener('scroll', scrollHandler, { passive: true });
       overlay.__scrollHandler = scrollHandler;
     } else {
-      overlay.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(13,13,13,0.75)!important;overflow:hidden!important;';
+      overlay.style.cssText = 'position:fixed!important;top:0!important;left:0!important;width:100vw!important;height:100vh!important;z-index:2147483647!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;background:rgba(250,248,245,0.88)!important;overflow:hidden!important;';
     }
 
     // Wave sweep element
@@ -272,7 +239,7 @@ export const PRODUCT_DETECTOR_JS = `
     statusText.className = '__tryon-status-text';
     var initQuips = mode === 'video'
       ? ['AI directing ur thirst trap...', 'lights camera slay...', 'plotting ur viral moment...']
-      : ['checking you out... for science...', 'the AI said wow btw...', 'fitting room but make it AI...'];
+      : ['the AI said wow btw...', 'fitting room but make it AI...', 'drip check in progress...'];
     statusText.textContent = initQuips[Math.floor(Math.random() * initQuips.length)];
     progressWrap.appendChild(statusText);
 
@@ -328,7 +295,6 @@ export const PRODUCT_DETECTOR_JS = `
       'ur giving old money vibes...',
       'mirror mirror on the wall...',
       'no thoughts just drip...',
-      'ur card declined but u still ate...',
       'downloading rizz...',
       'AI caught feelings ngl...',
       'hold my pixels...',
@@ -364,12 +330,11 @@ export const PRODUCT_DETECTOR_JS = `
       'the algorithm is blushing...',
       'runway ready in seconds...',
       'making mannequins unemployed...',
-      'checking you out... for science...',
       'styling you like my crush...',
       'alexa play sexy back...',
       'AI is down bad for u...',
       'the AI needs a cold shower...',
-      'AI is sweating... respectfully...',
+      'AI is sweating respectfully...',
       'certified hot person activity...',
       'processing hotness levels...',
       'personal stylist has entered...',
@@ -430,33 +395,31 @@ export const PRODUCT_DETECTOR_JS = `
     var activeQuips = isVideo ? videoQuips : tryonQuips;
     var shuffled = shuffle(activeQuips);
     var quipIndex = 0;
-    // Cycle quips on a fast fixed timer (every 2s) — no repeats in a single generation
+    var currentQuip = shuffled[0];
+    var lastPct = 0;
+
+    // Cycle quips on a fixed timer
     if (quipTimerGlobal) clearInterval(quipTimerGlobal);
     quipTimerGlobal = setInterval(function() {
-      statusText.textContent = shuffled[quipIndex];
       quipIndex++;
       if (quipIndex >= shuffled.length) {
         shuffled = shuffle(activeQuips);
         quipIndex = 0;
       }
+      currentQuip = shuffled[quipIndex];
+      statusText.textContent = currentQuip;
     }, 2000);
 
-    var lastPct = 0;
     progressInterval = setInterval(function() {
       var elapsed = Date.now() - startTime;
       var activeDuration = isVideo ? 120000 : __tryonDuration;
       var pct = Math.min(95, Math.round((elapsed / activeDuration) * 100));
 
-      // Never go backward — if duration was updated mid-flight, just slow down from current position
       if (pct < lastPct) pct = lastPct;
       lastPct = pct;
 
       progressFill.style.width = pct + '%';
-      percentText.textContent = pct + '%';
-
-      var countdownDuration = isVideo ? 60000 : activeDuration;
-      var remaining = Math.max(0, Math.round((countdownDuration - elapsed) / 1000));
-      countdownText.textContent = remaining > 0 ? '~' + remaining + 's' : 'almost done...';
+      statusText.textContent = currentQuip;
 
       if (pct >= 95) {
         clearInterval(progressInterval);
@@ -635,44 +598,17 @@ export const PRODUCT_DETECTOR_JS = `
     if (img.getAttribute(DETECTED_ATTR)) return;
     img.setAttribute(DETECTED_ATTR, 'true');
     productImg = img;
+    window.__tryonProductImg = img; // Expose for RN visibility check
     originalProductSrc = img.currentSrc || img.src || img.dataset.src;
 
-    // Remove existing buttons
-    removeBtnRow();
-
-    // Create floating button fixed to bottom of screen
-    var btn = document.createElement('button');
-    btn.id = TRYON_BTN_ID;
-    btn.innerHTML = '\\u{1F455} Try This On';
-
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (__tryonBusy) return;
-      __tryonBusy = true;
-      btn.remove();
-
-      var imgSrc = img.currentSrc || img.src || img.dataset.src;
-
-      log('👆', 'BUTTON CLICKED — Sending try-on request');
-      log('🖼️', 'IMAGE URL —', imgSrc);
-
-      window.ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'tryon_request',
-        imageUrl: imgSrc,
-        pageUrl: window.location.href,
-      }));
-    });
-
-    document.body.appendChild(btn);
-    log('🔘', 'BUTTON — Floating Try On button added to page');
-
-    // Notify RN that a product was detected on this page (for persistent try-on check)
+    // Notify RN — React Native renders the native try-on button
+    var imgSrc = img.currentSrc || img.src || img.dataset.src;
     window.ReactNativeWebView.postMessage(JSON.stringify({
       type: 'product_detected',
+      imageUrl: imgSrc,
       pageUrl: window.location.href,
     }));
-    log('📤', 'NOTIFY — Sent product_detected to React Native');
+    log('📤', 'NOTIFY — Sent product_detected to React Native (imageUrl included)');
   }
 
   function showButtonRow(showVideo, tryLabel) {
@@ -686,13 +622,15 @@ export const PRODUCT_DETECTOR_JS = `
     // Re-create Try On button (CSS overrides fixed positioning when inside row)
     var tryBtn = document.createElement('button');
     tryBtn.id = TRYON_BTN_ID;
-    tryBtn.innerHTML = tryLabel || '\\u{1F455}';
+    tryBtn.innerHTML = tryLabel || '\\u2728 try on';
 
     tryBtn.addEventListener('click', function(e) {
       e.preventDefault();
       e.stopPropagation();
       if (!productImg || __tryonBusy) return;
       __tryonBusy = true;
+      // Scroll to product image so user sees the loading overlay
+      window.__tryonScrollToProduct();
       row.remove();
       // Always use the original product image URL (not the replaced try-on base64)
       var imgSrc = originalProductSrc || productImg.currentSrc || productImg.src || productImg.dataset.src;
@@ -726,6 +664,12 @@ export const PRODUCT_DETECTOR_JS = `
       });
       row.appendChild(vidBtn);
     }
+
+    // Position at top-right of viewport (simple, always visible after try-on)
+    row.style.top = '80px';
+    row.style.right = '16px';
+    row.style.left = 'auto';
+    row.style.animation = '__tryon-fade-in 0.3s ease-out';
 
     document.body.appendChild(row);
     log('🔘', 'BUTTON ROW — Shown with' + (showVideo ? ' Video button' : 'out Video button'));
@@ -797,6 +741,11 @@ export const PRODUCT_DETECTOR_JS = `
   };
   window.__tryonShowLoading = function() { __tryonBusy = true; showLoadingOverlay(); };
   window.__tryonSetDuration = function(d) { __tryonDuration = d; };
+  window.__tryonScrollToProduct = function() {
+    if (productImg && productImg.isConnected) {
+      productImg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
 
   // C1-FIX: Direct function calls for all RN→WebView messages (avoids postMessage Android bug)
   window.__tryonShowError = function(errorText) {
@@ -974,6 +923,9 @@ export const PRODUCT_DETECTOR_JS = `
     removeBtnRow();
     removeLoadingOverlay();
 
+    // Tell RN to hide the native try-on button
+    window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'product_cleared' }));
+
     // Reset busy flag so new page can trigger try-ons
     __tryonBusy = false;
     originalProductSrc = null;
@@ -1021,8 +973,31 @@ export const PRODUCT_DETECTOR_JS = `
 
   log('🔀', 'SPA NAV — Listening for __tryon_nav events from WebView patches');
 
+  // Check if the current URL is a homepage (not a product page)
+  function isHomepage() {
+    var path = window.location.pathname;
+    // Strip trailing slashes
+    while (path.length > 1 && path.charAt(path.length - 1) === '/') {
+      path = path.substring(0, path.length - 1);
+    }
+    // Root path
+    if (path === '' || path === '/') return true;
+    // Common homepage patterns (exact match only)
+    var homePatterns = ['/home', '/index', '/shop', '/store', '/en_in', '/in'];
+    for (var i = 0; i < homePatterns.length; i++) {
+      if (path === homePatterns[i]) return true;
+    }
+    return false;
+  }
+
   function scanForProduct(trigger) {
-    // Only inject once per page — find the first full-width product image
+    // Never show try-on button on homepages
+    if (isHomepage()) {
+      log('🏠', 'SCAN — Skipping homepage: ' + window.location.pathname);
+      return;
+    }
+
+    // Only inject once per page
     if (productImg) return;
 
     var img = findProductImage();
