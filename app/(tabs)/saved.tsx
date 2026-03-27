@@ -80,9 +80,18 @@ const TryOnCard = memo(function TryOnCard({ item, onPress, onDelete }: {
   onPress: () => void;
   onDelete: () => void;
 }) {
-  const [imgError, setImgError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [loading, setLoading] = useState(true);
   const storeName = getStoreName(item.sourceUrl);
   const logo = getStoreLogo(storeName);
+
+  // Auto-retry on image load failure (CDN might not be ready yet)
+  const handleImageError = useCallback(() => {
+    if (retryCount < 5) {
+      setTimeout(() => setRetryCount((c) => c + 1), 2000);
+    }
+  }, [retryCount]);
+
   return (
     <Pressable
       style={styles.card}
@@ -90,19 +99,19 @@ const TryOnCard = memo(function TryOnCard({ item, onPress, onDelete }: {
     >
       {/* Image area with bottom border */}
       <View style={styles.cardImageWrap}>
-        {imgError ? (
-          <View style={styles.cardPlaceholder}>
+        {loading && (
+          <View style={[styles.cardPlaceholder, StyleSheet.absoluteFillObject]}>
             <ActivityIndicator size="small" color={COLORS.primaryContainer} />
-            <Text style={styles.cardPlaceholderText}>uploading...</Text>
           </View>
-        ) : (
-          <Image
-            source={{ uri: item.imageUri }}
-            style={styles.cardImage}
-            cachePolicy="disk"
-            onError={() => setImgError(true)}
-          />
         )}
+        <Image
+          key={`${item.id}-${retryCount}`}
+          source={{ uri: item.imageUri }}
+          style={styles.cardImage}
+          cachePolicy={retryCount > 0 ? 'none' : 'disk'}
+          onLoad={() => setLoading(false)}
+          onError={handleImageError}
+        />
         {/* Delete icon */}
         <Pressable
           style={styles.cardDeleteBtn}
