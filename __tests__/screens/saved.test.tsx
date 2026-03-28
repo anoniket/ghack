@@ -47,7 +47,6 @@ beforeEach(() => {
   useAppStore.setState({
     savedTryOns: [],
     historyLoaded: true,
-    mode: 'chat',
     currentUrl: null,
   });
 });

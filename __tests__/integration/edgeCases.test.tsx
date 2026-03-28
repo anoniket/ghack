@@ -52,7 +52,6 @@ beforeEach(() => {
     savedTryOns: [],
     historyLoaded: true,
     messages: [],
-    mode: 'chat',
     currentUrl: null,
     preferredModel: 'nb2',
     tryOnLoading: false,

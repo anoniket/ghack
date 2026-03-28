@@ -14,9 +14,7 @@ beforeEach(() => {
   useAppStore.setState({
     messages: [],
     isTyping: false,
-    mode: 'chat',
     currentUrl: null,
-    chatBubbleExpanded: false,
   });
 });
 
@@ -95,16 +93,6 @@ describe('ChatInterface', () => {
     fireEvent(input, 'submitEditing');
 
     expect(mockSendChat).not.toHaveBeenCalled();
-  });
-
-  it('navigates to webview when store chip is pressed', () => {
-    const { getByText } = render(<ChatInterface />);
-    fireEvent.press(getByText('Nike'));
-
-    const state = useAppStore.getState();
-    expect(state.currentUrl).toBe('https://www.nike.com/in');
-    expect(state.mode).toBe('webview');
-    expect(state.chatBubbleExpanded).toBe(false);
   });
 
   it('shows typing indicator when isTyping is true', () => {

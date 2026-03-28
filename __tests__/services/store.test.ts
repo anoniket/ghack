@@ -9,7 +9,6 @@ beforeEach(() => {
     onboardingComplete: false,
     messages: [],
     isTyping: false,
-    mode: 'chat',
     currentUrl: null,
     tryOnLoading: false,
     tryOnResult: null,
@@ -20,7 +19,6 @@ beforeEach(() => {
     videoDataUri: null,
     lastSessionId: null,
     lastTryonS3Key: null,
-    chatBubbleExpanded: false,
     preferredModel: 'nb2',
   });
 });
@@ -197,17 +195,6 @@ describe('useAppStore', () => {
       useAppStore.getState().setLastTryonS3Key('s3-key-456');
       expect(useAppStore.getState().lastSessionId).toBe('sess-123');
       expect(useAppStore.getState().lastTryonS3Key).toBe('s3-key-456');
-    });
-  });
-
-  describe('chat bubble', () => {
-    it('chatBubbleExpanded defaults to false', () => {
-      expect(useAppStore.getState().chatBubbleExpanded).toBe(false);
-    });
-
-    it('setChatBubbleExpanded toggles', () => {
-      useAppStore.getState().setChatBubbleExpanded(true);
-      expect(useAppStore.getState().chatBubbleExpanded).toBe(true);
     });
   });
 

@@ -524,12 +524,6 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceContainer,
     gap: 8,
   },
-  cardPlaceholderText: {
-    fontFamily: FONTS.body,
-    color: COLORS.onSurfaceVariant,
-    fontSize: 11,
-    textTransform: 'lowercase',
-  },
   cardTextArea: {
     paddingHorizontal: SPACING.xs,
     paddingBottom: SPACING.sm,

@@ -98,6 +98,6 @@ const styles = StyleSheet.create({
   },
   videoPlayer: {
     flex: 1,
-    backgroundColor: COLORS.onSurface,
+    backgroundColor: COLORS.inverseSurface,
   },
 });

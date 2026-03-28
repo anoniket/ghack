@@ -131,7 +131,7 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
       if (navTimeoutRef.current) clearTimeout(navTimeoutRef.current);
       if (tryOnProgressRef.current) clearInterval(tryOnProgressRef.current);
       if (tryOnQuipRef.current) clearInterval(tryOnQuipRef.current);
-      // Reset loading flags so ChatBubble isn't permanently hidden
+      // Reset loading flags on unmount
       setTryOnLoading(false);
       setVideoLoading(false);
       tryOnLoadingRef.current = false;
@@ -720,7 +720,7 @@ export default function WebViewBrowser({ onTryOnRequest, onClose }: Props) {
         {/* Left: close + back */}
         <View style={styles.navLeft}>
           <TouchableOpacity
-            onPress={() => !isLocked && onClose?.()}
+            onPress={() => { if (!isLocked && onClose) onClose(); }}
             style={[styles.navBtn, isLocked && styles.navBtnDisabled]}
             disabled={isLocked}
             accessibilityLabel="Close browser"

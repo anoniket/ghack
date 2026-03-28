@@ -34,7 +34,6 @@ beforeEach(() => {
     selfieS3Keys: [],
     onboardingComplete: false,
     messages: [],
-    mode: 'chat',
     currentUrl: null,
     preferredModel: 'nb2',
   });
