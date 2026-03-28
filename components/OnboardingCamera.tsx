@@ -86,6 +86,8 @@ function AnimatedButton({
     outputRange: [0, 4],
   });
 
+  const isAndroid = Platform.OS === 'android';
+
   return (
     <Pressable
       onPress={onPress}
@@ -95,16 +97,33 @@ function AnimatedButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
-      <Animated.View
-        style={[
-          style,
-          pressed ? SHADOWS.none : SHADOWS.hard,
-          !pressed && Platform.select({ android: { elevation: 6 } }),
-          { transform: [{ translateX }, { translateY }] },
-        ]}
-      >
-        {children}
-      </Animated.View>
+      <View style={isAndroid ? { paddingRight: 6, paddingBottom: 6 } : undefined}>
+        {/* Android: fake shadow view behind the button */}
+        {isAndroid && !pressed && (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                top: 6,
+                left: 6,
+                right: -6,
+                bottom: -6,
+                backgroundColor: COLORS.onSurface,
+                borderRadius: BORDER_RADIUS.md,
+              },
+            ]}
+          />
+        )}
+        <Animated.View
+          style={[
+            style,
+            !isAndroid && (pressed ? SHADOWS.none : SHADOWS.hard),
+            { transform: [{ translateX }, { translateY }] },
+          ]}
+        >
+          {children}
+        </Animated.View>
+      </View>
     </Pressable>
   );
 }
@@ -472,6 +491,11 @@ function FilledSlot({ uri, index, onRemove, isLarge }: FilledSlotProps) {
 
   return (
     <View style={isLarge ? styles.filledSlotWrapperLarge : styles.filledSlotWrapper}>
+      {Platform.OS === 'android' && (
+        <View style={[StyleSheet.absoluteFill, styles.filledSlotAndroidShadow, {
+          top: 4, left: 4, right: -4, bottom: -4,
+        }]} />
+      )}
       <View style={styles.filledSlot}>
         <Image source={{ uri }} style={styles.filledImage} resizeMode="cover" />
         {/* Checkmark badge */}
@@ -592,14 +616,17 @@ const styles = StyleSheet.create({
     width: SLOT_SQUARE,
     height: SLOT_SQUARE,
   },
+  filledSlotAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   filledSlot: {
     flex: 1,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: BORDERS.thick,
     borderColor: COLORS.onSurface,
     overflow: 'hidden',
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   filledImage: {
     width: '100%',

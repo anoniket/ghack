@@ -190,6 +190,8 @@ function HeroGallery() {
 // AnimatedButton — press shifts button down+right, shadow collapses (Stitch active-shift)
 // ---------------------------------------------------------------------------
 
+const HARD_SHADOW_OFFSET = Platform.OS === 'android' ? 5 : 6;
+
 function AnimatedButton({
   children,
   style,
@@ -235,6 +237,8 @@ function AnimatedButton({
     outputRange: [0, 4],
   });
 
+  const isAndroid = Platform.OS === 'android';
+
   return (
     <Pressable
       onPress={onPress}
@@ -244,16 +248,33 @@ function AnimatedButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
     >
-      <Animated.View
-        style={[
-          style,
-          hasShadow && (pressed ? SHADOWS.none : SHADOWS.hard),
-          hasShadow && !pressed && Platform.select({ android: { elevation: 6 } }),
-          { transform: [{ translateX }, { translateY }] },
-        ]}
-      >
-        {children}
-      </Animated.View>
+      <View style={hasShadow && isAndroid ? { paddingRight: HARD_SHADOW_OFFSET, paddingBottom: HARD_SHADOW_OFFSET } : undefined}>
+        {/* Android: fake shadow view behind the button */}
+        {hasShadow && isAndroid && !pressed && (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              {
+                top: HARD_SHADOW_OFFSET,
+                left: HARD_SHADOW_OFFSET,
+                right: -HARD_SHADOW_OFFSET,
+                bottom: -HARD_SHADOW_OFFSET,
+                backgroundColor: COLORS.onSurface,
+                borderRadius: style?.borderRadius ?? BORDER_RADIUS.md,
+              },
+            ]}
+          />
+        )}
+        <Animated.View
+          style={[
+            style,
+            hasShadow && !isAndroid && (pressed ? SHADOWS.none : SHADOWS.hard),
+            { transform: [{ translateX }, { translateY }] },
+          ]}
+        >
+          {children}
+        </Animated.View>
+      </View>
     </Pressable>
   );
 }

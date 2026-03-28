@@ -59,22 +59,29 @@ function StoreCard({ store, index, onPress }: {
   return (
     <Pressable
       onPress={() => onPress(store.url)}
-      style={({ pressed }) => [
-        styles.cardWrapper,
-        { transform: [{ rotate: rotation }] },
-        pressed && styles.cardWrapperPressed,
-      ]}
     >
-      {/* Colored shadow div behind the card */}
-      <View style={[styles.cardShadow, { backgroundColor: shadowColor }]} />
-      {/* Card face */}
-      <View style={styles.card}>
-        <Image
-          source={store.logo}
-          style={styles.cardLogo}
-          resizeMode="contain"
-        />
-      </View>
+      {({ pressed }) => (
+        <View style={[
+          styles.cardWrapper,
+          { transform: [{ rotate: pressed ? '0deg' : rotation }] },
+        ]}>
+          {/* Colored shadow div behind the card — hide on press */}
+          {!pressed && (
+            <View style={[styles.cardShadow, { backgroundColor: shadowColor }]} />
+          )}
+          {/* Card face */}
+          <View style={[
+            styles.card,
+            pressed && { transform: [{ translateX: 4 }, { translateY: 4 }] },
+          ]}>
+            <Image
+              source={store.logo}
+              style={styles.cardLogo}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      )}
     </Pressable>
   );
 }

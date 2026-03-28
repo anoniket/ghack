@@ -26,19 +26,33 @@ export default class CrashBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View style={styles.container}>
-          <View style={styles.icon}>
-            <Text style={styles.iconText}>!</Text>
+          <View style={styles.iconOuter}>
+            {Platform.OS === 'android' && (
+              <View style={[StyleSheet.absoluteFill, styles.iconAndroidShadow, {
+                top: 4, left: 4, right: -4, bottom: -4,
+              }]} />
+            )}
+            <View style={styles.icon}>
+              <Text style={styles.iconText}>!</Text>
+            </View>
           </View>
           <Text style={styles.title}>something went wrong</Text>
           <Text style={styles.subtitle}>
             {this.props.name ? `${this.props.name} crashed` : 'an error occurred'}
           </Text>
-          <Pressable
-            style={styles.btn}
-            onPress={() => this.setState({ hasError: false })}
-          >
-            <Text style={styles.btnText}>tap to retry</Text>
-          </Pressable>
+          <View style={styles.btnOuter}>
+            {Platform.OS === 'android' && (
+              <View style={[StyleSheet.absoluteFill, styles.btnAndroidShadow, {
+                top: 4, left: 4, right: -4, bottom: -4,
+              }]} />
+            )}
+            <Pressable
+              style={styles.btn}
+              onPress={() => this.setState({ hasError: false })}
+            >
+              <Text style={styles.btnText}>tap to retry</Text>
+            </Pressable>
+          </View>
         </View>
       );
     }
@@ -55,6 +69,14 @@ const styles = StyleSheet.create({
     padding: 40,
     gap: SPACING.md,
   },
+  iconOuter: {
+    marginBottom: SPACING.sm,
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4 } }),
+  },
+  iconAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   icon: {
     width: 56,
     height: 56,
@@ -64,9 +86,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceContainerLowest,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.sm,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   iconText: {
     color: COLORS.primaryContainer,
@@ -85,16 +105,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textTransform: 'lowercase',
   },
-  btn: {
+  btnOuter: {
     marginTop: SPACING.md,
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4 } }),
+  },
+  btnAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  btn: {
     paddingVertical: 12,
     paddingHorizontal: 28,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: BORDERS.medium,
     borderColor: COLORS.onSurface,
     backgroundColor: COLORS.primaryContainer,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   btnText: {
     fontFamily: FONTS.headline,

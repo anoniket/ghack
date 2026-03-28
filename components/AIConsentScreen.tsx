@@ -62,7 +62,13 @@ export default function AIConsentOverlay({ onAgree, onDecline }: Props) {
   return (
     <View style={styles.overlay}>
       {background}
-      <View style={styles.card}>
+      <View style={styles.cardOuter}>
+        {Platform.OS === 'android' && (
+          <View style={[StyleSheet.absoluteFill, styles.cardAndroidShadow, {
+            top: 6, left: 6, right: -6, bottom: -6,
+          }]} />
+        )}
+        <View style={styles.card}>
         <View style={styles.content}>
           <Text style={styles.title}>
             before we start.
@@ -86,13 +92,21 @@ export default function AIConsentOverlay({ onAgree, onDecline }: Props) {
 
         <View style={styles.footer}>
           <Pressable
-            style={({ pressed }) => [
-              styles.agreeBtn,
-              pressed && styles.agreeBtnPressed,
-            ]}
+            style={styles.agreeBtnOuter}
             onPress={handleAgree}
           >
-            <Text style={styles.agreeBtnText}>i agree & continue</Text>
+            {({ pressed }) => (
+              <>
+                {Platform.OS === 'android' && !pressed && (
+                  <View style={[StyleSheet.absoluteFill, styles.agreeBtnAndroidShadow, {
+                    top: 4, left: 4, right: -4, bottom: -4,
+                  }]} />
+                )}
+                <View style={[styles.agreeBtn, pressed && styles.agreeBtnPressed]}>
+                  <Text style={styles.agreeBtnText}>i agree & continue</Text>
+                </View>
+              </>
+            )}
           </Pressable>
 
           <Pressable
@@ -119,6 +133,7 @@ export default function AIConsentOverlay({ onAgree, onDecline }: Props) {
             </Pressable>
           </View>
         </View>
+        </View>
       </View>
     </View>
   );
@@ -131,15 +146,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  card: {
+  cardOuter: {
     marginHorizontal: 24,
+    ...Platform.select({ android: { paddingRight: 6, paddingBottom: 6 } }),
+  },
+  cardAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
+  card: {
     backgroundColor: COLORS.surfaceContainerLowest,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: BORDERS.thick,
     borderColor: BORDERS.color,
     overflow: 'hidden',
-    ...SHADOWS.hard,
-    ...Platform.select({ android: { elevation: 8 } }),
+    ...Platform.select({ ios: SHADOWS.hard }),
   },
   content: {
     padding: 24,
@@ -178,6 +199,13 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: COLORS.surfaceContainerHigh,
   },
+  agreeBtnOuter: {
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4 } }),
+  },
+  agreeBtnAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   agreeBtn: {
     backgroundColor: COLORS.primaryContainer,
     paddingVertical: 14,
@@ -185,12 +213,11 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.thick,
     borderColor: BORDERS.color,
     alignItems: 'center',
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   agreeBtnPressed: {
     transform: [{ translateX: 4 }, { translateY: 4 }],
-    ...SHADOWS.none,
+    ...Platform.select({ ios: SHADOWS.none }),
   },
   agreeBtnText: {
     fontFamily: FONTS.headline,

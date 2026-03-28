@@ -34,16 +34,22 @@ const MessageBubble = memo(({ item, maxWidth }: { item: ChatMessage; maxWidth: n
           <Image source={require('@/assets/images/mm.png')} style={styles.avatarLogo} resizeMode="contain" />
         </View>
       )}
-      <View
-        style={[
-          styles.messageBubble,
-          { maxWidth },
-          isUser ? styles.userBubble : styles.aiBubble,
-        ]}
-      >
-        <Text style={[styles.messageText, isUser && styles.userText]}>
-          {item.text}
-        </Text>
+      <View style={[styles.bubbleOuter, { maxWidth }]}>
+        {Platform.OS === 'android' && (
+          <View style={[StyleSheet.absoluteFill, styles.bubbleAndroidShadow, {
+            top: 4, left: 4, right: -4, bottom: -4,
+          }]} />
+        )}
+        <View
+          style={[
+            styles.messageBubble,
+            isUser ? styles.userBubble : styles.aiBubble,
+          ]}
+        >
+          <Text style={[styles.messageText, isUser && styles.userText]}>
+            {item.text}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -139,8 +145,15 @@ export default function ChatInterface() {
                 <View style={styles.avatar}>
                   <Image source={require('@/assets/images/mm.png')} style={styles.avatarLogo} resizeMode="contain" />
                 </View>
-                <View style={[styles.messageBubble, styles.aiBubble]}>
-                  <ActivityIndicator size="small" color={COLORS.primaryContainer} />
+                <View style={styles.bubbleOuter}>
+                  {Platform.OS === 'android' && (
+                    <View style={[StyleSheet.absoluteFill, styles.bubbleAndroidShadow, {
+                      top: 4, left: 4, right: -4, bottom: -4,
+                    }]} />
+                  )}
+                  <View style={[styles.messageBubble, styles.aiBubble]}>
+                    <ActivityIndicator size="small" color={COLORS.primaryContainer} />
+                  </View>
                 </View>
               </View>
             ) : null
@@ -261,6 +274,13 @@ const styles = StyleSheet.create({
   },
 
   // Bubbles
+  bubbleOuter: {
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4 } }),
+  },
+  bubbleAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   messageBubble: {
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
@@ -271,13 +291,11 @@ const styles = StyleSheet.create({
   userBubble: {
     backgroundColor: COLORS.primaryContainer,
     marginLeft: 'auto',
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 3 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   aiBubble: {
     backgroundColor: COLORS.surfaceContainerLowest,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 3 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   messageText: {
     fontFamily: FONTS.body,

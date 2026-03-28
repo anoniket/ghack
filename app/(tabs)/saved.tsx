@@ -93,43 +93,50 @@ const TryOnCard = memo(function TryOnCard({ item, onPress, onDelete }: {
   }, [retryCount]);
 
   return (
-    <Pressable
-      style={styles.card}
-      onPress={onPress}
-    >
-      {/* Image area with bottom border */}
-      <View style={styles.cardImageWrap}>
-        {loading && (
-          <View style={[styles.cardPlaceholder, StyleSheet.absoluteFillObject]}>
-            <ActivityIndicator size="small" color={COLORS.primaryContainer} />
-          </View>
-        )}
-        <Image
-          key={`${item.id}-${retryCount}`}
-          source={{ uri: item.imageUri }}
-          style={styles.cardImage}
-          cachePolicy={retryCount > 0 ? 'none' : 'disk'}
-          onLoad={() => setLoading(false)}
-          onError={handleImageError}
-        />
-        {/* Delete icon */}
-        <Pressable
-          style={styles.cardDeleteBtn}
-          onPress={onDelete}
-          hitSlop={8}
-        >
-          <FontAwesome name="times" size={12} color={COLORS.onSurface} />
-        </Pressable>
-      </View>
-      {/* Store logo below image */}
-      <View style={styles.cardTextArea}>
-        {logo ? (
-          <Image source={logo} style={styles.cardLogoImage} contentFit="contain" />
-        ) : (
-          <Text style={styles.cardStoreName} numberOfLines={1}>{storeName}</Text>
-        )}
-      </View>
-    </Pressable>
+    <View style={styles.cardOuter}>
+      {Platform.OS === 'android' && (
+        <View style={[StyleSheet.absoluteFill, styles.cardAndroidShadow, {
+          top: 4, left: 4, right: -4, bottom: -4,
+        }]} />
+      )}
+      <Pressable
+        style={styles.card}
+        onPress={onPress}
+      >
+        {/* Image area with bottom border */}
+        <View style={styles.cardImageWrap}>
+          {loading && (
+            <View style={[styles.cardPlaceholder, StyleSheet.absoluteFillObject]}>
+              <ActivityIndicator size="small" color={COLORS.primaryContainer} />
+            </View>
+          )}
+          <Image
+            key={`${item.id}-${retryCount}`}
+            source={{ uri: item.imageUri }}
+            style={styles.cardImage}
+            cachePolicy={retryCount > 0 ? 'none' : 'disk'}
+            onLoad={() => setLoading(false)}
+            onError={handleImageError}
+          />
+          {/* Delete icon */}
+          <Pressable
+            style={styles.cardDeleteBtn}
+            onPress={onDelete}
+            hitSlop={8}
+          >
+            <FontAwesome name="times" size={12} color={COLORS.onSurface} />
+          </Pressable>
+        </View>
+        {/* Store logo below image */}
+        <View style={styles.cardTextArea}>
+          {logo ? (
+            <Image source={logo} style={styles.cardLogoImage} contentFit="contain" />
+          ) : (
+            <Text style={styles.cardStoreName} numberOfLines={1}>{storeName}</Text>
+          )}
+        </View>
+      </Pressable>
+    </View>
   );
 });
 
@@ -280,51 +287,98 @@ export default function SavedScreen() {
           </View>
 
           {/* Image with store logo stamp */}
-          <View style={styles.detailImageContainer}>
-            <Image
-              source={{ uri: selectedItem.imageUri }}
-              style={styles.detailImage}
-              contentFit="cover"
-              cachePolicy="disk"
-            />
-            {/* Store logo stamp — diagonal */}
-            {(() => {
-              const name = getStoreName(selectedItem.sourceUrl);
-              const logo = getStoreLogo(name);
-              return (
-                <View style={styles.detailStoreStamp}>
-                  {logo ? (
-                    <Image source={logo} style={styles.detailStampLogo} contentFit="contain" />
-                  ) : (
-                    <Text style={styles.detailStoreStampText}>{name}</Text>
-                  )}
-                </View>
-              );
-            })()}
+          <View style={styles.detailImageOuter}>
+            {Platform.OS === 'android' && (
+              <View style={[StyleSheet.absoluteFill, styles.detailImageAndroidShadow, {
+                top: 6, left: 6, right: -6, bottom: -6,
+              }]} />
+            )}
+            <View style={styles.detailImageContainer}>
+              <Image
+                source={{ uri: selectedItem.imageUri }}
+                style={styles.detailImage}
+                contentFit="cover"
+                cachePolicy="disk"
+              />
+              {/* Store logo stamp — diagonal */}
+              {(() => {
+                const name = getStoreName(selectedItem.sourceUrl);
+                const logo = getStoreLogo(name);
+                return (
+                  <View style={styles.detailStoreStampOuter}>
+                    {Platform.OS === 'android' && (
+                      <View style={[StyleSheet.absoluteFill, styles.detailStoreStampAndroidShadow, {
+                        top: 4, left: 4, right: -4, bottom: -4,
+                      }]} />
+                    )}
+                    <View style={styles.detailStoreStamp}>
+                      {logo ? (
+                        <Image source={logo} style={styles.detailStampLogo} contentFit="contain" />
+                      ) : (
+                        <Text style={styles.detailStoreStampText}>{name}</Text>
+                      )}
+                    </View>
+                  </View>
+                );
+              })()}
+            </View>
           </View>
 
           {/* Actions */}
           <View style={styles.detailActions}>
             {selectedItem.sourceUrl && (
               <Pressable
-                style={({ pressed }) => [styles.detailBtn, pressed && styles.detailBtnPressed]}
+                style={({ pressed }) => [styles.detailBtnOuter]}
                 onPress={() => handleVisitStore(selectedItem.sourceUrl)}
               >
-                <Text style={styles.detailBtnText}>visit store</Text>
+                {({ pressed }) => (
+                  <>
+                    {Platform.OS === 'android' && !pressed && (
+                      <View style={[StyleSheet.absoluteFill, styles.detailBtnAndroidShadow, {
+                        top: 4, left: 4, right: -4, bottom: -4,
+                      }]} />
+                    )}
+                    <View style={[styles.detailBtn, pressed && styles.detailBtnPressed]}>
+                      <Text style={styles.detailBtnText}>visit store</Text>
+                    </View>
+                  </>
+                )}
               </Pressable>
             )}
             <Pressable
-              style={({ pressed }) => [styles.detailBtnSecondary, pressed && styles.detailBtnPressed]}
+              style={styles.detailBtnOuter}
               onPress={() => handleDownload(selectedItem.imageUri)}
             >
-              <MaterialIcons name="download" size={20} color={COLORS.onSurface} />
+              {({ pressed }) => (
+                <>
+                  {Platform.OS === 'android' && !pressed && (
+                    <View style={[StyleSheet.absoluteFill, styles.detailBtnAndroidShadow, {
+                      top: 4, left: 4, right: -4, bottom: -4,
+                    }]} />
+                  )}
+                  <View style={[styles.detailBtnSecondary, pressed && styles.detailBtnPressed]}>
+                    <MaterialIcons name="download" size={20} color={COLORS.onSurface} />
+                  </View>
+                </>
+              )}
             </Pressable>
             {selectedItem.videoUrl && (
               <Pressable
-                style={({ pressed }) => [styles.detailBtnSecondary, pressed && styles.detailBtnPressed]}
+                style={styles.detailBtnOuter}
                 onPress={() => setPlayingVideoUrl(selectedItem.videoUrl!)}
               >
-                <Text style={styles.detailBtnSecondaryText}>watch video</Text>
+                {({ pressed }) => (
+                  <>
+                    {Platform.OS === 'android' && !pressed && (
+                      <View style={[StyleSheet.absoluteFill, styles.detailBtnAndroidShadow, {
+                        top: 4, left: 4, right: -4, bottom: -4,
+                      }]} />
+                    )}
+                    <View style={[styles.detailBtnSecondary, pressed && styles.detailBtnPressed]}>
+                      <Text style={styles.detailBtnSecondaryText}>watch video</Text>
+                    </View>
+                  </>
+                )}
               </Pressable>
             )}
           </View>
@@ -493,6 +547,15 @@ const styles = StyleSheet.create({
   },
 
   // Card — Stitch zine style: white card, padded, image with border-bottom, text below
+  cardOuter: {
+    width: CARD_WIDTH,
+    // Android: extra space for fake shadow offset
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4 } }),
+  },
+  cardAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   card: {
     width: CARD_WIDTH,
     backgroundColor: COLORS.surfaceContainerLowest,
@@ -500,8 +563,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.medium,
     borderColor: COLORS.onSurface,
     padding: SPACING.sm,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   cardImageWrap: {
     width: '100%',
@@ -617,6 +679,14 @@ const styles = StyleSheet.create({
     color: COLORS.error,
     textTransform: 'lowercase',
   },
+  detailImageOuter: {
+    marginBottom: SPACING.xl,
+    ...Platform.select({ android: { paddingRight: 6, paddingBottom: 6 } }),
+  },
+  detailImageAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   detailImageContainer: {
     width: SCREEN_WIDTH - SPACING.xl * 2,
     height: (SCREEN_WIDTH - SPACING.xl * 2) * 1.33,
@@ -624,26 +694,29 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.thick,
     borderColor: COLORS.onSurface,
     overflow: 'hidden',
-    marginBottom: SPACING.xl,
-    ...SHADOWS.hard,
-    ...Platform.select({ android: { elevation: 6 } }),
+    ...Platform.select({ ios: SHADOWS.hard }),
   },
   detailImage: {
     width: '100%',
     height: '100%',
   },
-  detailStoreStamp: {
+  detailStoreStampOuter: {
     position: 'absolute',
     top: -14,
     right: -14,
+    transform: [{ rotate: '8deg' }],
+  },
+  detailStoreStampAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.sm,
+  },
+  detailStoreStamp: {
     backgroundColor: COLORS.surfaceContainerLowest,
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderWidth: BORDERS.medium,
     borderColor: COLORS.onSurface,
-    transform: [{ rotate: '8deg' }],
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: { ...SHADOWS.hardSmall } }),
   },
   detailStampLogo: {
     width: 80,
@@ -661,6 +734,13 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xl,
     justifyContent: 'center',
   },
+  detailBtnOuter: {
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4 } }),
+  },
+  detailBtnAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   detailBtn: {
     paddingVertical: 14,
     paddingHorizontal: 24,
@@ -668,12 +748,11 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.thick,
     borderColor: COLORS.onSurface,
     backgroundColor: COLORS.primaryContainer,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   detailBtnPressed: {
     transform: [{ translateX: 4 }, { translateY: 4 }],
-    ...SHADOWS.none,
+    ...Platform.select({ ios: SHADOWS.none }),
   },
   detailBtnText: {
     fontFamily: FONTS.headline,
@@ -688,8 +767,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.thick,
     borderColor: COLORS.onSurface,
     backgroundColor: COLORS.surfaceContainerLowest,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   detailBtnSecondaryText: {
     fontFamily: FONTS.headline,

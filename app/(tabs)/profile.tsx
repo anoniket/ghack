@@ -48,8 +48,15 @@ function AccountSection({ selfieUri }: AccountSectionProps) {
   return (
     <View style={styles.accountCard}>
       {avatarSource && (
-        <View style={styles.avatarBox}>
-          <Image source={avatarSource} style={styles.avatarImage} />
+        <View style={styles.avatarBoxOuter}>
+          {Platform.OS === 'android' && (
+            <View style={[StyleSheet.absoluteFill, styles.avatarBoxAndroidShadow, {
+              top: 4, left: 4, right: -4, bottom: -4,
+            }]} />
+          )}
+          <View style={styles.avatarBox}>
+            <Image source={avatarSource} style={styles.avatarImage} />
+          </View>
         </View>
       )}
       <View style={styles.accountInfo}>
@@ -356,6 +363,11 @@ export default function ProfileScreen() {
           <View style={styles.primarySlotContainer}>
             {primarySlot.uri ? (
               <View style={styles.filledSlotLarge}>
+                {Platform.OS === 'android' && (
+                  <View style={[StyleSheet.absoluteFill, styles.filledSlotAndroidShadow, {
+                    top: 4, left: 4, right: -4, bottom: -4,
+                  }]} />
+                )}
                 <View style={styles.filledSlotBorder}>
                   <Image source={{ uri: primarySlot.uri }} style={styles.filledImage} resizeMode="cover" />
                 </View>
@@ -393,6 +405,11 @@ export default function ProfileScreen() {
               <View key={slot.index} style={styles.secondarySlotContainer}>
                 {slot.uri ? (
                   <View style={styles.filledSlotSquare}>
+                    {Platform.OS === 'android' && (
+                      <View style={[StyleSheet.absoluteFill, styles.filledSlotAndroidShadow, {
+                        top: 4, left: 4, right: -4, bottom: -4,
+                      }]} />
+                    )}
                     <View style={styles.filledSlotBorder}>
                       <Image source={{ uri: slot.uri }} style={styles.filledImage} resizeMode="cover" />
                     </View>
@@ -511,6 +528,15 @@ const styles = StyleSheet.create({
     borderColor: COLORS.onSurface,
     gap: SPACING.md,
   },
+  avatarBoxOuter: {
+    width: 60,
+    height: 60,
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4, width: 64, height: 64 } }),
+  },
+  avatarBoxAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   avatarBox: {
     width: 60,
     height: 60,
@@ -518,8 +544,7 @@ const styles = StyleSheet.create({
     borderWidth: BORDERS.medium,
     borderColor: COLORS.onSurface,
     overflow: 'hidden',
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   avatarImage: {
     width: '100%',
@@ -594,14 +619,17 @@ const styles = StyleSheet.create({
   },
 
   // Shared filled-slot styles
+  filledSlotAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   filledSlotBorder: {
     flex: 1,
     borderRadius: BORDER_RADIUS.md,
     borderWidth: BORDERS.medium,
     borderColor: COLORS.onSurface,
     overflow: 'hidden',
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 4 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   filledImage: {
     width: '100%',

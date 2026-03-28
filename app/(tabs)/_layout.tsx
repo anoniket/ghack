@@ -21,9 +21,16 @@ const ANTLER_BLACK = require('@/assets/images/mm4.png');
 function AiTabIcon({ focused }: { focused: boolean }) {
   if (focused) {
     return (
-      <View style={tabStyles.activeTab}>
-        <Image source={ANTLER_WHITE} style={tabStyles.antlerIcon} resizeMode="contain" />
-        <Text style={tabStyles.activeLabel}>ai</Text>
+      <View style={tabStyles.activeTabOuter}>
+        {Platform.OS === 'android' && (
+          <View style={[StyleSheet.absoluteFill, tabStyles.activeTabAndroidShadow, {
+            top: 4, left: 4, right: -4, bottom: -4,
+          }]} />
+        )}
+        <View style={tabStyles.activeTab}>
+          <Image source={ANTLER_WHITE} style={tabStyles.antlerIcon} resizeMode="contain" />
+          <Text style={tabStyles.activeLabel}>ai</Text>
+        </View>
       </View>
     );
   }
@@ -38,9 +45,16 @@ function AiTabIcon({ focused }: { focused: boolean }) {
 function TabIcon({ name, label, focused }: { name: React.ComponentProps<typeof MaterialIcons>['name']; label: string; focused: boolean }) {
   if (focused) {
     return (
-      <View style={tabStyles.activeTab}>
-        <MaterialIcons name={name} size={24} color={COLORS.onPrimary} />
-        <Text style={tabStyles.activeLabel}>{label}</Text>
+      <View style={tabStyles.activeTabOuter}>
+        {Platform.OS === 'android' && (
+          <View style={[StyleSheet.absoluteFill, tabStyles.activeTabAndroidShadow, {
+            top: 4, left: 4, right: -4, bottom: -4,
+          }]} />
+        )}
+        <View style={tabStyles.activeTab}>
+          <MaterialIcons name={name} size={24} color={COLORS.onPrimary} />
+          <Text style={tabStyles.activeLabel}>{label}</Text>
+        </View>
       </View>
     );
   }
@@ -53,6 +67,15 @@ function TabIcon({ name, label, focused }: { name: React.ComponentProps<typeof M
 }
 
 const tabStyles = StyleSheet.create({
+  activeTabOuter: {
+    width: 50,
+    height: 50,
+    ...Platform.select({ android: { paddingRight: 4, paddingBottom: 4, width: 54, height: 54 } }),
+  },
+  activeTabAndroidShadow: {
+    backgroundColor: COLORS.onSurface,
+    borderRadius: BORDER_RADIUS.md,
+  },
   activeTab: {
     backgroundColor: COLORS.primaryContainer,
     borderWidth: BORDERS.medium,
@@ -63,8 +86,7 @@ const tabStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
-    ...SHADOWS.hardSmall,
-    ...Platform.select({ android: { elevation: 3 } }),
+    ...Platform.select({ ios: SHADOWS.hardSmall }),
   },
   activeLabel: {
     fontFamily: FONTS.headline,
