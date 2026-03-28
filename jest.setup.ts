@@ -134,24 +134,6 @@ jest.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),
 }));
 
-// ---- react-native-image-crop-picker ----------------------------------------
-
-jest.mock('react-native-image-crop-picker', () => ({
-  openPicker: jest.fn().mockResolvedValue({
-    path: '/tmp/mock-photo.jpg',
-    width: 2000,
-    height: 2000,
-    size: 500000,
-  }),
-  openCamera: jest.fn().mockResolvedValue({
-    path: '/tmp/mock-camera.jpg',
-    width: 2000,
-    height: 2000,
-    size: 500000,
-  }),
-  clean: jest.fn(),
-}));
-
 // ---- expo-font ------------------------------------------------------------
 
 jest.mock('expo-font', () => ({

@@ -52,7 +52,6 @@ beforeEach(() => {
     savedTryOns: [],
     historyLoaded: true,
     messages: [],
-    mode: 'chat',
     currentUrl: null,
     preferredModel: 'nb2',
     tryOnLoading: false,
@@ -137,15 +136,6 @@ describe('Edge cases', () => {
   });
 
   describe('multiple rapid state changes', () => {
-    it('handles rapid mode switching without errors', () => {
-      const store = useAppStore.getState();
-      store.setMode('webview');
-      store.setMode('chat');
-      store.setMode('webview');
-      store.setMode('chat');
-      expect(useAppStore.getState().mode).toBe('chat');
-    });
-
     it('handles rapid message additions', () => {
       const store = useAppStore.getState();
       for (let i = 0; i < 10; i++) {

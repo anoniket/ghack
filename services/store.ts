@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 
-export type AppMode = 'chat' | 'webview';
 
 export interface ChatMessage {
   id: string;
@@ -42,10 +41,6 @@ interface AppState {
   isTyping: boolean;
   setIsTyping: (typing: boolean) => void;
 
-  // App mode
-  mode: AppMode;
-  setMode: (mode: AppMode) => void;
-
   // WebView
   currentUrl: string | null;
   setCurrentUrl: (url: string | null) => void;
@@ -78,10 +73,6 @@ interface AppState {
   lastTryonS3Key: string | null;
   setLastTryonS3Key: (key: string | null) => void;
 
-  // Chat bubble visibility (when in webview mode)
-  chatBubbleExpanded: boolean;
-  setChatBubbleExpanded: (expanded: boolean) => void;
-
   // Model preference (debug)
   preferredModel: 'nb1' | 'nb2' | 'pro';
   setPreferredModel: (model: 'nb1' | 'nb2' | 'pro') => void;
@@ -108,9 +99,6 @@ export const useAppStore = create<AppState>((set) => ({
   isTyping: false,
   setIsTyping: (typing) => set({ isTyping: typing }),
 
-  mode: 'chat',
-  setMode: (mode) => set({ mode }),
-
   currentUrl: null,
   setCurrentUrl: (url) => set({ currentUrl: url }),
 
@@ -134,9 +122,6 @@ export const useAppStore = create<AppState>((set) => ({
   setLastSessionId: (id) => set({ lastSessionId: id }),
   lastTryonS3Key: null,
   setLastTryonS3Key: (key) => set({ lastTryonS3Key: key }),
-
-  chatBubbleExpanded: false,
-  setChatBubbleExpanded: (expanded) => set({ chatBubbleExpanded: expanded }),
 
   preferredModel: 'nb2',
   setPreferredModel: (model) => set({ preferredModel: model }),

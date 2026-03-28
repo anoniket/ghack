@@ -3,12 +3,13 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Modal,
   useWindowDimensions,
   Platform,
 } from 'react-native';
 import { VideoView, VideoPlayer } from 'expo-video';
+import { COLORS, FONTS, BORDERS, BORDER_RADIUS, SPACING } from '@/theme';
 
 interface Props {
   visible: boolean;
@@ -30,10 +31,10 @@ export default function VideoModal({ visible, player, onClose }: Props) {
       <View style={styles.videoOverlay}>
         <View style={[styles.videoModal, { width: W * 0.9, height: H * 0.7 }]}>
           <View style={styles.videoHeader}>
-            <Text style={styles.videoTitle}>Try-On Video</Text>
-            <TouchableOpacity onPress={onClose} style={styles.videoCloseBtn}>
+            <Text style={styles.videoTitle}>try-on video</Text>
+            <Pressable onPress={onClose} style={styles.videoCloseBtn}>
               <Text style={styles.videoCloseBtnText}>{'\u2715'}</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           {visible && (
             <VideoView
@@ -51,48 +52,52 @@ export default function VideoModal({ visible, player, onClose }: Props) {
   );
 }
 
-export const styles = StyleSheet.create({
+const styles = StyleSheet.create({
   videoOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.85)',
+    backgroundColor: `${COLORS.background}EB`,
     justifyContent: 'center',
     alignItems: 'center',
   },
   videoModal: {
-    backgroundColor: '#141414',
-    borderRadius: 24,
+    backgroundColor: COLORS.surfaceContainerLowest,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
     overflow: 'hidden',
-    borderWidth: 0.5,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   videoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 0.5,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    paddingHorizontal: SPACING.xl,
+    paddingVertical: SPACING.lg,
+    borderBottomWidth: BORDERS.medium,
+    borderBottomColor: COLORS.surfaceContainerHigh,
   },
   videoTitle: {
-    color: '#F5F5F5',
+    fontFamily: FONTS.headline,
+    color: COLORS.onSurface,
     fontSize: 17,
-    fontWeight: '700',
+    textTransform: 'lowercase',
   },
   videoCloseBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#1A1A1A',
+    width: 36,
+    height: 36,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: BORDERS.medium,
+    borderColor: COLORS.onSurface,
+    backgroundColor: COLORS.surfaceContainer,
     alignItems: 'center',
     justifyContent: 'center',
   },
   videoCloseBtnText: {
-    color: 'rgba(255,255,255,0.5)',
+    color: COLORS.onSurface,
     fontSize: 15,
+    fontWeight: '600',
   },
   videoPlayer: {
     flex: 1,
-    backgroundColor: '#0D0D0D',
+    backgroundColor: COLORS.inverseSurface,
   },
 });

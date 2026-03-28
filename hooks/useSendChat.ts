@@ -5,7 +5,7 @@ import { rlog } from '@/services/logger';
 import { nextMsgId as nextId } from '@/utils/ids';
 import { router } from 'expo-router';
 
-// M31: Shared chat send logic — used by ChatInterface and ChatBubble
+// M31: Shared chat send logic — used by ChatInterface
 export function useSendChat() {
   const { addMessage, setIsTyping, setCurrentUrl } = useAppStore.getState();
 

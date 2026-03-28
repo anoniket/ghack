@@ -117,7 +117,6 @@ export default function ProfileScreen() {
     setSelfieS3Keys,
     setOnboardingComplete,
     clearMessages,
-    setMode,
     setCurrentUrl,
     preferredModel,
     setPreferredModel,
@@ -316,7 +315,6 @@ export default function ProfileScreen() {
         onPress: () => {
           clearMessages();
           resetChat();
-          setMode('chat');
           setCurrentUrl(null);
         },
       },
